@@ -16,17 +16,20 @@ struct ContentView: View {
                 .ignoresSafeArea()
             
             TabView(selection: $selectedTab) {
-                ScannerView()
-                    .tabItem {
-                        Label("Scan", systemImage: "camera.fill")
-                    }
-                    .tag(0)
                 
                 ExploreView()
                     .tabItem {
                         Label("Explore", systemImage: "star.fill")
                     }
+                    .tag(0)
+
+                ScannerView()
+                    .tabItem {
+                        Label("Scan", systemImage: "camera.fill")
+                    }
                     .tag(1)
+                
+               
                 
                 HistoryView()
                     .tabItem {
