@@ -39,29 +39,47 @@ struct DesignSystem {
     
     // MARK: - Typography
     struct Typography {
-        // Font Families
-        static let primaryFont = "Montserrat"
-        static let secondaryFont = "Open Sans"
-        static let systemFont = Font.system(.body)
-        
-        // Font Sizes
-        static let xs: CGFloat = 11
-        static let sm: CGFloat = 12
-        static let base: CGFloat = 14
-        static let md: CGFloat = 16
-        static let lg: CGFloat = 18
-        static let xl: CGFloat = 20
+        // Font Sizes - Matching Airbnb's hierarchy
+        static let xs: CGFloat = 12
+        static let sm: CGFloat = 14
+        static let base: CGFloat = 16
+        static let md: CGFloat = 18
+        static let lg: CGFloat = 20
+        static let xl: CGFloat = 22
         static let xxl: CGFloat = 24
-        static let xxxl: CGFloat = 30
+        static let xxxl: CGFloat = 28
         static let xxxxl: CGFloat = 36
-        static let xxxxxl: CGFloat = 48
+        static let xxxxxl: CGFloat = 44
         
-        // Text Styles
-        static let hero = Font.system(size: xxxxxl, weight: .bold)
-        static let heading1 = Font.system(size: xxxxl, weight: .bold)
-        static let heading2 = Font.system(size: xxl, weight: .semibold)
-        static let body = Font.system(size: base, weight: .regular)
-        static let caption = Font.system(size: sm, weight: .regular)
+        // Airbnb Cereal Font Names
+        private static let cerealLight = "AirbnbCereal_W_Lt"
+        private static let cerealBook = "AirbnbCereal_W_Bk"
+        private static let cerealMedium = "AirbnbCereal_W_Md"
+        private static let cerealBold = "AirbnbCereal_W_Bd"
+        private static let cerealExtraBold = "AirbnbCereal_W_XBd"
+        private static let cerealBlack = "AirbnbCereal_W_Blk"
+        
+        // Text Styles - Using Airbnb Cereal Fonts with fallbacks
+        static let hero = Font.custom(cerealMedium, size: xxxxxl, relativeTo: .largeTitle)
+        static let heading1 = Font.custom(cerealMedium, size: xxxl, relativeTo: .title)
+        static let heading2 = Font.custom(cerealBook, size: xxl, relativeTo: .title2)
+        static let heading3 = Font.custom(cerealMedium, size: lg, relativeTo: .title3)
+        static let body = Font.custom(cerealBook, size: base, relativeTo: .body)
+        static let bodyMedium = Font.custom(cerealMedium, size: base, relativeTo: .body)
+        static let bodySemibold = Font.custom(cerealBold, size: base, relativeTo: .body)
+        static let caption = Font.custom(cerealBook, size: sm, relativeTo: .caption)
+        static let captionMedium = Font.custom(cerealMedium, size: sm, relativeTo: .caption)
+        static let small = Font.custom(cerealBook, size: xs, relativeTo: .caption2)
+        
+        // Special styles for prices and emphasis
+        static let price = Font.custom(cerealBold, size: base, relativeTo: .body)
+        static let priceSmall = Font.custom(cerealMedium, size: sm, relativeTo: .caption)
+        static let label = Font.custom(cerealMedium, size: xs, relativeTo: .caption2)
+        static let buttonText = Font.custom(cerealMedium, size: base, relativeTo: .body)
+        
+        // Navigation and section styles
+        static let navigationTitle = Font.custom(cerealMedium, size: md, relativeTo: .headline)
+        static let sectionHeader = Font.custom(cerealBold, size: xs, relativeTo: .caption2)
     }
     
     // MARK: - Spacing
@@ -161,7 +179,7 @@ struct DesignSystem {
 struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: DesignSystem.Typography.md, weight: .semibold))
+            .font(DesignSystem.Typography.buttonText)
             .foregroundColor(.white)
             .frame(height: DesignSystem.Components.Button.primaryHeight)
             .frame(maxWidth: .infinity)
@@ -175,7 +193,7 @@ struct PrimaryButtonStyle: ButtonStyle {
 struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: DesignSystem.Typography.md, weight: .medium))
+            .font(DesignSystem.Typography.buttonText)
             .foregroundColor(DesignSystem.Colors.primaryRed)
             .frame(height: DesignSystem.Components.Button.secondaryHeight)
             .frame(maxWidth: .infinity)
@@ -205,6 +223,23 @@ struct CardStyle: ViewModifier {
     }
 }
 
+// MARK: - Navigation Title Modifier
+struct NavigationTitleModifier: ViewModifier {
+    let title: String
+    
+    func body(content: Content) -> some View {
+        content
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(title)
+                        .font(DesignSystem.Typography.navigationTitle)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                }
+            }
+    }
+}
+
 // MARK: - View Extensions
 extension View {
     func cardStyle() -> some View {
@@ -217,5 +252,9 @@ extension View {
     
     func secondaryButton() -> some View {
         self.buttonStyle(SecondaryButtonStyle())
+    }
+    
+    func customNavigationTitle(_ title: String) -> some View {
+        self.modifier(NavigationTitleModifier(title: title))
     }
 }

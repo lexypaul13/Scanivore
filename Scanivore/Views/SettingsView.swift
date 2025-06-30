@@ -14,6 +14,7 @@ struct SettingsView: View {
     @AppStorage("scanQuality") private var scanQuality = "high"
     @State private var showingAbout = false
     @State private var showingPrivacy = false
+    @State private var showingOnboardingReset = false
     
     var body: some View {
         NavigationStack {
@@ -97,10 +98,21 @@ struct SettingsView: View {
                         }
                     }
                     .listRowBackground(DesignSystem.Colors.background)
+                    
+                    // Developer Options (for testing)
+                    #if DEBUG
+                    Section("Developer Options") {
+                        Button(action: resetOnboarding) {
+                            Label("Reset Onboarding", systemImage: "arrow.counterclockwise")
+                                .foregroundColor(DesignSystem.Colors.primaryRed)
+                        }
+                    }
+                    .listRowBackground(DesignSystem.Colors.background)
+                    #endif
                 }
                 .scrollContentBackground(.hidden)
             }
-            .navigationTitle("Settings")
+            .customNavigationTitle("Settings")
             .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .sheet(isPresented: $showingAbout) {
@@ -109,7 +121,22 @@ struct SettingsView: View {
             .sheet(isPresented: $showingPrivacy) {
                 PrivacyPolicyView()
             }
+            .alert("Onboarding Reset", isPresented: $showingOnboardingReset) {
+                Button("Cancel", role: .cancel) { }
+                Button("Reset", role: .destructive) {
+                    UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+                    UserDefaults.standard.removeObject(forKey: "onboardingPreferences")
+                    // Force app restart by exiting
+                    exit(0)
+                }
+            } message: {
+                Text("This will reset the onboarding flow. The app will restart.")
+            }
         }
+    }
+    
+    private func resetOnboarding() {
+        showingOnboardingReset = true
     }
 }
 
@@ -117,7 +144,7 @@ struct ProfileHeaderView: View {
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.base) {
             Image(systemName: "person.crop.circle.fill")
-                .font(.system(size: 60))
+                .font(DesignSystem.Typography.hero)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
             
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
@@ -128,7 +155,7 @@ struct ProfileHeaderView: View {
                 Button("Sign in to sync data") {
                     // Sign in action
                 }
-                .font(.subheadline)
+                .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.primaryRed)
             }
             
@@ -167,8 +194,7 @@ struct NotificationSettingsView: View {
             }
             .scrollContentBackground(.hidden)
         }
-        .navigationTitle("Notifications")
-        .navigationBarTitleDisplayMode(.inline)
+        .customNavigationTitle("Notifications")
         .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
     }
@@ -220,8 +246,7 @@ struct DataManagementView: View {
             }
             .scrollContentBackground(.hidden)
         }
-        .navigationTitle("Data Management")
-        .navigationBarTitleDisplayMode(.inline)
+        .customNavigationTitle("Data Management")
         .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .alert("Delete All Data?", isPresented: $showingDeleteConfirmation) {
@@ -272,8 +297,7 @@ struct HelpView: View {
             }
             .scrollContentBackground(.hidden)
         }
-        .navigationTitle("Help & FAQ")
-        .navigationBarTitleDisplayMode(.inline)
+        .customNavigationTitle("Help & FAQ")
         .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
     }
@@ -306,7 +330,7 @@ struct AboutView: View {
                     
                     VStack(spacing: DesignSystem.Spacing.base) {
                         Text("Version 1.0.0")
-                            .font(.subheadline)
+                            .font(DesignSystem.Typography.body)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                         
                         Text("© 2025 Scanivore Inc.")
@@ -324,14 +348,13 @@ struct AboutView: View {
                         Link("Acknowledgments", destination: URL(string: "https://scanivore.app/credits")!)
                             .foregroundColor(DesignSystem.Colors.primaryRed)
                     }
-                    .font(.subheadline)
+                    .font(DesignSystem.Typography.body)
                     
                     Spacer()
                 }
                 .padding(DesignSystem.Spacing.screenPadding)
             }
-            .navigationTitle("About")
-            .navigationBarTitleDisplayMode(.inline)
+            .customNavigationTitle("About")
             .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
@@ -363,7 +386,7 @@ struct PrivacyPolicyView: View {
                             .foregroundColor(DesignSystem.Colors.textPrimary)
                         
                         Text("Last updated: June 28, 2025")
-                            .font(.subheadline)
+                            .font(DesignSystem.Typography.body)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                         
                         VStack(alignment: .leading, spacing: DesignSystem.Spacing.base) {
@@ -391,13 +414,12 @@ struct PrivacyPolicyView: View {
                             Text("You can delete all your data at any time through the Settings menu. You have the right to export your data in a portable format.")
                                 .foregroundColor(DesignSystem.Colors.textPrimary)
                         }
-                        .font(.subheadline)
+                        .font(DesignSystem.Typography.body)
                     }
                     .padding(DesignSystem.Spacing.screenPadding)
                 }
             }
-            .navigationTitle("Privacy Policy")
-            .navigationBarTitleDisplayMode(.inline)
+            .customNavigationTitle("Privacy Policy")
             .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {

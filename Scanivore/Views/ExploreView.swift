@@ -46,8 +46,7 @@ struct ExploreView: View {
                     }
                 }
             }
-            .navigationTitle("Explore")
-            .navigationBarTitleDisplayMode(.inline)
+            .customNavigationTitle("Explore")
             .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
@@ -55,7 +54,7 @@ struct ExploreView: View {
                     Button(action: { showingFilters = true }) {
                         Text("Filter")
                             .foregroundColor(DesignSystem.Colors.primaryRed)
-                            .font(.system(size: DesignSystem.Typography.md))
+                            .font(DesignSystem.Typography.body)
                     }
                 }
             }
@@ -97,6 +96,7 @@ struct SearchBar: View {
                 .foregroundColor(DesignSystem.Colors.textSecondary)
             
             TextField("Search products...", text: $text)
+                .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
                 .autocapitalization(.none)
             
@@ -132,13 +132,13 @@ struct ProductRecommendationCard: View {
             // Product Info
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                 Text(recommendation.name)
-                    .font(.system(size: DesignSystem.Typography.md, weight: .semibold))
+                    .font(DesignSystem.Typography.bodySemibold)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 
                 Text(recommendation.brand)
-                    .font(.system(size: DesignSystem.Typography.sm))
+                    .font(DesignSystem.Typography.caption)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                 
                 Spacer()
@@ -184,7 +184,7 @@ struct QualityBadge: View {
                 .frame(width: 8, height: 8)
             
             Text(level.displayName)
-                .font(.system(size: DesignSystem.Typography.sm, weight: .semibold))
+                .font(DesignSystem.Typography.captionMedium)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
         }
         .padding(.horizontal, DesignSystem.Spacing.md)
@@ -292,6 +292,15 @@ enum QualityLevel {
         case .good: return "Good"
         case .poor: return "Poor"
         case .bad: return "Bad"
+        }
+    }
+    
+    var sortValue: Int {
+        switch self {
+        case .excellent: return 4
+        case .good: return 3
+        case .poor: return 2
+        case .bad: return 1
         }
     }
 }

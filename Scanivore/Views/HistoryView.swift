@@ -13,34 +13,34 @@ struct HistoryView: View {
     @State private var sortOption: SortOption = .dateDescending
     @State private var showingFilters = false
     
-    let mockScans = MeatScan.mockScans
+    let historyProducts = ProductRecommendation.mockRecommendations
     
-    var filteredScans: [MeatScan] {
-        var scans = mockScans
+    var filteredProducts: [ProductRecommendation] {
+        var products = historyProducts
         
         if !searchText.isEmpty {
-            scans = scans.filter { scan in
-                scan.meatType.rawValue.localizedCaseInsensitiveContains(searchText) ||
-                scan.quality.grade.localizedCaseInsensitiveContains(searchText)
+            products = products.filter { product in
+                product.name.localizedCaseInsensitiveContains(searchText) ||
+                product.brand.localizedCaseInsensitiveContains(searchText) ||
+                product.meatType.rawValue.localizedCaseInsensitiveContains(searchText)
             }
         }
         
         if let filter = selectedFilter {
-            scans = scans.filter { $0.meatType == filter }
+            products = products.filter { $0.meatType == filter }
         }
         
         switch sortOption {
-        case .dateDescending:
-            scans.sort { $0.date > $1.date }
-        case .dateAscending:
-            scans.sort { $0.date < $1.date }
+        case .dateDescending, .dateAscending:
+            // Since ProductRecommendation doesn't have date, we'll sort by name
+            products.sort { sortOption == .dateDescending ? $0.name < $1.name : $0.name > $1.name }
         case .qualityDescending:
-            scans.sort { $0.quality.score > $1.quality.score }
+            products.sort { $0.qualityRating.sortValue > $1.qualityRating.sortValue }
         case .qualityAscending:
-            scans.sort { $0.quality.score < $1.quality.score }
+            products.sort { $0.qualityRating.sortValue < $1.qualityRating.sortValue }
         }
         
-        return scans
+        return products
     }
     
     var body: some View {
@@ -50,20 +50,13 @@ struct HistoryView: View {
                     .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
-                    if filteredScans.isEmpty {
+                    if filteredProducts.isEmpty {
                         EmptyHistoryView()
                     } else {
                         List {
-                            ForEach(groupedScans(), id: \.key) { section in
-                                Section(header: Text(section.key)
-                                    .font(DesignSystem.Typography.heading2)
-                                    .foregroundColor(DesignSystem.Colors.textPrimary)
-                                ) {
-                                    ForEach(section.value) { scan in
-                                        HistoryRowView(scan: scan)
-                                            .listRowBackground(DesignSystem.Colors.background)
-                                    }
-                                }
+                            ForEach(filteredProducts) { product in
+                                ProductHistoryRowView(product: product)
+                                    .listRowBackground(DesignSystem.Colors.background)
                             }
                         }
                         .listStyle(InsetGroupedListStyle())
@@ -71,7 +64,7 @@ struct HistoryView: View {
                     }
                 }
             }
-            .navigationTitle("Scan History")
+            .customNavigationTitle("Scan History")
             .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .searchable(text: $searchText, prompt: "Search scans...")
@@ -91,75 +84,63 @@ struct HistoryView: View {
             }
         }
     }
-    
-    private func groupedScans() -> [(key: String, value: [MeatScan])] {
-        let grouped = Dictionary(grouping: filteredScans) { scan in
-            formatSectionDate(scan.date)
-        }
-        
-        return grouped.sorted { $0.key > $1.key }
-    }
-    
-    private func formatSectionDate(_ date: Date) -> String {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) {
-            return "Today"
-        } else if calendar.isDateInYesterday(date) {
-            return "Yesterday"
-        } else {
-            return date.formatted(date: .abbreviated, time: .omitted)
-        }
-    }
 }
 
-struct HistoryRowView: View {
-    let scan: MeatScan
+struct ProductHistoryRowView: View {
+    let product: ProductRecommendation
     @State private var showingDetail = false
+    
+    var qualityColor: Color {
+        switch product.qualityRating {
+        case .excellent: return DesignSystem.Colors.success
+        case .good: return Color.blue
+        case .poor: return Color.orange
+        case .bad: return DesignSystem.Colors.error
+        }
+    }
     
     var body: some View {
         Button(action: { showingDetail = true }) {
             HStack(spacing: DesignSystem.Spacing.md) {
-                Text(scan.meatType.icon)
-                    .font(.title2)
+                Text(product.meatType.icon)
+                    .font(DesignSystem.Typography.heading2)
                     .frame(width: 50, height: 50)
                     .background(
                         Circle()
-                            .fill(scan.quality.color.opacity(0.1))
+                            .fill(qualityColor.opacity(0.1))
                             .overlay(
                                 Circle()
-                                    .stroke(scan.quality.color.opacity(0.3), lineWidth: 2)
+                                    .stroke(qualityColor.opacity(0.3), lineWidth: 2)
                             )
                     )
                 
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                    Text(scan.meatType.rawValue)
-                        .font(DesignSystem.Typography.heading2)
+                    Text(product.name)
+                        .font(DesignSystem.Typography.heading3)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                     
                     HStack {
-                        Text("Grade: \(scan.quality.grade)")
+                        Text(product.brand)
                             .font(DesignSystem.Typography.caption)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                         
                         Text("•")
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                         
-                        Text(scan.freshness.rawValue)
+                        Text(product.qualityRating.displayName)
                             .font(DesignSystem.Typography.caption)
-                            .foregroundColor(scan.freshness.color)
+                            .foregroundColor(qualityColor)
                     }
                 }
                 
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
-                    Text(scan.date.formatted(date: .omitted, time: .shortened))
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                    
-                    if !scan.warnings.isEmpty {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(DesignSystem.Colors.warning)
+                    if product.isRecommended {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(DesignSystem.Colors.success)
                             .font(DesignSystem.Typography.caption)
                     }
                 }
@@ -168,7 +149,9 @@ struct HistoryRowView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .sheet(isPresented: $showingDetail) {
-            ProductDetailView(scan: scan)
+            // We'll need to create a ProductDetailView for ProductRecommendation
+            // For now, let's comment this out
+            // ProductDetailView(product: product)
         }
     }
 }
@@ -177,16 +160,15 @@ struct EmptyHistoryView: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "clock.badge.xmark")
-                .font(.system(size: 60))
+                .font(DesignSystem.Typography.hero)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
             
-            Text("No Scans Yet")
+            Text("No Products Yet")
                 .font(DesignSystem.Typography.heading1)
-                .fontWeight(.semibold)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
             
-            Text("Your scan history will appear here")
-                .font(.subheadline)
+            Text("Your scanned products will appear here")
+                .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

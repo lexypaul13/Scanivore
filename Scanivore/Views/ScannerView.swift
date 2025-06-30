@@ -35,8 +35,7 @@ struct ScannerView: View {
                     .padding(.bottom, DesignSystem.Spacing.xxxxxl)
                 }
             }
-            .navigationTitle("Scan Meat")
-            .navigationBarTitleDisplayMode(.inline)
+            .customNavigationTitle("Scan Meat")
             .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
@@ -118,8 +117,7 @@ struct ScanningOverlay: View {
                 .foregroundColor(DesignSystem.Colors.textPrimary)
             
             Text("\(Int(progress * 100))%")
-                .font(.title)
-                .fontWeight(.bold)
+                .font(DesignSystem.Typography.heading1)
                 .foregroundColor(DesignSystem.Colors.primaryRed)
         }
         .padding(DesignSystem.Spacing.xxxl)
@@ -150,7 +148,7 @@ struct ScanButton: View {
                     .frame(width: DesignSystem.Components.Scanner.buttonSize, height: DesignSystem.Components.Scanner.buttonSize)
                 
                 Image(systemName: "camera.fill")
-                    .font(.system(size: 30, weight: .medium))
+                    .font(DesignSystem.Typography.heading1)
                     .foregroundColor(DesignSystem.Colors.background)
             }
         }

@@ -77,8 +77,7 @@ struct RiskBadge: View {
     
     var body: some View {
         Text(level.text.uppercased())
-            .font(DesignSystem.Typography.caption)
-            .fontWeight(.bold)
+            .font(DesignSystem.Typography.captionMedium)
             .foregroundColor(DesignSystem.Colors.background)
             .padding(.horizontal, DesignSystem.Spacing.md)
             .padding(.vertical, DesignSystem.Spacing.xs)
@@ -99,15 +98,14 @@ struct RiskIndicator: View {
                     .frame(width: 8, height: 8)
                 
                 Text(label)
-                    .font(.subheadline)
+                    .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
             }
             
             Spacer()
             
             Text(level.text)
-                .font(DesignSystem.Typography.caption)
-                .fontWeight(.semibold)
+                .font(DesignSystem.Typography.captionMedium)
                 .foregroundColor(level.color)
         }
     }
@@ -197,8 +195,7 @@ struct RiskItemView: View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
             HStack {
                 Text(risk.type)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(DesignSystem.Typography.bodyMedium)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 
                 Spacer()
@@ -299,8 +296,7 @@ struct SafetyRecommendationRow: View {
             
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                 Text(recommendation.title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(DesignSystem.Typography.bodyMedium)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 
                 Text(recommendation.description)
@@ -346,8 +342,7 @@ struct AllergenRow: View {
         HStack {
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                 Text(allergen)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(DesignSystem.Typography.bodyMedium)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 
                 Text(status)

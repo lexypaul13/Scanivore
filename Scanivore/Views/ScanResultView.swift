@@ -38,8 +38,7 @@ struct ScanResultView: View {
                     .padding(.horizontal, DesignSystem.Spacing.screenPadding)
                 }
             }
-            .navigationTitle("Scan Results")
-            .navigationBarTitleDisplayMode(.inline)
+            .customNavigationTitle("Scan Results")
             .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
@@ -69,12 +68,11 @@ struct ResultHeaderView: View {
                     )
                 
                 Text(scan.meatType.icon)
-                    .font(.system(size: 60))
+                    .font(DesignSystem.Typography.hero)
             }
             
             Text(scan.meatType.rawValue)
                 .font(DesignSystem.Typography.heading1)
-                .fontWeight(.bold)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
             
             Text("Scanned \(scan.date.formatted(date: .abbreviated, time: .shortened))")
@@ -99,11 +97,11 @@ struct QualityCardView: View {
                     
                     HStack(alignment: .bottom, spacing: DesignSystem.Spacing.xs) {
                         Text("\(Int(scan.quality.score))")
-                            .font(.system(size: 48, weight: .bold))
+                            .font(DesignSystem.Typography.hero)
                             .foregroundColor(scan.quality.color)
                         
                         Text("/ 100")
-                            .font(.title3)
+                            .font(DesignSystem.Typography.heading3)
                             .foregroundColor(DesignSystem.Colors.textSecondary)
                             .padding(.bottom, DesignSystem.Spacing.sm)
                     }
@@ -117,7 +115,7 @@ struct QualityCardView: View {
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                     
                     Text(scan.quality.grade)
-                        .font(.system(size: 36, weight: .bold))
+                        .font(DesignSystem.Typography.heading1)
                         .foregroundColor(scan.quality.color)
                 }
             }
@@ -127,14 +125,13 @@ struct QualityCardView: View {
             
             HStack {
                 Label("Freshness", systemImage: "leaf.fill")
-                    .font(.subheadline)
+                    .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 
                 Spacer()
                 
                 Text(scan.freshness.rawValue)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(DesignSystem.Typography.bodyMedium)
                     .foregroundColor(scan.freshness.color)
             }
         }
@@ -158,7 +155,7 @@ struct WarningsCardView: View {
                         .font(DesignSystem.Typography.caption)
                     
                     Text(warning)
-                        .font(.subheadline)
+                        .font(DesignSystem.Typography.body)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -197,7 +194,7 @@ struct RecommendationsCardView: View {
                         .font(DesignSystem.Typography.caption)
                     
                     Text(recommendation)
-                        .font(.subheadline)
+                        .font(DesignSystem.Typography.body)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -253,7 +250,7 @@ struct NutritionCardView: View {
                     SimpleNutritionRow(label: "Cholesterol", value: "\(nutrition.cholesterol)mg")
                     SimpleNutritionRow(label: "Sodium", value: "\(nutrition.sodium)mg")
                 }
-                .font(.subheadline)
+                .font(DesignSystem.Typography.body)
             }
         }
         .cardStyle()

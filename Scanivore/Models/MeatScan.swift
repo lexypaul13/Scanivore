@@ -84,57 +84,5 @@ struct NutritionInfo {
 }
 
 extension MeatScan {
-    static let mockScans: [MeatScan] = [
-        MeatScan(
-            date: Date(),
-            image: "scan1",
-            meatType: .beef,
-            quality: QualityRating(score: 92, grade: "A+"),
-            freshness: .fresh,
-            nutritionInfo: NutritionInfo(
-                calories: 250,
-                protein: 26.0,
-                fat: 17.0,
-                saturatedFat: 7.0,
-                cholesterol: 80,
-                sodium: 75
-            ),
-            warnings: [],
-            recommendations: ["Perfect for grilling", "Best consumed within 3 days"]
-        ),
-        MeatScan(
-            date: Date().addingTimeInterval(-86400),
-            image: "scan2",
-            meatType: .chicken,
-            quality: QualityRating(score: 85, grade: "A"),
-            freshness: .good,
-            nutritionInfo: NutritionInfo(
-                calories: 165,
-                protein: 31.0,
-                fat: 3.6,
-                saturatedFat: 1.0,
-                cholesterol: 85,
-                sodium: 74
-            ),
-            warnings: ["Slightly elevated bacteria count"],
-            recommendations: ["Cook thoroughly to 165°F", "Use within 24 hours"]
-        ),
-        MeatScan(
-            date: Date().addingTimeInterval(-172800),
-            image: "scan3",
-            meatType: .pork,
-            quality: QualityRating(score: 78, grade: "B+"),
-            freshness: .acceptable,
-            nutritionInfo: NutritionInfo(
-                calories: 242,
-                protein: 27.0,
-                fat: 14.0,
-                saturatedFat: 5.0,
-                cholesterol: 80,
-                sodium: 62
-            ),
-            warnings: ["Approaching expiration"],
-            recommendations: ["Use immediately", "Consider marinating to enhance flavor"]
-        )
-    ]
+    static let mockScans: [MeatScan] = []
 }

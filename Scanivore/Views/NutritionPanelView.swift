@@ -71,11 +71,10 @@ struct NutritionFactsCard: View {
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                 Text("Nutrition Facts")
                     .font(DesignSystem.Typography.heading1)
-                    .fontWeight(.bold)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 
                 Text("Per serving (\(servingSize.grams)g)")
-                    .font(.subheadline)
+                    .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
             }
             
@@ -86,15 +85,13 @@ struct NutritionFactsCard: View {
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                 HStack {
                     Text("Calories")
-                        .font(.title3)
-                        .fontWeight(.bold)
+                        .font(DesignSystem.Typography.heading3)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                     
                     Spacer()
                     
                     Text("\(adjustedNutrition.calories)")
-                        .font(.title)
-                        .fontWeight(.bold)
+                        .font(DesignSystem.Typography.heading1)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                 }
                 
@@ -102,8 +99,7 @@ struct NutritionFactsCard: View {
                     .background(DesignSystem.Colors.border)
                 
                 Text("% Daily Value*")
-                    .font(DesignSystem.Typography.caption)
-                    .fontWeight(.semibold)
+                    .font(DesignSystem.Typography.captionMedium)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                 
                 NutritionRow(
@@ -176,22 +172,19 @@ struct NutritionRow: View {
                     Text("    ")
                 }
                 Text(label)
-                    .font(isMainNutrient ? .subheadline : DesignSystem.Typography.caption)
-                    .fontWeight(isMainNutrient ? .semibold : .regular)
+                    .font(isMainNutrient ? DesignSystem.Typography.bodyMedium : DesignSystem.Typography.caption)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
             }
             
             Spacer()
             
             Text(value)
-                .font(.subheadline)
-                .fontWeight(.semibold)
+                .font(DesignSystem.Typography.bodyMedium)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
             
             if let dailyValue = dailyValue {
                 Text("\(dailyValue)%")
-                    .font(.subheadline)
-                    .fontWeight(.bold)
+                    .font(DesignSystem.Typography.bodySemibold)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                     .frame(width: 40, alignment: .trailing)
             }
@@ -219,11 +212,10 @@ struct ServingSizeSelector: View {
                     Button(action: { selectedSize = size }) {
                         VStack(spacing: DesignSystem.Spacing.xs) {
                             Text(size.rawValue.components(separatedBy: " ").first ?? "")
-                                .font(DesignSystem.Typography.caption)
-                                .fontWeight(.semibold)
+                                .font(DesignSystem.Typography.captionMedium)
                             
                             Text(size.rawValue.components(separatedBy: " ").last ?? "")
-                                .font(.caption2)
+                                .font(DesignSystem.Typography.small)
                         }
                         .foregroundColor(selectedSize == size ? DesignSystem.Colors.background : DesignSystem.Colors.textPrimary)
                         .frame(maxWidth: .infinity)
@@ -318,15 +310,13 @@ struct MacroBar: View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             HStack {
                 Text(label)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(DesignSystem.Typography.bodyMedium)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 
                 Spacer()
                 
                 Text("\(String(format: "%.1f", grams))g")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(DesignSystem.Typography.bodyMedium)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 
                 Text("(\(Int(percentage))%)")
@@ -387,18 +377,16 @@ struct VitaminMineralItem: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             Text(name)
-                .font(DesignSystem.Typography.caption)
-                .fontWeight(.semibold)
+                .font(DesignSystem.Typography.captionMedium)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
             
             Text(amount)
-                .font(.caption2)
+                .font(DesignSystem.Typography.small)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
             
             Text(dailyValue)
-                .font(.caption2)
+                .font(DesignSystem.Typography.small)
                 .foregroundColor(DesignSystem.Colors.primaryRed)
-                .fontWeight(.medium)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(DesignSystem.Spacing.sm)
@@ -484,8 +472,7 @@ struct HealthInsight: View {
             
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                 Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(DesignSystem.Typography.bodyMedium)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 
                 Text(description)
@@ -497,8 +484,7 @@ struct HealthInsight: View {
             Spacer()
             
             Text(rating.text)
-                .font(DesignSystem.Typography.caption)
-                .fontWeight(.semibold)
+                .font(DesignSystem.Typography.captionMedium)
                 .foregroundColor(rating.color)
         }
     }

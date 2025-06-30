@@ -36,8 +36,7 @@ struct ProductDetailView: View {
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 }
             }
-            .navigationTitle("Product Analysis")
-            .navigationBarTitleDisplayMode(.inline)
+            .customNavigationTitle("Product Analysis")
             .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
@@ -59,7 +58,6 @@ struct ProductHeaderView: View {
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                     Text(scan.meatType.rawValue)
                         .font(DesignSystem.Typography.heading1)
-                        .fontWeight(.bold)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                     
                     Text("Scanned \(scan.date.formatted(date: .abbreviated, time: .shortened))")
@@ -70,7 +68,7 @@ struct ProductHeaderView: View {
                 Spacer()
                 
                 Text(scan.meatType.icon)
-                    .font(.system(size: 50))
+                    .font(DesignSystem.Typography.hero)
             }
             
             OverallScoreView(scan: scan)
@@ -97,7 +95,7 @@ struct OverallScoreView: View {
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                 
                 Text(scan.quality.grade)
-                    .font(.system(size: 32, weight: .bold))
+                    .font(DesignSystem.Typography.heading1)
                     .foregroundColor(scan.quality.color)
             }
             
@@ -107,7 +105,7 @@ struct OverallScoreView: View {
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                 
                 Text("\(Int(scan.quality.score))")
-                    .font(.system(size: 32, weight: .bold))
+                    .font(DesignSystem.Typography.heading1)
                     .foregroundColor(scan.quality.color)
             }
             
@@ -117,7 +115,7 @@ struct OverallScoreView: View {
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                 
                 Text(scan.freshness.rawValue.uppercased())
-                    .font(.system(size: 12, weight: .bold))
+                    .font(DesignSystem.Typography.label)
                     .foregroundColor(scan.freshness.color)
                     .padding(.horizontal, DesignSystem.Spacing.sm)
                     .padding(.vertical, DesignSystem.Spacing.xs)
@@ -168,8 +166,7 @@ struct TabButton: View {
         Button(action: action) {
             VStack(spacing: DesignSystem.Spacing.sm) {
                 Text(title)
-                    .font(DesignSystem.Typography.caption)
-                    .fontWeight(.semibold)
+                    .font(DesignSystem.Typography.captionMedium)
                     .foregroundColor(isSelected ? DesignSystem.Colors.textPrimary : DesignSystem.Colors.textSecondary)
                 
                 Rectangle()
@@ -241,12 +238,11 @@ struct QualityMetric: View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             HStack {
                 Text(label)
-                    .font(.subheadline)
+                    .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 Spacer()
                 Text("\(Int(normalizedScore))")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(DesignSystem.Typography.bodyMedium)
                     .foregroundColor(color)
             }
             
@@ -273,8 +269,7 @@ struct FreshnessAnalysisCard: View {
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                     
                     Text(scan.freshness.rawValue)
-                        .font(.title3)
-                        .fontWeight(.semibold)
+                        .font(DesignSystem.Typography.heading3)
                         .foregroundColor(scan.freshness.color)
                 }
                 
@@ -286,8 +281,7 @@ struct FreshnessAnalysisCard: View {
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                     
                     Text(estimatedDaysLeft())
-                        .font(.title3)
-                        .fontWeight(.semibold)
+                        .font(DesignSystem.Typography.heading3)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                 }
             }
@@ -382,8 +376,7 @@ struct QualityFactor: View {
             
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                 Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(DesignSystem.Typography.bodyMedium)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                 
                 Text(description)
@@ -394,8 +387,7 @@ struct QualityFactor: View {
             Spacer()
             
             Text(status.text)
-                .font(DesignSystem.Typography.caption)
-                .fontWeight(.semibold)
+                .font(DesignSystem.Typography.captionMedium)
                 .foregroundColor(status.color)
                 .padding(.horizontal, DesignSystem.Spacing.sm)
                 .padding(.vertical, DesignSystem.Spacing.xs)
