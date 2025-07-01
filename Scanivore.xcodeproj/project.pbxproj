@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		570E3ECF2E1342BD007B7098 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = 570E3ECE2E1342BD007B7098 /* ComposableArchitecture */; };
+		570E3ED22E13444A007B7098 /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 570E3ED12E13444A007B7098 /* Alamofire */; };
+		570E3ED42E13444A007B7098 /* AlamofireDynamic in Frameworks */ = {isa = PBXBuildFile; productRef = 570E3ED32E13444A007B7098 /* AlamofireDynamic */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		572FF02B2E105AAA003D1F3F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +58,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				570E3ECF2E1342BD007B7098 /* ComposableArchitecture in Frameworks */,
+				570E3ED42E13444A007B7098 /* AlamofireDynamic in Frameworks */,
+				570E3ED22E13444A007B7098 /* Alamofire in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +121,9 @@
 			);
 			name = Scanivore;
 			packageProductDependencies = (
+				570E3ECE2E1342BD007B7098 /* ComposableArchitecture */,
+				570E3ED12E13444A007B7098 /* Alamofire */,
+				570E3ED32E13444A007B7098 /* AlamofireDynamic */,
 			);
 			productName = Scanivore;
 			productReference = 572FF01C2E105AA1003D1F3F /* Scanivore.app */;
@@ -195,6 +207,10 @@
 			);
 			mainGroup = 572FF0132E105AA1003D1F3F;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				570E3ECD2E1342BD007B7098 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */,
+				570E3ED02E13444A007B7098 /* XCRemoteSwiftPackageReference "Alamofire" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 572FF01D2E105AA1003D1F3F /* Products */;
 			projectDirPath = "";
@@ -599,6 +615,43 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		570E3ECD2E1342BD007B7098 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-composable-architecture.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.20.2;
+			};
+		};
+		570E3ED02E13444A007B7098 /* XCRemoteSwiftPackageReference "Alamofire" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Alamofire/Alamofire.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.10.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		570E3ECE2E1342BD007B7098 /* ComposableArchitecture */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 570E3ECD2E1342BD007B7098 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */;
+			productName = ComposableArchitecture;
+		};
+		570E3ED12E13444A007B7098 /* Alamofire */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 570E3ED02E13444A007B7098 /* XCRemoteSwiftPackageReference "Alamofire" */;
+			productName = Alamofire;
+		};
+		570E3ED32E13444A007B7098 /* AlamofireDynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 570E3ED02E13444A007B7098 /* XCRemoteSwiftPackageReference "Alamofire" */;
+			productName = AlamofireDynamic;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 572FF0142E105AA1003D1F3F /* Project object */;
 }

@@ -1,0 +1,22 @@
+{
+  "name": "scanivore-tca-docs-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for TCA documentation integration",
+  "type": "module",
+  "main": "tca-docs-server.js",
+  "scripts": {
+    "start": "node tca-docs-server.js",
+    "dev": "node --watch tca-docs-server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.4.0"
+  },
+  "keywords": [
+    "mcp",
+    "tca",
+    "swift",
+    "composable-architecture"
+  ],
+  "author": "Scanivore Team",
+  "license": "MIT"
+}

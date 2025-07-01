@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "tca-docs": {
+      "command": "/usr/local/bin/node",
+      "args": ["/Users/alexpaul/Desktop/Projects/Scanivore/tca-docs-server.js"],
+      "cwd": "/Users/alexpaul/Desktop/Projects/Scanivore",
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+} 
