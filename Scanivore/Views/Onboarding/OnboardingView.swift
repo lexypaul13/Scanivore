@@ -12,6 +12,17 @@ struct OnboardingView: View {
     @State private var preferences = OnboardingPreferences()
     @Binding var showOnboarding: Bool
     
+    // Computed property to ensure valid question state
+    private var validCurrentQuestion: Int {
+        let maxQuestion = questions.count + 1 // 6 questions + 1 meat selection = 7
+        if currentQuestion < 1 {
+            return 1
+        } else if currentQuestion > maxQuestion {
+            return maxQuestion
+        }
+        return currentQuestion
+    }
+    
     // Question data
     let questions = [
         OnboardingQuestion(
@@ -54,19 +65,20 @@ struct OnboardingView: View {
                 
                 VStack(spacing: 0) {
                     // Progress Bar
-                    ProgressBar(current: currentQuestion, total: questions.count + 1)
+                    ProgressBar(current: validCurrentQuestion, total: questions.count + 1)
                         .padding(.horizontal, DesignSystem.Spacing.screenPadding)
                         .padding(.top, DesignSystem.Spacing.sm)
                     
                     // Content
-                    if currentQuestion >= 1 && currentQuestion <= questions.count {
+                    if validCurrentQuestion >= 1 && validCurrentQuestion <= questions.count {
+                        let questionIndex = validCurrentQuestion - 1
                         OnboardingQuestionView(
-                            question: questions[currentQuestion - 1],
+                            question: questions[questionIndex],
                             onAnswer: { answer in
-                                handleAnswer(questionId: currentQuestion, answer: answer)
+                                handleAnswer(questionId: validCurrentQuestion, answer: answer)
                             }
                         )
-                    } else if currentQuestion == questions.count + 1 {
+                    } else if validCurrentQuestion == questions.count + 1 {
                         // Meat selection is after all questions
                         MeatSelectionView(
                             selectedTypes: $preferences.preferredMeatTypes,
@@ -75,7 +87,7 @@ struct OnboardingView: View {
                             }
                         )
                     } else {
-                        // Fallback - reset to first question if out of bounds
+                        // This should never happen with validCurrentQuestion
                         Text("Loading...")
                             .onAppear {
                                 currentQuestion = 1
@@ -86,7 +98,7 @@ struct OnboardingView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    if currentQuestion > 1 {
+                    if validCurrentQuestion > 1 {
                         Button(action: { 
                             if currentQuestion > 1 {
                                 currentQuestion -= 1 
@@ -104,6 +116,12 @@ struct OnboardingView: View {
                     }
                 }
                 
+            }
+        }
+        .onAppear {
+            // Ensure we start with a valid question state
+            if currentQuestion < 1 || currentQuestion > questions.count + 1 {
+                currentQuestion = 1
             }
         }
     }
