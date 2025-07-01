@@ -54,7 +54,7 @@ struct OnboardingView: View {
                 
                 VStack(spacing: 0) {
                     // Progress Bar
-                    ProgressBar(current: currentQuestion, total: 7)
+                    ProgressBar(current: currentQuestion, total: questions.count + 1)
                         .padding(.horizontal, DesignSystem.Spacing.screenPadding)
                         .padding(.top, DesignSystem.Spacing.sm)
                     
@@ -66,7 +66,8 @@ struct OnboardingView: View {
                                 handleAnswer(questionId: currentQuestion, answer: answer)
                             }
                         )
-                    } else if currentQuestion == 7 {
+                    } else if currentQuestion == questions.count + 1 {
+                        // Meat selection is after all questions
                         MeatSelectionView(
                             selectedTypes: $preferences.preferredMeatTypes,
                             onContinue: {
@@ -121,7 +122,7 @@ struct OnboardingView: View {
         
         // Move to next question (with bounds checking)
         withAnimation(.easeInOut(duration: 0.3)) {
-            if currentQuestion < 7 {
+            if currentQuestion <= questions.count {
                 currentQuestion += 1
             }
         }
@@ -183,5 +184,30 @@ struct ProgressBar: View {
 #Preview("Question 1") {
     @Previewable @State var showOnboarding = true
     OnboardingView(showOnboarding: $showOnboarding)
+}
+
+#Preview("Meat Selection") {
+    @Previewable @State var showOnboarding = true
+    @Previewable @State var preferences = OnboardingPreferences()
+    
+    NavigationStack {
+        ZStack {
+            DesignSystem.Colors.background
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                ProgressBar(current: 7, total: 7)
+                    .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+                    .padding(.top, DesignSystem.Spacing.sm)
+                
+                MeatSelectionView(
+                    selectedTypes: $preferences.preferredMeatTypes,
+                    onContinue: {
+                        showOnboarding = false
+                    }
+                )
+            }
+        }
+    }
 }
 
