@@ -15,6 +15,20 @@ enum OnboardingPath: Equatable {
     case meatSelection(MeatSelectionFeature)
 }
 
+// MARK: - OnboardingPath.State Equatable Conformance
+extension OnboardingPath.State: Equatable {
+    static func == (lhs: OnboardingPath.State, rhs: OnboardingPath.State) -> Bool {
+        switch (lhs, rhs) {
+        case let (.question(lhsState), .question(rhsState)):
+            return lhsState == rhsState
+        case let (.meatSelection(lhsState), .meatSelection(rhsState)):
+            return lhsState == rhsState
+        default:
+            return false
+        }
+    }
+}
+
 // MARK: - Main Onboarding Feature
 @Reducer
 struct OnboardingFeature {
