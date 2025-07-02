@@ -2,16 +2,23 @@
 //  ScanivoreApp.swift
 //  Scanivore
 //
-//  Created by Alex Paul on 6/28/25.
+//  Main TCA application entry point
 //
 
 import SwiftUI
+import ComposableArchitecture
 
 @main
 struct ScanivoreApp: App {
+    static let store = Store(
+        initialState: AppFeature.State()
+    ) {
+        AppFeature()
+    }
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(store: Self.store)
         }
     }
 }

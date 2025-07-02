@@ -2,65 +2,92 @@
 //  ContentView.swift
 //  Scanivore
 //
-//  Created by Alex Paul on 6/28/25.
+//  Main TCA-powered content view
 //
 
 import SwiftUI
+import ComposableArchitecture
 
 struct ContentView: View {
-    @State private var selectedTab = 0
-    @State private var showOnboarding = !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+    let store: StoreOf<AppFeature>
     
     var body: some View {
-        ZStack {
-            DesignSystem.Colors.background
-                .ignoresSafeArea()
-            
-            if showOnboarding {
-                OnboardingView(showOnboarding: $showOnboarding)
+        WithPerceptionTracking {
+            ZStack {
+                DesignSystem.Colors.background
+                    .ignoresSafeArea()
+                
+                if store.showOnboarding {
+                    OnboardingView(
+                        store: store.scope(state: \.onboarding, action: \.onboarding)
+                    )
                     .transition(.move(edge: .trailing))
-            } else {
-                TabView(selection: $selectedTab) {
-                    
-                    ExploreView()
-                        .tabItem {
-                            Label("Explore", systemImage: "star.fill")
-                        }
-                        .tag(0)
-
-                    ScannerView()
-                        .tabItem {
-                            Label("Scan", systemImage: "camera.fill")
-                        }
-                        .tag(1)
-                    
-                    
-                    HistoryView()
-                        .tabItem {
-                            Label("History", systemImage: "clock.fill")
-                        }
-                        .tag(2)
-                    
-                    SettingsView()
-                        .tabItem {
-                            Label("Settings", systemImage: "gearshape.fill")
-                        }
-                        .tag(3)
-                    
+                } else {
+                    MainTabView(store: store)
                 }
-                .tint(DesignSystem.Colors.primaryRed)
             }
         }
     }
 }
 
+struct MainTabView: View {
+    let store: StoreOf<AppFeature>
+    
+    var body: some View {
+        WithPerceptionTracking {
+            TabView(selection: .init(
+                get: { store.selectedTab },
+                set: { store.send(.tabSelected($0)) }
+            )) {
+                ExploreView()
+                    .tabItem {
+                        Label("Explore", systemImage: "star.fill")
+                    }
+                    .tag(0)
+
+                ScannerView()
+                    .tabItem {
+                        Label("Scan", systemImage: "camera.fill")
+                    }
+                    .tag(1)
+                
+                HistoryView()
+                    .tabItem {
+                        Label("History", systemImage: "clock.fill")
+                    }
+                    .tag(2)
+                
+                SettingsView()
+                    .tabItem {
+                        Label("Settings", systemImage: "gearshape.fill")
+                    }
+                    .tag(3)
+            }
+            .tint(DesignSystem.Colors.primaryRed)
+        }
+    }
+}
+
 #Preview {
-    ContentView()
+    ContentView(
+        store: Store(
+            initialState: AppFeature.State()
+        ) {
+            AppFeature()
+        }
+    )
 }
 
 #Preview("With Onboarding") {
-    ContentView()
-        .onAppear {
-            UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+    ContentView(
+        store: Store(
+            initialState: AppFeature.State()
+        ) {
+            AppFeature()
         }
+    )
+    .onAppear {
+        // Reset onboarding for preview
+        UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+    }
 }
