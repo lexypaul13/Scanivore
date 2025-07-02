@@ -14,7 +14,7 @@ struct AppFeature {
     struct State: Equatable {
         var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: UserDefaultsKeys.hasCompletedOnboarding)
         var selectedTab = 0
-        var onboarding = OnboardingFeature.State(path: StackState<OnboardingPath.State>())
+        var onboarding = OnboardingFeatureDomain.State()
         
         var showOnboarding: Bool {
             !hasCompletedOnboarding
@@ -23,12 +23,12 @@ struct AppFeature {
     
     enum Action {
         case tabSelected(Int)
-        case onboarding(OnboardingFeature.Action)
+        case onboarding(OnboardingFeatureDomain.Action)
     }
     
     var body: some ReducerOf<Self> {
         Scope(state: \.onboarding, action: \.onboarding) {
-            OnboardingFeature()
+            OnboardingFeatureDomain()
         }
         
         Reduce { state, action in
@@ -37,9 +37,13 @@ struct AppFeature {
                 state.selectedTab = tab
                 return .none
                 
-            case .onboarding(.delegate(.onboardingCompleted)):
-                // Onboarding is completed, update local state
+            case .onboarding(.delegate(.onboardingCompleted(let preferences))):
+                // Onboarding is completed with preferences data
                 state.hasCompletedOnboarding = true
+                return .none
+                
+            case .onboarding(.delegate(.onboardingCancelled)):
+                // Handle onboarding cancellation if needed
                 return .none
                 
             case .onboarding:

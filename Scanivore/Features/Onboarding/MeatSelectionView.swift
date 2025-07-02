@@ -7,9 +7,66 @@
 
 import SwiftUI
 import ComposableArchitecture
+import Foundation
+// MARK: - MeatSelection Feature
+@Reducer
+struct MeatSelectionFeatureDomain:Equatable {
+    @ObservableState
+    struct State: Equatable {
+        var selectedTypes: Set<MeatType> = []
+        
+        var canContinue: Bool {
+            !selectedTypes.isEmpty
+        }
+    }
+    
+    enum Action: Equatable {
+        case meatTypeToggled(MeatType)
+        case continueButtonTapped
+        case delegate(Delegate)
+        
+        enum Delegate: Equatable {
+            case meatSelectionCompleted(Set<MeatType>)
+        }
+    }
+    
+    var body: some ReducerOf<Self> {
+        Reduce { state, action in
+            switch action {
+            case let .meatTypeToggled(meatType):
+                if state.selectedTypes.contains(meatType) {
+                    state.selectedTypes.remove(meatType)
+                } else {
+                    state.selectedTypes.insert(meatType)
+                }
+                return .none
+                
+            case .continueButtonTapped:
+                guard state.canContinue else { return .none }
+                return .run { [selectedTypes = state.selectedTypes] send in
+                    await send(.delegate(.meatSelectionCompleted(selectedTypes)))
+                }
+                
+            case .delegate:
+                return .none
+            }
+        }
+    }
+}
 
+// MARK: - Available Meat Types for Selection
+extension MeatSelectionFeatureDomain {
+    static let availableMeatTypes: [(type: MeatType, name: String)] = [
+        (.chicken, "Chicken"),
+        (.turkey, "Turkey"),
+        (.beef, "Beef"),
+        (.lamb, "Lamb"),
+        (.pork, "Pork"),
+        (.fish, "Fish")
+    ]
+} 
 struct MeatSelectionView: View {
-    let store: StoreOf<MeatSelectionFeature>
+    let store: StoreOf<MeatSelectionFeatureDomain>
     
     var body: some View {
         WithPerceptionTracking {
@@ -38,7 +95,7 @@ struct MeatSelectionView: View {
                 
                 // Meat Type Selection
                 VStack(spacing: DesignSystem.Spacing.base) {
-                    ForEach(MeatSelectionFeature.availableMeatTypes, id: \.type) { meatInfo in
+                    ForEach(MeatSelectionFeatureDomain.availableMeatTypes, id: \.type) { meatInfo in
                         MeatTypeRow(
                             type: meatInfo.type,
                             name: meatInfo.name,
@@ -116,11 +173,11 @@ struct MeatTypeRow: View {
 #Preview {
     MeatSelectionView(
         store: Store(
-            initialState: MeatSelectionFeature.State(
+            initialState: MeatSelectionFeatureDomain.State(
                 selectedTypes: [.chicken, .beef]
             )
         ) {
-            MeatSelectionFeature()
+            MeatSelectionFeatureDomain()
         }
     )
 } 
