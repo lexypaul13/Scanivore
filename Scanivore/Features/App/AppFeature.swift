@@ -12,9 +12,9 @@ import ComposableArchitecture
 struct AppFeature {
     @ObservableState
     struct State: Equatable {
-        @Shared(.hasCompletedOnboarding) var hasCompletedOnboarding = false
+        var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: UserDefaultsKeys.hasCompletedOnboarding)
         var selectedTab = 0
-        var onboarding = OnboardingFeature.State()
+        var onboarding = OnboardingFeature.State(path: StackState<OnboardingPath.State>())
         
         var showOnboarding: Bool {
             !hasCompletedOnboarding
@@ -38,8 +38,8 @@ struct AppFeature {
                 return .none
                 
             case .onboarding(.delegate(.onboardingCompleted)):
-                // Onboarding is completed, the shared state will automatically update
-                // and the UI will transition to the main app
+                // Onboarding is completed, update local state
+                state.hasCompletedOnboarding = true
                 return .none
                 
             case .onboarding:

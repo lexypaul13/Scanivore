@@ -9,7 +9,7 @@ import Foundation
 import ComposableArchitecture
 
 // MARK: - Question Data Model
-struct OnboardingQuestion {
+struct OnboardingQuestion: Equatable {
     let id: Int
     let title: String
     let subtitle: String

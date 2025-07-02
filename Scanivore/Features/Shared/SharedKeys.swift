@@ -2,42 +2,38 @@
 //  SharedKeys.swift
 //  Scanivore
 //
-//  Shared state keys for TCA features
+//  Shared state keys for TCA features - Simplified approach
 //
 
 import Foundation
 import ComposableArchitecture
 
-// MARK: - Shared Keys for Onboarding
-extension SharedReaderKey where Self == AppStorageKey<OnboardingPreferences?>.Default {
-    static var onboardingPreferences: Self {
-        Self[.appStorage("onboardingPreferences"), default: nil]
-    }
+// MARK: - UserDefaults Keys
+enum UserDefaultsKeys {
+    static let hasCompletedOnboarding = "hasCompletedOnboarding"
+    static let onboardingPreferences = "onboardingPreferences"
+    static let enableNotifications = "enableNotifications"
+    static let autoSaveScans = "autoSaveScans"
+    static let useMetricUnits = "useMetricUnits"
+    static let scanQuality = "scanQuality"
 }
 
-extension SharedReaderKey where Self == AppStorageKey<Bool>.Default {
-    static var hasCompletedOnboarding: Self {
-        Self[.appStorage("hasCompletedOnboarding"), default: false]
-    }
-}
-
-// MARK: - Shared Keys for Settings
-extension SharedReaderKey where Self == AppStorageKey<Bool>.Default {
-    static var enableNotifications: Self {
-        Self[.appStorage("enableNotifications"), default: true]
+// MARK: - UserDefaults Helper
+extension UserDefaults {
+    func setOnboardingPreferences(_ preferences: OnboardingPreferences?) {
+        if let preferences = preferences,
+           let data = try? JSONEncoder().encode(preferences) {
+            set(data, forKey: UserDefaultsKeys.onboardingPreferences)
+        } else {
+            removeObject(forKey: UserDefaultsKeys.onboardingPreferences)
+        }
     }
     
-    static var autoSaveScans: Self {
-        Self[.appStorage("autoSaveScans"), default: true]
-    }
-    
-    static var useMetricUnits: Self {
-        Self[.appStorage("useMetricUnits"), default: false]
-    }
-}
-
-extension SharedReaderKey where Self == AppStorageKey<String>.Default {
-    static var scanQuality: Self {
-        Self[.appStorage("scanQuality"), default: "high"]
+    func getOnboardingPreferences() -> OnboardingPreferences? {
+        guard let data = data(forKey: UserDefaultsKeys.onboardingPreferences),
+              let preferences = try? JSONDecoder().decode(OnboardingPreferences.self, from: data) else {
+            return nil
+        }
+        return preferences
     }
 } 

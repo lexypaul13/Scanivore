@@ -10,7 +10,7 @@ import ComposableArchitecture
 
 // MARK: - Onboarding Path
 @Reducer
-enum OnboardingPath {
+enum OnboardingPath: Equatable {
     case question(OnboardingQuestionFeature)
     case meatSelection(MeatSelectionFeature)
 }
@@ -21,8 +21,8 @@ struct OnboardingFeature {
     @ObservableState
     struct State: Equatable {
         var path = StackState<OnboardingPath.State>()
-        @Shared(.onboardingPreferences) var preferences = OnboardingPreferences()
-        @Shared(.hasCompletedOnboarding) var hasCompleted = false
+        var preferences: OnboardingPreferences? = UserDefaults.standard.getOnboardingPreferences()
+        var hasCompleted = UserDefaults.standard.bool(forKey: UserDefaultsKeys.hasCompletedOnboarding)
         
         var currentStep: Int {
             path.count + 1
@@ -70,16 +70,24 @@ struct OnboardingFeature {
             case let .path(stackAction):
                 switch stackAction {
                 case .element(id: _, action: .question(.delegate(.questionAnswered(let questionId, let answer)))):
+                    // Initialize preferences if nil
+                    if state.preferences == nil {
+                        state.preferences = OnboardingPreferences()
+                    }
+                    
                     // Save the answer to preferences
                     switch questionId {
-                    case 1: state.preferences.avoidPreservatives = answer
-                    case 2: state.preferences.antibioticFree = answer
-                    case 3: state.preferences.preferOrganic = answer
-                    case 4: state.preferences.avoidSugars = answer
-                    case 5: state.preferences.avoidMSG = answer
-                    case 6: state.preferences.lowerSodium = answer
+                    case 1: state.preferences?.avoidPreservatives = answer
+                    case 2: state.preferences?.antibioticFree = answer
+                    case 3: state.preferences?.preferOrganic = answer
+                    case 4: state.preferences?.avoidSugars = answer
+                    case 5: state.preferences?.avoidMSG = answer
+                    case 6: state.preferences?.lowerSodium = answer
                     default: break
                     }
+                    
+                    // Persist to UserDefaults
+                    UserDefaults.standard.setOnboardingPreferences(state.preferences)
                     
                     // Move to next question or meat selection
                     if let nextQuestion = OnboardingQuestion.questions.first(where: { $0.id == questionId + 1 }) {
@@ -91,9 +99,16 @@ struct OnboardingFeature {
                     return .none
                     
                 case .element(id: _, action: .meatSelection(.delegate(.meatSelectionCompleted(let selectedTypes)))):
-                    // Save meat selection and complete onboarding
-                    state.preferences.preferredMeatTypes = selectedTypes
+                    // Initialize preferences if nil and save meat selection
+                    if state.preferences == nil {
+                        state.preferences = OnboardingPreferences()
+                    }
+                    state.preferences?.preferredMeatTypes = selectedTypes
                     state.hasCompleted = true
+                    
+                    // Persist to UserDefaults
+                    UserDefaults.standard.setOnboardingPreferences(state.preferences)
+                    UserDefaults.standard.set(true, forKey: UserDefaultsKeys.hasCompletedOnboarding)
                     
                     return .run { send in
                         await send(.delegate(.onboardingCompleted))
@@ -111,9 +126,4 @@ struct OnboardingFeature {
     }
 }
 
-// MARK: - Convenience Initializers
-extension OnboardingFeature.State {
-    init() {
-        self.init(path: StackState<OnboardingPath.State>())
-    }
-} 
+ 

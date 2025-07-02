@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-struct OnboardingPreferences: Codable {
+struct OnboardingPreferences: Codable, Equatable {
     var avoidPreservatives: Bool?
     var antibioticFree: Bool?
     var preferOrganic: Bool?
