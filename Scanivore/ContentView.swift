@@ -45,7 +45,9 @@ struct MainTabView: View {
                     }
                     .tag(0)
 
-                ScannerView()
+                ScannerView(
+                    store: store.scope(state: \.scanner, action: \.scanner)
+                )
                     .tabItem {
                         Label("Scan", systemImage: "camera.fill")
                     }
