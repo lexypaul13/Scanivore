@@ -39,7 +39,9 @@ struct MainTabView: View {
                 get: { store.selectedTab },
                 set: { store.send(.tabSelected($0)) }
             )) {
-                ExploreView()
+                ExploreView(
+                    store: store.scope(state: \.explore, action: \.explore)
+                )
                     .tabItem {
                         Label("Explore", systemImage: "star.fill")
                     }
@@ -53,7 +55,9 @@ struct MainTabView: View {
                     }
                     .tag(1)
                 
-                HistoryView()
+                HistoryView(
+                    store: store.scope(state: \.history, action: \.history)
+                )
                     .tabItem {
                         Label("History", systemImage: "clock.fill")
                     }

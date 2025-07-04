@@ -2,87 +2,146 @@
 //  ExploreView.swift
 //  Scanivore
 //
-//  Created by Alex Paul on 6/28/25.
+//  TCA-powered explore view for product recommendations
 //
 
 import SwiftUI
+import ComposableArchitecture
 
-struct ExploreView: View {
-    @State private var searchText = ""
-    @State private var showingFilters = false
-    @State private var selectedMeatTypes: Set<MeatType> = []
-    
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                DesignSystem.Colors.background
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 0) {
-                    // Search Bar
-                    SearchBar(text: $searchText)
-                        .padding(.horizontal, DesignSystem.Spacing.screenPadding)
-                        .padding(.top, DesignSystem.Spacing.sm)
-                        .padding(.bottom, DesignSystem.Spacing.base)
-                    
-                    // Content
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
-                            // Recommendations Header
-                            Text("Recommendations")
-                                .font(DesignSystem.Typography.heading1)
-                                .foregroundColor(DesignSystem.Colors.textPrimary)
-                                .padding(.horizontal, DesignSystem.Spacing.screenPadding)
-                            
-                            // Product Grid
-                            VStack(spacing: DesignSystem.Spacing.lg) {
-                                ForEach(filteredRecommendations) { recommendation in
-                                    ProductRecommendationCard(recommendation: recommendation)
-                                        .padding(.horizontal, DesignSystem.Spacing.screenPadding)
-                                }
-                            }
-                        }
-                        .padding(.vertical, DesignSystem.Spacing.base)
-                    }
+// MARK: - Explore Feature Domain
+@Reducer
+struct ExploreFeatureDomain {
+    @ObservableState
+    struct State: Equatable {
+        var searchText = ""
+        var showingFilters = false
+        var selectedMeatTypes: Set<MeatType> = []
+        var recommendations: [ProductRecommendation] = ProductRecommendation.mockRecommendations
+        
+        var filteredRecommendations: [ProductRecommendation] {
+            var filtered = recommendations
+            
+            // Simple search filter
+            if !searchText.isEmpty {
+                filtered = filtered.filter { recommendation in
+                    recommendation.name.localizedCaseInsensitiveContains(searchText) ||
+                    recommendation.brand.localizedCaseInsensitiveContains(searchText)
                 }
             }
-            .customNavigationTitle("Explore")
-            .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { showingFilters = true }) {
-                        Text("Filter")
-                            .foregroundColor(DesignSystem.Colors.primaryRed)
-                            .font(DesignSystem.Typography.body)
-                    }
+            
+            // Simple meat type filter
+            if !selectedMeatTypes.isEmpty {
+                filtered = filtered.filter { recommendation in
+                    selectedMeatTypes.contains(recommendation.meatType)
                 }
             }
-            .sheet(isPresented: $showingFilters) {
-                MeatTypeFilterView(selectedMeatTypes: $selectedMeatTypes)
-            }
+            
+            return filtered
         }
     }
     
-    private var filteredRecommendations: [ProductRecommendation] {
-        var recommendations = ProductRecommendation.mockRecommendations
-        
-        // Filter by search text
-        if !searchText.isEmpty {
-            recommendations = recommendations.filter { recommendation in
-                recommendation.name.localizedCaseInsensitiveContains(searchText) ||
-                recommendation.brand.localizedCaseInsensitiveContains(searchText)
+    enum Action {
+        case searchTextChanged(String)
+        case filterButtonTapped
+        case filtersDismissed
+        case meatTypeToggled(MeatType)
+        case clearAllFilters
+    }
+    
+    var body: some ReducerOf<Self> {
+        Reduce { state, action in
+            switch action {
+            case let .searchTextChanged(text):
+                state.searchText = text
+                return .none
+                
+            case .filterButtonTapped:
+                state.showingFilters = true
+                return .none
+                
+            case .filtersDismissed:
+                state.showingFilters = false
+                return .none
+                
+            case let .meatTypeToggled(meatType):
+                if state.selectedMeatTypes.contains(meatType) {
+                    state.selectedMeatTypes.remove(meatType)
+                } else {
+                    state.selectedMeatTypes.insert(meatType)
+                }
+                return .none
+                
+            case .clearAllFilters:
+                state.selectedMeatTypes.removeAll()
+                return .none
             }
         }
-        
-        // Filter by selected meat types
-        if !selectedMeatTypes.isEmpty {
-            recommendations = recommendations.filter { recommendation in
-                selectedMeatTypes.contains(recommendation.meatType)
+    }
+}
+
+struct ExploreView: View {
+    let store: StoreOf<ExploreFeatureDomain>
+    
+    var body: some View {
+        WithPerceptionTracking {
+            NavigationStack {
+                ZStack {
+                    DesignSystem.Colors.background
+                        .ignoresSafeArea()
+                    
+                    VStack(spacing: 0) {
+                        // Search Bar
+                        SearchBar(
+                            text: .init(
+                                get: { store.searchText },
+                                set: { store.send(.searchTextChanged($0)) }
+                            )
+                        )
+                        .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+                        .padding(.top, DesignSystem.Spacing.sm)
+                        .padding(.bottom, DesignSystem.Spacing.base)
+                        
+                        // Content
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
+                                // Recommendations Header
+                                Text("Recommendations")
+                                    .font(DesignSystem.Typography.heading1)
+                                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                                    .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+                                
+                                // Product Grid
+                                VStack(spacing: DesignSystem.Spacing.lg) {
+                                    ForEach(store.filteredRecommendations) { recommendation in
+                                        ProductRecommendationCard(recommendation: recommendation)
+                                            .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+                                    }
+                                }
+                            }
+                            .padding(.vertical, DesignSystem.Spacing.base)
+                        }
+                    }
+                }
+                .customNavigationTitle("Explore")
+                .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(action: { store.send(.filterButtonTapped) }) {
+                            Text("Filter")
+                                .foregroundColor(DesignSystem.Colors.primaryRed)
+                                .font(DesignSystem.Typography.body)
+                        }
+                    }
+                }
+                .sheet(isPresented: .init(
+                    get: { store.showingFilters },
+                    set: { _ in store.send(.filtersDismissed) }
+                )) {
+                    MeatTypeFilterView(store: store)
+                }
             }
         }
-        
-        return recommendations
     }
 }
 
@@ -196,73 +255,71 @@ struct QualityBadge: View {
 
 // MARK: - Meat Type Filter View
 struct MeatTypeFilterView: View {
-    @Binding var selectedMeatTypes: Set<MeatType>
+    let store: StoreOf<ExploreFeatureDomain>
     @Environment(\.dismiss) private var dismiss
     
     private let availableMeatTypes: [MeatType] = [.beef, .pork, .chicken, .lamb, .turkey, .fish]
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                DesignSystem.Colors.backgroundSecondary
-                    .ignoresSafeArea()
-                
-                Form {
-                    Section("Filter by Meat Type") {
-                        ForEach(availableMeatTypes, id: \.self) { meatType in
+        WithPerceptionTracking {
+            NavigationStack {
+                ZStack {
+                    DesignSystem.Colors.backgroundSecondary
+                        .ignoresSafeArea()
+                    
+                    Form {
+                        Section("Filter by Meat Type") {
+                            ForEach(availableMeatTypes, id: \.self) { meatType in
+                                HStack {
+                                    Text("\(meatType.icon) \(meatType.rawValue)")
+                                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                                    
+                                    Spacer()
+                                    
+                                    if store.selectedMeatTypes.contains(meatType) {
+                                        Image(systemName: "checkmark")
+                                            .foregroundColor(DesignSystem.Colors.primaryRed)
+                                    }
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    store.send(.meatTypeToggled(meatType))
+                                }
+                                .listRowBackground(DesignSystem.Colors.background)
+                            }
+                            
+                            // Show All option
                             HStack {
-                                Text("\(meatType.icon) \(meatType.rawValue)")
+                                Text("Show All")
                                     .foregroundColor(DesignSystem.Colors.textPrimary)
                                 
                                 Spacer()
                                 
-                                if selectedMeatTypes.contains(meatType) {
+                                if store.selectedMeatTypes.isEmpty {
                                     Image(systemName: "checkmark")
                                         .foregroundColor(DesignSystem.Colors.primaryRed)
                                 }
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                if selectedMeatTypes.contains(meatType) {
-                                    selectedMeatTypes.remove(meatType)
-                                } else {
-                                    selectedMeatTypes.insert(meatType)
-                                }
+                                store.send(.clearAllFilters)
                             }
                             .listRowBackground(DesignSystem.Colors.background)
                         }
-                        
-                        // Show All option
-                        HStack {
-                            Text("Show All")
-                                .foregroundColor(DesignSystem.Colors.textPrimary)
-                            
-                            Spacer()
-                            
-                            if selectedMeatTypes.isEmpty {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(DesignSystem.Colors.primaryRed)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            selectedMeatTypes.removeAll()
-                        }
-                        .listRowBackground(DesignSystem.Colors.background)
                     }
+                    .scrollContentBackground(.hidden)
                 }
-                .scrollContentBackground(.hidden)
-            }
-            .navigationTitle("Filter")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
+                .navigationTitle("Filter")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .foregroundColor(DesignSystem.Colors.primaryRed)
                     }
-                    .foregroundColor(DesignSystem.Colors.primaryRed)
                 }
             }
         }
@@ -270,7 +327,7 @@ struct MeatTypeFilterView: View {
 }
 
 // MARK: - Data Models
-struct ProductRecommendation: Identifiable {
+struct ProductRecommendation: Identifiable, Equatable {
     let id = UUID()
     let name: String
     let brand: String
@@ -280,7 +337,7 @@ struct ProductRecommendation: Identifiable {
     let isRecommended: Bool
 }
 
-enum QualityLevel {
+enum QualityLevel: Equatable {
     case excellent
     case good
     case poor
@@ -384,5 +441,11 @@ extension ProductRecommendation {
 }
 
 #Preview {
-    ExploreView()
+    ExploreView(
+        store: Store(
+            initialState: ExploreFeatureDomain.State()
+        ) {
+            ExploreFeatureDomain()
+        }
+    )
 }

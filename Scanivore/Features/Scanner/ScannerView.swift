@@ -150,7 +150,11 @@ struct ScannerView: View {
                     set: { _ in store.send(.resultsDismissed) }
                 )) {
                     if let result = store.scanResult {
-                        ProductDetailView(scan: result)
+                        ScanResultView(
+                            store: Store(initialState: ScanResultFeatureDomain.State(scan: result)) {
+                                ScanResultFeatureDomain()
+                            }
+                        )
                     }
                 }
             }

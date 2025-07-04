@@ -6,33 +6,95 @@
 //
 
 import SwiftUI
+import ComposableArchitecture
+
+@Reducer
+struct ScanResultFeatureDomain {
+    @ObservableState
+    struct State: Equatable {
+        let scan: MeatScan
+        var showingNutrition = false
+        var isSaving = false
+        
+        init(scan: MeatScan) {
+            self.scan = scan
+        }
+    }
+    
+    enum Action {
+        case nutritionToggled
+        case saveToHistoryTapped
+        case shareResultsTapped
+        case doneTapped
+        case saveCompleted
+    }
+    
+    @Dependency(\.dismiss) var dismiss
+    
+    var body: some ReducerOf<Self> {
+        Reduce { state, action in
+            switch action {
+            case .nutritionToggled:
+                state.showingNutrition.toggle()
+                return .none
+                
+            case .saveToHistoryTapped:
+                state.isSaving = true
+                return .run { send in
+                    try await Task.sleep(for: .seconds(1))
+                    await send(.saveCompleted)
+                }
+                
+            case .saveCompleted:
+                state.isSaving = false
+                return .none
+                
+            case .shareResultsTapped:
+                // TODO: Implement share functionality
+                return .none
+                
+            case .doneTapped:
+                return .run { _ in
+                    await dismiss()
+                }
+            }
+        }
+    }
+}
 
 struct ScanResultView: View {
-    let scan: MeatScan
-    @Environment(\.dismiss) private var dismiss
-    @State private var showingNutrition = false
+    @Bindable var store: StoreOf<ScanResultFeatureDomain>
     
     var body: some View {
-        NavigationStack {
+        WithPerceptionTracking {
+            NavigationStack {
             ZStack {
                 DesignSystem.Colors.backgroundSecondary
                     .ignoresSafeArea()
                 
                 ScrollView {
                     VStack(spacing: DesignSystem.Spacing.xl) {
-                        ResultHeaderView(scan: scan)
+                        ResultHeaderView(scan: store.scan)
                         
-                        QualityCardView(scan: scan)
+                        QualityCardView(scan: store.scan)
                         
-                        if !scan.warnings.isEmpty {
-                            WarningsCardView(warnings: scan.warnings)
+                        if !store.scan.warnings.isEmpty {
+                            WarningsCardView(warnings: store.scan.warnings)
                         }
                         
-                        RecommendationsCardView(recommendations: scan.recommendations)
+                        RecommendationsCardView(recommendations: store.scan.recommendations)
                         
-                        NutritionCardView(nutrition: scan.nutritionInfo, isExpanded: $showingNutrition)
+                        NutritionCardView(
+                            nutrition: store.scan.nutritionInfo,
+                            isExpanded: store.showingNutrition,
+                            onToggle: { store.send(.nutritionToggled) }
+                        )
                         
-                        ActionButtonsView(scan: scan)
+                        ActionButtonsView(
+                            isSaving: store.isSaving,
+                            onSave: { store.send(.saveToHistoryTapped) },
+                            onShare: { store.send(.shareResultsTapped) }
+                        )
                             .padding(.bottom, DesignSystem.Spacing.xl)
                     }
                     .padding(.horizontal, DesignSystem.Spacing.screenPadding)
@@ -41,12 +103,13 @@ struct ScanResultView: View {
             .customNavigationTitle("Scan Results")
             .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
+                            .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            store.send(.doneTapped)
+                        }
+                        .foregroundColor(DesignSystem.Colors.primaryRed)
                     }
-                    .foregroundColor(DesignSystem.Colors.primaryRed)
                 }
             }
         }
@@ -219,11 +282,12 @@ struct RecommendationsCardView: View {
 
 struct NutritionCardView: View {
     let nutrition: NutritionInfo
-    @Binding var isExpanded: Bool
+    let isExpanded: Bool
+    let onToggle: () -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-            Button(action: { withAnimation { isExpanded.toggle() } }) {
+            Button(action: { withAnimation { onToggle() } }) {
                 HStack {
                     Label("Nutrition Facts", systemImage: "chart.bar.fill")
                         .font(DesignSystem.Typography.heading2)
@@ -274,17 +338,27 @@ struct SimpleNutritionRow: View {
 }
 
 struct ActionButtonsView: View {
-    let scan: MeatScan
+    let isSaving: Bool
+    let onSave: () -> Void
+    let onShare: () -> Void
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
-            Button(action: {}) {
-                Label("Save to History", systemImage: "square.and.arrow.down")
-                    .frame(maxWidth: .infinity)
+            Button(action: onSave) {
+                HStack {
+                    if isSaving {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .tint(.white)
+                    }
+                    Label("Save to History", systemImage: "square.and.arrow.down")
+                }
+                .frame(maxWidth: .infinity)
             }
             .primaryButton()
+            .disabled(isSaving)
             
-            Button(action: {}) {
+            Button(action: onShare) {
                 Label("Share Results", systemImage: "square.and.arrow.up")
                     .frame(maxWidth: .infinity)
             }
@@ -294,5 +368,9 @@ struct ActionButtonsView: View {
 }
 
 #Preview {
-    ScanResultView(scan: MeatScan.mockScans[0])
+    ScanResultView(
+        store: Store(initialState: ScanResultFeatureDomain.State(scan: MeatScan.mockScans[0])) {
+            ScanResultFeatureDomain()
+        }
+    )
 }

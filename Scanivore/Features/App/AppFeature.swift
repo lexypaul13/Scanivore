@@ -16,6 +16,8 @@ struct AppFeature {
         var selectedTab = 0
         var onboarding = OnboardingFeatureDomain.State()
         var scanner = ScannerFeatureDomain.State()
+        var explore = ExploreFeatureDomain.State()
+        var history = HistoryFeatureDomain.State()
         
         var showOnboarding: Bool {
             !hasCompletedOnboarding
@@ -26,6 +28,8 @@ struct AppFeature {
         case tabSelected(Int)
         case onboarding(OnboardingFeatureDomain.Action)
         case scanner(ScannerFeatureDomain.Action)
+        case explore(ExploreFeatureDomain.Action)
+        case history(HistoryFeatureDomain.Action)
     }
     
     var body: some ReducerOf<Self> {
@@ -35,6 +39,14 @@ struct AppFeature {
         
         Scope(state: \.scanner, action: \.scanner) {
             ScannerFeatureDomain()
+        }
+        
+        Scope(state: \.explore, action: \.explore) {
+            ExploreFeatureDomain()
+        }
+        
+        Scope(state: \.history, action: \.history) {
+            HistoryFeatureDomain()
         }
         
         Reduce { state, action in
@@ -56,6 +68,12 @@ struct AppFeature {
                 return .none
                 
             case .scanner:
+                return .none
+                
+            case .explore:
+                return .none
+                
+            case .history:
                 return .none
             }
         }
