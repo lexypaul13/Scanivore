@@ -17,7 +17,12 @@ struct ContentView: View {
                 DesignSystem.Colors.background
                     .ignoresSafeArea()
                 
-                if store.showOnboarding {
+                if store.showOnboardingIntro {
+                    OnboardingIntroView(
+                        store: store.scope(state: \.onboardingIntro, action: \.onboardingIntro)
+                    )
+                    .transition(.move(edge: .trailing))
+                } else if store.showOnboarding {
                     OnboardingView(
                         store: store.scope(state: \.onboarding, action: \.onboarding)
                     )

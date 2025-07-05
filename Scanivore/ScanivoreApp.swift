@@ -19,6 +19,7 @@ struct ScanivoreApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(store: Self.store)
+            // SplashView() // Uncomment to test splash screen
         }
     }
 }

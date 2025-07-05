@@ -10,6 +10,7 @@ import ComposableArchitecture
 
 // MARK: - UserDefaults Keys
 enum UserDefaultsKeys {
+    static let hasCompletedIntro = "hasCompletedIntro"
     static let hasCompletedOnboarding = "hasCompletedOnboarding"
     static let onboardingPreferences = "onboardingPreferences"
     static let enableNotifications = "enableNotifications"

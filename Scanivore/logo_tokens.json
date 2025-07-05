@@ -1,0 +1,50 @@
+{
+  "meta": {
+    "source": "scanivore_steak_logo.png",
+    "description": "Red steak icon centred inside four red scan-frame corners"
+  },
+
+  "colors": {
+    "brandRed":        "#C62828",   /* steak + frame           */
+    "brandWhite":      "#FFFFFF",   /* background + fat rim    */
+    "brandDark":       "#1A1A1A"    /* optional outline stroke */
+  },
+
+  "spacing": {
+    "frameCornerRadius": 12,        /* scan-frame corner round-over */
+    "frameStrokeWidth":  3,         /* line thickness               */
+    "rimStrokeWidth":    6,         /* white rim around steak       */
+    "safeArea":          24         /* default logo padding         */
+  },
+
+  "iconography": {
+    "steak": {
+      "shape":          "rounded-steak-cut",
+      "rotationDeg":    -15,
+      "marblingStroke": 2,
+      "fill":   "{colors.brandRed}",
+      "rim":    "{colors.brandWhite}",
+      "stroke": "{colors.brandDark}"
+    },
+    "scanFrame": {
+      "cornerStyle": "rounded",
+      "strokeWidth": "{spacing.frameStrokeWidth}",
+      "strokeColor": "{colors.brandRed}"
+    }
+  },
+
+  "layout": {
+    "logoSize":       128,
+    "logoAlignment":  "center"
+  },
+
+  "animation": {
+    "scanBeam": {
+      "type":       "verticalPulse",
+      "color":      "{colors.brandRed}",
+      "strokeWidth": 4,
+      "durationMs": 800,
+      "repeat":     "infinite"
+    }
+  }
+}
