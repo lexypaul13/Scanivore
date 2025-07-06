@@ -108,7 +108,10 @@ struct OnboardingIntroView: View {
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                     .animation(.easeInOut(duration: 0.4), value: store.currentPage)
                     
-                    Spacer()
+                    // Only add bottom spacer on the first two pages so the final screen can use the full height
+                    if !store.isLastPage {
+                        Spacer()
+                    }
                     
                     // Navigation Controls
                     VStack(spacing: DesignSystem.Spacing.lg) {
@@ -184,12 +187,12 @@ struct ScanScreenView: View {
             .opacity(contentOpacity)
             
             VStack(spacing: DesignSystem.Spacing.md) {
-                Text("Scan Any Meat")
+                Text("Scan Any Animal Products")
                     .font(DesignSystem.Typography.heading1)
                     .foregroundColor(DesignSystem.Colors.primaryRed)
                     .multilineTextAlignment(.center)
                 
-                Text("Simply point your camera at any meat product to get instant quality analysis")
+                Text("Simply point your camera at any animal product to get instant quality analysis")
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                     .multilineTextAlignment(.center)
@@ -387,8 +390,6 @@ struct ChooseScreenView: View {
     @State private var goodProductScale: CGFloat = 0.5
     @State private var arrowRotation: Double = 0
     @State private var magicParticles: [MagicParticle] = []
-    @State private var buttonScale: CGFloat = 0.9
-    @State private var buttonGlow: CGFloat = 0
     @State private var contentOpacity: Double = 0
     
     var body: some View {
@@ -458,35 +459,22 @@ struct ChooseScreenView: View {
                     .padding(.horizontal, DesignSystem.Spacing.xl)
             }
             
-            Spacer()
-            
-            // Get Started Button with glow effect
             Button(action: onGetStarted) {
-                ZStack {
-                    // Glow layer
-                    RoundedRectangle(cornerRadius: DesignSystem.Components.Button.primaryCornerRadius)
-                        .fill(DesignSystem.Colors.primaryRed)
-                        .frame(height: DesignSystem.Components.Button.primaryHeight)
-                        .blur(radius: buttonGlow)
-                        .opacity(0.6)
-                    
-                    Text("Get Started")
-                        .font(DesignSystem.Typography.buttonText)
-                        .foregroundColor(DesignSystem.Colors.background)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: DesignSystem.Components.Button.primaryHeight)
-                        .background(DesignSystem.Colors.primaryRed)
-                        .cornerRadius(DesignSystem.Components.Button.primaryCornerRadius)
-                }
+                Text("Get Started")
+                    .font(DesignSystem.Typography.buttonText)
+                    .foregroundColor(DesignSystem.Colors.background)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: DesignSystem.Components.Button.primaryHeight)
+                    .background(DesignSystem.Colors.primaryRed)
+                    .cornerRadius(DesignSystem.Components.Button.primaryCornerRadius)
             }
-            .scaleEffect(buttonScale)
             .padding(.horizontal, DesignSystem.Spacing.xl)
             .padding(.bottom, DesignSystem.Spacing.xxl)
         }
-        .padding(DesignSystem.Spacing.xl)
         .onAppear {
             startChooseAnimations()
         }
+        .padding(.top, 120)
     }
     
     private func startChooseAnimations() {
@@ -504,14 +492,6 @@ struct ChooseScreenView: View {
             animateTransformation()
         }
         
-        // Button animations
-        withAnimation(.spring(response: 0.8, dampingFraction: 0.6).delay(1.0)) {
-            buttonScale = 1.0
-        }
-        
-        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true).delay(1.5)) {
-            buttonGlow = 20
-        }
     }
     
     private func animateTransformation() {
@@ -592,32 +572,22 @@ struct PhoneScannerView: View {
                         
                         Spacer()
                         
-                        // Steak content area
+                        // Steak image with grid overlay
                         ZStack {
-                            // Simple steak representation
-                            Ellipse()
-                                .fill(DesignSystem.Colors.primaryRed.opacity(0.2))
-                                .frame(width: 35, height: 25)
-                                .overlay(
-                                    Ellipse()
-                                        .stroke(DesignSystem.Colors.primaryRed.opacity(0.4), lineWidth: 1)
-                                )
+                            Image("SteakIcon")
+                                .resizable()
+                                .frame(width: 60, height: 60)
                             
-                            // Marbling lines
-                            Path { path in
-                                path.move(to: CGPoint(x: -10, y: -3))
-                                path.addLine(to: CGPoint(x: 10, y: 1))
-                                path.move(to: CGPoint(x: -8, y: 4))
-                                path.addLine(to: CGPoint(x: 8, y: 7))
-                            }
-                            .stroke(DesignSystem.Colors.primaryRed.opacity(0.3), lineWidth: 1)
+                            // Scanning grid overlay
+                            ScanningGrid()
+                                .stroke(DesignSystem.Colors.primaryRed.opacity(0.3), lineWidth: 0.5)
+                                .frame(width: phoneWidth - strokeWidth * 4, height: phoneHeight - strokeWidth * 8)
                         }
                         
                         Spacer()
                     }
                 )
                 .overlay(
-                    // Working scan line animation
                     Rectangle()
                         .fill(
                             LinearGradient(
@@ -633,7 +603,7 @@ struct PhoneScannerView: View {
                         .frame(width: phoneWidth - strokeWidth * 4, height: 3)
                         .blur(radius: 1)
                         .offset(y: scanOffset)
-                        .shadow(color: DesignSystem.Colors.primaryRed, radius: 5)
+                        .shadow(color: DesignSystem.Colors.primaryRed, radius: 3)
                         .opacity(glowOpacity)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius - strokeWidth))
@@ -655,6 +625,26 @@ struct PhoneScannerView: View {
     }
 }
 
+struct ScanningGrid: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let gridSize: CGFloat = 10
+        
+        // Vertical lines
+        for i in stride(from: 0, through: rect.width, by: gridSize) {
+            path.move(to: CGPoint(x: i, y: 0))
+            path.addLine(to: CGPoint(x: i, y: rect.height))
+        }
+        
+        // Horizontal lines
+        for i in stride(from: 0, through: rect.height, by: gridSize) {
+            path.move(to: CGPoint(x: 0, y: i))
+            path.addLine(to: CGPoint(x: rect.width, y: i))
+        }
+        
+        return path
+    }
+}
 
 struct ScanParticle: View {
     let index: Int
