@@ -72,18 +72,6 @@ struct OnboardingIntroView: View {
                     .ignoresSafeArea()
                 
                 VStack {
-                    // Skip button
-                    HStack {
-                        Spacer()
-                        Button("Skip tour") {
-                            store.send(.skipTapped)
-                        }
-                        .font(DesignSystem.Typography.caption)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                        .padding(.trailing, DesignSystem.Spacing.base)
-                        .padding(.top, DesignSystem.Spacing.md)
-                    }
-                    
                     // Only keep top spacer on the first two screens so that the final screen isn't pushed downward
                     if !store.isLastPage {
                         Spacer()
@@ -508,12 +496,12 @@ struct ChooseScreenView: View {
         }
         
         // Complete dissolve
-        withAnimation(.easeOut(duration: 0.5).delay(1.5)) {
+        withAnimation(.easeOut(duration: 0.9).delay(3.0)) {
             badProductOpacity = 0
         }
         
         // Repeat the animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
             withAnimation(.easeOut(duration: 0.3)) {
                 // Reset states
                 badProductOpacity = 1.0
