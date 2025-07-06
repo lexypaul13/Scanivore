@@ -84,7 +84,10 @@ struct OnboardingIntroView: View {
                         .padding(.top, DesignSystem.Spacing.md)
                     }
                     
-                    Spacer()
+                    // Only keep top spacer on the first two screens so that the final screen isn't pushed downward
+                    if !store.isLastPage {
+                        Spacer()
+                    }
                     
                     // Content
                     TabView(selection: .init(
@@ -108,7 +111,7 @@ struct OnboardingIntroView: View {
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                     .animation(.easeInOut(duration: 0.4), value: store.currentPage)
                     
-                    // Only add bottom spacer on the first two pages so the final screen can use the full height
+                    // Balance layout with bottom spacer on first two pages
                     if !store.isLastPage {
                         Spacer()
                     }
@@ -126,6 +129,10 @@ struct OnboardingIntroView: View {
                                 }
                             }
                             .padding(.bottom, DesignSystem.Spacing.xxl)
+                        } else {
+                            // Placeholder to keep the overall height consistent when dots are hidden
+                            Spacer()
+                                .frame(height: DesignSystem.Spacing.xxl + 8) // 8 for dot size + same bottom padding
                         }
                     }
                 }
