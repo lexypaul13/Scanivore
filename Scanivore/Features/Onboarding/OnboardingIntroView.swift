@@ -154,9 +154,8 @@ struct ScanScreenView: View {
                 // Animated background glow
                 Circle()
                     .fill(DesignSystem.Colors.primaryRed.opacity(0.1))
-                    .frame(width: 320, height: 320)
+                    .frame(width: 300, height: 300)
                     .blur(radius: 20)
-                    .scaleEffect(scanPulseScale)
                 
                 Circle()
                     .fill(DesignSystem.Colors.background)
@@ -194,7 +193,7 @@ struct ScanScreenView: View {
             .opacity(contentOpacity)
             
             VStack(spacing: DesignSystem.Spacing.md) {
-                Text("Scan Any Animal Products")
+                Text("Scan Any Animal Food Products ")
                     .font(DesignSystem.Typography.heading1)
                     .foregroundColor(DesignSystem.Colors.primaryRed)
                     .multilineTextAlignment(.center)
@@ -259,7 +258,7 @@ struct GradeScreenView: View {
                 // Glowing circle background
                 Circle()
                     .fill(DesignSystem.Colors.primaryRed.opacity(0.1))
-                    .frame(width: 280 + glowRadius, height: 280 + glowRadius)
+                    .frame(width: 300, height: 300)
                     .blur(radius: 20)
                 
                 Circle()
@@ -396,7 +395,6 @@ struct ChooseScreenView: View {
     @State private var goodProductOpacity: Double = 0
     @State private var goodProductScale: CGFloat = 0.5
     @State private var arrowRotation: Double = 0
-    @State private var magicParticles: [MagicParticle] = []
     @State private var contentOpacity: Double = 0
     
     var body: some View {
@@ -406,7 +404,7 @@ struct ChooseScreenView: View {
                 // Animated glow effect
                 Circle()
                     .fill(DesignSystem.Colors.primaryRed.opacity(0.1))
-                    .frame(width: 320, height: 320)
+                    .frame(width: 300, height: 300)
                     .blur(radius: 30)
                     .opacity(goodProductOpacity)
                 
@@ -416,11 +414,6 @@ struct ChooseScreenView: View {
                     .shadow(color: DesignSystem.Colors.shadowMedium, radius: 8, x: 0, y: 4)
                 
                 ZStack {
-                    // Magic particles
-                    ForEach(magicParticles) { particle in
-                        MagicParticleView(particle: particle)
-                    }
-                    
                     HStack(spacing: DesignSystem.Spacing.lg) {
                         // Bad product that dissolves
                         DissolvinProductView(
@@ -430,16 +423,16 @@ struct ChooseScreenView: View {
                         
                         // Magical transformation arrow
                         ZStack {
-                            // Wand effect
-                            Image(systemName: "wand.and.stars")
-                                .font(.system(size: 24, weight: .medium))
-                                .foregroundColor(DesignSystem.Colors.primaryRed)
+                            // Thumbs up effect
+                            Image(systemName: "hand.thumbsup.fill")
+                                .font(.system(size: 40, weight: .medium))
+                                .foregroundColor(Color.green)
                                 .rotationEffect(.degrees(arrowRotation))
                                 .opacity(goodProductOpacity)
                             
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                            Image(systemName: "hand.thumbsdown.fill")
+                                .font(.system(size: 40, weight: .medium))
+                                .foregroundColor(DesignSystem.Colors.error)
                                 .opacity(1 - goodProductOpacity)
                         }
                         
@@ -485,11 +478,6 @@ struct ChooseScreenView: View {
     }
     
     private func startChooseAnimations() {
-        // Generate magic particles
-        magicParticles = (0..<20).map { _ in
-            MagicParticle()
-        }
-        
         withAnimation(.easeInOut(duration: 0.8)) {
             contentOpacity = 1.0
         }
@@ -930,34 +918,20 @@ struct DissolvinProductView: View {
     let scale: CGFloat
     
     var body: some View {
-        ZStack {
-            // Dissolving particles
-            ForEach(0..<6, id: \.self) { index in
-                Circle()
-                    .fill(DesignSystem.Colors.primaryRed.opacity(0.3))
-                    .frame(width: 4, height: 4)
-                    .offset(
-                        x: opacity < 1 ? CGFloat(index * 4 - 10) : 0,
-                        y: opacity < 1 ? CGFloat((index % 3) * 8 - 12) : 0
-                    )
-                    .opacity(1 - opacity)
-            }
-            
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                .fill(DesignSystem.Colors.primaryRed.opacity(0.2))
-                .frame(width: 40, height: 50)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                        .stroke(DesignSystem.Colors.primaryRed, lineWidth: 2)
-                )
-                .overlay(
-                    Image(systemName: "xmark")
-                        .foregroundColor(DesignSystem.Colors.primaryRed)
-                        .font(.system(size: 16, weight: .bold))
-                )
-                .scaleEffect(scale)
-                .opacity(opacity)
-        }
+        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+            .fill(DesignSystem.Colors.primaryRed.opacity(0.2))
+            .frame(width: 80, height: 100)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                    .stroke(DesignSystem.Colors.primaryRed, lineWidth: 3)
+            )
+            .overlay(
+                Image(systemName: "xmark")
+                    .foregroundColor(DesignSystem.Colors.primaryRed)
+                    .font(.system(size: 32, weight: .bold))
+            )
+            .scaleEffect(scale)
+            .opacity(opacity)
     }
 }
 
@@ -966,41 +940,26 @@ struct MaterializingProductView: View {
     let scale: CGFloat
     
     var body: some View {
-        ZStack {
-            // Materializing sparkles
-            ForEach(0..<8, id: \.self) { index in
-                Image(systemName: "sparkle")
-                    .font(.system(size: 8))
-                    .foregroundColor(DesignSystem.Colors.primaryRed)
-                    .offset(
-                        x: cos(Double(index) * .pi / 4) * 25,
-                        y: sin(Double(index) * .pi / 4) * 25
-                    )
-                    .scaleEffect(opacity)
-                    .opacity(opacity > 0.5 ? 1 - opacity : opacity * 2)
-            }
-            
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                .fill(DesignSystem.Colors.background)
-                .frame(width: 40, height: 50)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                        .stroke(DesignSystem.Colors.primaryRed, lineWidth: 2)
-                )
-                .overlay(
-                    Image(systemName: "checkmark")
-                        .foregroundColor(DesignSystem.Colors.primaryRed)
-                        .font(.system(size: 16, weight: .bold))
-                )
-                .scaleEffect(scale)
-                .opacity(opacity)
-                .shadow(
-                    color: DesignSystem.Colors.primaryRed.opacity(opacity * 0.3),
-                    radius: 10,
-                    x: 0,
-                    y: 0
-                )
-        }
+        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+            .fill(DesignSystem.Colors.background)
+            .frame(width: 80, height: 100)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                    .stroke(Color.green, lineWidth: 3)
+            )
+            .overlay(
+                Image(systemName: "checkmark")
+                    .foregroundColor(Color.green)
+                    .font(.system(size: 32, weight: .bold))
+            )
+            .scaleEffect(scale)
+            .opacity(opacity)
+            .shadow(
+                color: Color.green.opacity(opacity * 0.3),
+                radius: 10,
+                x: 0,
+                y: 0
+            )
     }
 }
 
