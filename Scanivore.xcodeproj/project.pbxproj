@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		570E40392E13ADC2007B7099 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = 570E40382E13ADC2007B7098 /* ComposableArchitecture */; };
 		57417DA82E19CA8700D8782B /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 57417DA72E19CA8700D8782B /* Lottie */; };
-		57417DAA2E19CA8700D8782B /* Lottie-Dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = 57417DA92E19CA8700D8782B /* Lottie-Dynamic */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,7 +59,6 @@
 			files = (
 				570E40392E13ADC2007B7099 /* ComposableArchitecture in Frameworks */,
 				57417DA82E19CA8700D8782B /* Lottie in Frameworks */,
-				57417DAA2E19CA8700D8782B /* Lottie-Dynamic in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -123,7 +121,6 @@
 			packageProductDependencies = (
 				570E40382E13ADC2007B7098 /* ComposableArchitecture */,
 				57417DA72E19CA8700D8782B /* Lottie */,
-				57417DA92E19CA8700D8782B /* Lottie-Dynamic */,
 			);
 			productName = Scanivore;
 			productReference = 572FF01C2E105AA1003D1F3F /* Scanivore.app */;
@@ -645,11 +642,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 57417DA62E19CA8700D8782B /* XCRemoteSwiftPackageReference "lottie-ios" */;
 			productName = Lottie;
-		};
-		57417DA92E19CA8700D8782B /* Lottie-Dynamic */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 57417DA62E19CA8700D8782B /* XCRemoteSwiftPackageReference "lottie-ios" */;
-			productName = "Lottie-Dynamic";
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
