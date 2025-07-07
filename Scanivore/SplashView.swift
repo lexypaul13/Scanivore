@@ -9,7 +9,7 @@ import SwiftUI
 
 struct SplashView: View {
     @State private var showMainApp = false
-    private let transitionDelay: TimeInterval = 50
+    private let transitionDelay: TimeInterval = 5
 
     var body: some View {
         ZStack {
@@ -76,6 +76,7 @@ struct FoodIcon: View {
     let name: String
     let position: Position
     private let iconSize: CGFloat = 80
+    @State private var floatOffset: CGSize = .zero
 
     var body: some View {
         GeometryReader { geo in
@@ -86,6 +87,23 @@ struct FoodIcon: View {
                 .frame(width: iconSize, height: iconSize)
                 .foregroundColor(DesignSystem.Colors.primaryRed)
                 .position(iconPosition(in: geo.size))
+                .offset(floatOffset)
+                .onAppear {
+                    startFloatingAnimation()
+                }
+        }
+    }
+    
+    private func startFloatingAnimation() {
+        withAnimation(
+            .easeInOut(duration: Double.random(in: 2...4))
+            .repeatForever(autoreverses: true)
+            .delay(Double.random(in: 0...0.5))
+        ) {
+            floatOffset = CGSize(
+                width: Double.random(in: -15...15),
+                height: Double.random(in: -20...20)
+            )
         }
     }
 
