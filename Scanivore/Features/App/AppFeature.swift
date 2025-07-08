@@ -14,8 +14,10 @@ struct AppFeature {
     struct State: Equatable {
         var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: UserDefaultsKeys.hasCompletedOnboarding)
         var hasCompletedIntro = UserDefaults.standard.bool(forKey: UserDefaultsKeys.hasCompletedIntro)
+        var isLoggedIn = UserDefaults.standard.bool(forKey: UserDefaultsKeys.isLoggedIn)
         var selectedTab = 0
         var onboardingIntro = OnboardingIntroFeatureDomain.State()
+        var login = LoginFeatureDomain.State()
         var onboarding = OnboardingFeatureDomain.State()
         var scanner = ScannerFeatureDomain.State()
         var explore = ExploreFeatureDomain.State()
@@ -25,18 +27,23 @@ struct AppFeature {
             !hasCompletedIntro
         }
         
+        var showLogin: Bool {
+            hasCompletedIntro && !isLoggedIn
+        }
+        
         var showOnboarding: Bool {
-            hasCompletedIntro && !hasCompletedOnboarding
+            hasCompletedIntro && isLoggedIn && !hasCompletedOnboarding
         }
         
         var showMainApp: Bool {
-            hasCompletedIntro && hasCompletedOnboarding
+            hasCompletedIntro && isLoggedIn && hasCompletedOnboarding
         }
     }
     
     enum Action {
         case tabSelected(Int)
         case onboardingIntro(OnboardingIntroFeatureDomain.Action)
+        case login(LoginFeatureDomain.Action)
         case onboarding(OnboardingFeatureDomain.Action)
         case scanner(ScannerFeatureDomain.Action)
         case explore(ExploreFeatureDomain.Action)
@@ -46,6 +53,10 @@ struct AppFeature {
     var body: some ReducerOf<Self> {
         Scope(state: \.onboardingIntro, action: \.onboardingIntro) {
             OnboardingIntroFeatureDomain()
+        }
+        
+        Scope(state: \.login, action: \.login) {
+            LoginFeatureDomain()
         }
         
         Scope(state: \.onboarding, action: \.onboarding) {
@@ -71,12 +82,22 @@ struct AppFeature {
                 return .none
                 
             case .onboardingIntro(.delegate(.introCompleted)):
-                // Intro completed, save state and proceed to dietary preferences
+                // Intro completed, save state and proceed to login
                 state.hasCompletedIntro = true
                 UserDefaults.standard.set(true, forKey: UserDefaultsKeys.hasCompletedIntro)
                 return .none
                 
             case .onboardingIntro:
+                return .none
+                
+            case .login(.delegate(.navigateToCreateAccount)), .login(.delegate(.navigateToSignIn)):
+                // For now, we'll mark as logged in when either button is tapped
+                // In a real app, this would navigate to respective flows
+                state.isLoggedIn = true
+                UserDefaults.standard.set(true, forKey: UserDefaultsKeys.isLoggedIn)
+                return .none
+                
+            case .login:
                 return .none
                 
             case .onboarding(.delegate(.onboardingCompleted(let preferences))):

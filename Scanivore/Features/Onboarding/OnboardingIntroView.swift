@@ -557,7 +557,7 @@ struct PhoneScannerView: View {
                         
                         // Steak image with grid overlay
                         ZStack {
-                            Image("SteakIcon")
+                            Image("Scanivore_Logo")
                                 .resizable()
                                 .frame(width: 60, height: 60)
                             

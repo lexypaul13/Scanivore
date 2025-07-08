@@ -22,6 +22,11 @@ struct ContentView: View {
                         store: store.scope(state: \.onboardingIntro, action: \.onboardingIntro)
                     )
                     .transition(.move(edge: .trailing))
+                } else if store.showLogin {
+                    LoginView(
+                        store: store.scope(state: \.login, action: \.login)
+                    )
+                    .transition(.move(edge: .trailing))
                 } else if store.showOnboarding {
                     OnboardingView(
                         store: store.scope(state: \.onboarding, action: \.onboarding)

@@ -16,10 +16,20 @@ struct ScanivoreApp: App {
         AppFeature()
     }
     
+    init() {
+        // Uncomment to reset onboarding for testing
+        resetOnboarding()
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView(store: Self.store)
-            // SplashView() // Uncomment to test splash screen
         }
+    }
+    
+    private func resetOnboarding() {
+        UserDefaults.standard.set(false, forKey: UserDefaultsKeys.hasCompletedOnboarding)
+        UserDefaults.standard.set(false, forKey: UserDefaultsKeys.hasCompletedIntro)
+        UserDefaults.standard.set(false, forKey: UserDefaultsKeys.isLoggedIn)
     }
 }

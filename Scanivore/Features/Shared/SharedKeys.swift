@@ -12,6 +12,7 @@ import ComposableArchitecture
 enum UserDefaultsKeys {
     static let hasCompletedIntro = "hasCompletedIntro"
     static let hasCompletedOnboarding = "hasCompletedOnboarding"
+    static let isLoggedIn = "isLoggedIn"
     static let onboardingPreferences = "onboardingPreferences"
     static let enableNotifications = "enableNotifications"
     static let autoSaveScans = "autoSaveScans"
