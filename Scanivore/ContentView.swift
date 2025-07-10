@@ -27,6 +27,16 @@ struct ContentView: View {
                         store: store.scope(state: \.login, action: \.login)
                     )
                     .transition(.move(edge: .trailing))
+                } else if store.showCreateAccount {
+                    CreateAccountView(
+                        store: store.scope(state: \.createAccount, action: \.createAccount)
+                    )
+                    .transition(.move(edge: .trailing))
+                } else if store.showSignIn {
+                    SignInView(
+                        store: store.scope(state: \.signIn, action: \.signIn)
+                    )
+                    .transition(.move(edge: .trailing))
                 } else if store.showOnboarding {
                     OnboardingView(
                         store: store.scope(state: \.onboarding, action: \.onboarding)

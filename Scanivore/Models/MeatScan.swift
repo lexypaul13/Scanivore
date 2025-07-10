@@ -8,8 +8,8 @@
 import Foundation
 import SwiftUI
 
-struct MeatScan: Identifiable, Equatable {
-    let id = UUID()
+public struct MeatScan: Identifiable, Equatable {
+    public let id = UUID()
     let date: Date
     let image: String
     let meatType: MeatType
@@ -20,7 +20,7 @@ struct MeatScan: Identifiable, Equatable {
     let recommendations: [String]
 }
 
-enum MeatType: String, CaseIterable, Equatable {
+public enum MeatType: String, CaseIterable, Equatable {
     case beef = "Beef"
     case pork = "Pork"
     case chicken = "Chicken"
@@ -42,7 +42,7 @@ enum MeatType: String, CaseIterable, Equatable {
     }
 }
 
-struct QualityRating: Equatable {
+public struct QualityRating: Equatable {
     let score: Double // 0-100
     let grade: String // A+, A, B+, B, C
     
@@ -56,7 +56,7 @@ struct QualityRating: Equatable {
     }
 }
 
-enum FreshnessLevel: String, CaseIterable, Equatable {
+public enum FreshnessLevel: String, CaseIterable, Equatable {
     case fresh = "Fresh"
     case good = "Good"
     case acceptable = "Acceptable"
@@ -74,7 +74,7 @@ enum FreshnessLevel: String, CaseIterable, Equatable {
     }
 }
 
-struct NutritionInfo: Equatable {
+public struct NutritionInfo: Equatable {
     let calories: Int
     let protein: Double
     let fat: Double

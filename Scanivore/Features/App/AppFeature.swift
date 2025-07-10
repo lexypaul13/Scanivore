@@ -12,23 +12,49 @@ import ComposableArchitecture
 struct AppFeature {
     @ObservableState
     struct State: Equatable {
-        var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: UserDefaultsKeys.hasCompletedOnboarding)
-        var hasCompletedIntro = UserDefaults.standard.bool(forKey: UserDefaultsKeys.hasCompletedIntro)
-        var isLoggedIn = UserDefaults.standard.bool(forKey: UserDefaultsKeys.isLoggedIn)
+        var authState = AuthState.initial
+        var hasCompletedOnboarding: Bool {
+            authState.hasCompletedOnboarding
+        }
+        var hasCompletedIntro: Bool {
+            authState.hasCompletedIntro
+        }
+        var isLoggedIn: Bool {
+            authState.isLoggedIn
+        }
         var selectedTab = 0
         var onboardingIntro = OnboardingIntroFeatureDomain.State()
         var login = LoginFeatureDomain.State()
+        var createAccount = CreateAccountFeatureDomain.State()
+        var signIn = SignInFeatureDomain.State()
         var onboarding = OnboardingFeatureDomain.State()
         var scanner = ScannerFeatureDomain.State()
         var explore = ExploreFeatureDomain.State()
         var history = HistoryFeatureDomain.State()
+        
+        // Auth flow state
+        var authFlow: AuthFlow = .login
+        
+        enum AuthFlow {
+            case login
+            case createAccount
+            case signIn
+        }
         
         var showOnboardingIntro: Bool {
             !hasCompletedIntro
         }
         
         var showLogin: Bool {
-            hasCompletedIntro && !isLoggedIn
+            hasCompletedIntro && !isLoggedIn && authFlow == .login
+        }
+        
+        var showCreateAccount: Bool {
+            hasCompletedIntro && !isLoggedIn && authFlow == .createAccount
+        }
+        
+        var showSignIn: Bool {
+            hasCompletedIntro && !isLoggedIn && authFlow == .signIn
         }
         
         var showOnboarding: Bool {
@@ -41,9 +67,14 @@ struct AppFeature {
     }
     
     enum Action {
+        case appDidLaunch
+        case authStateLoaded(AuthState)
+        case resetOnboarding
         case tabSelected(Int)
         case onboardingIntro(OnboardingIntroFeatureDomain.Action)
         case login(LoginFeatureDomain.Action)
+        case createAccount(CreateAccountFeatureDomain.Action)
+        case signIn(SignInFeatureDomain.Action)
         case onboarding(OnboardingFeatureDomain.Action)
         case scanner(ScannerFeatureDomain.Action)
         case explore(ExploreFeatureDomain.Action)
@@ -57,6 +88,14 @@ struct AppFeature {
         
         Scope(state: \.login, action: \.login) {
             LoginFeatureDomain()
+        }
+        
+        Scope(state: \.createAccount, action: \.createAccount) {
+            CreateAccountFeatureDomain()
+        }
+        
+        Scope(state: \.signIn, action: \.signIn) {
+            SignInFeatureDomain()
         }
         
         Scope(state: \.onboarding, action: \.onboarding) {
@@ -77,33 +116,91 @@ struct AppFeature {
         
         Reduce { state, action in
             switch action {
+            case .appDidLaunch:
+                return .run { send in
+                    @Dependency(\.authState) var authState
+                    let loadedState = await authState.load()
+                    await send(.authStateLoaded(loadedState))
+                }
+                
+            case let .authStateLoaded(authState):
+                state.authState = authState
+                return .none
+                
+            case .resetOnboarding:
+                state.authState = AuthState.initial
+                return .run { _ in
+                    @Dependency(\.authState) var authState
+                    await authState.reset()
+                }
+                
             case let .tabSelected(tab):
                 state.selectedTab = tab
                 return .none
                 
             case .onboardingIntro(.delegate(.introCompleted)):
-                // Intro completed, save state and proceed to login
-                state.hasCompletedIntro = true
-                UserDefaults.standard.set(true, forKey: UserDefaultsKeys.hasCompletedIntro)
-                return .none
+                state.authState.hasCompletedIntro = true
+                return .run { _ in
+                    @Dependency(\.authState) var authState
+                    await authState.markIntroCompleted()
+                }
                 
             case .onboardingIntro:
                 return .none
                 
-            case .login(.delegate(.navigateToCreateAccount)), .login(.delegate(.navigateToSignIn)):
-                // For now, we'll mark as logged in when either button is tapped
-                // In a real app, this would navigate to respective flows
-                state.isLoggedIn = true
-                UserDefaults.standard.set(true, forKey: UserDefaultsKeys.isLoggedIn)
+            case .login(.delegate(.navigateToCreateAccount)):
+                state.authFlow = .createAccount
+                return .none
+                
+            case .login(.delegate(.navigateToSignIn)):
+                state.authFlow = .signIn
                 return .none
                 
             case .login:
                 return .none
                 
-            case .onboarding(.delegate(.onboardingCompleted(let preferences))):
-                // Onboarding is completed with preferences data
-                state.hasCompletedOnboarding = true
+            case .createAccount(.delegate(.accountCreated)):
+                state.authState.isLoggedIn = true
+                state.authFlow = .login
+                return .run { _ in
+                    @Dependency(\.authState) var authState
+                    await authState.markLoggedIn(true)
+                }
+                
+            case .createAccount(.delegate(.navigateBack)):
+                state.authFlow = .login
                 return .none
+                
+            case .createAccount:
+                return .none
+                
+            case .signIn(.delegate(.signedIn)):
+                state.authState.isLoggedIn = true
+                state.authFlow = .login
+                return .run { _ in
+                    @Dependency(\.authState) var authState
+                    await authState.markLoggedIn(true)
+                }
+                
+            case .signIn(.delegate(.navigateBack)):
+                state.authFlow = .login
+                return .none
+                
+            case .signIn(.delegate(.navigateToForgotPassword)):
+                // Handle forgot password flow (placeholder)
+                return .none
+                
+            case .signIn:
+                return .none
+                
+            case .onboarding(.delegate(.onboardingCompleted(let preferences))):
+                state.authState.hasCompletedOnboarding = true
+                return .run { _ in
+                    @Dependency(\.authState) var authState
+                    @Dependency(\.onboarding) var onboarding
+                    await authState.markOnboardingCompleted()
+                    await onboarding.save(preferences)
+                }
                 
             case .onboarding(.delegate(.onboardingCancelled)):
                 // Handle onboarding cancellation if needed

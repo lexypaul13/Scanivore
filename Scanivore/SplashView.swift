@@ -10,13 +10,13 @@ import SwiftUI
 struct SplashView: View {
     @State private var showMainApp = false
     private let transitionDelay: TimeInterval = 5
-
+    
     var body: some View {
         ZStack {
             // Background
             DesignSystem.Colors.background
                 .ignoresSafeArea()
-
+            
             // Subtle food icons around edges
             FoodIcon(name: "Steak_Icon", position: .topLeft)
             FoodIcon(name: "Bacon_Icon", position: .topRight)

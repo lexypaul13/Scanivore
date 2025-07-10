@@ -55,30 +55,26 @@ struct LottieViewRepresentable: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
         let view = UIView(frame: .zero)
         
-        do {
-            // Try to create the Lottie animation view safely
-            let animationView = Lottie.LottieAnimationView(name: animationName)
-            
-            // Check if animation loaded successfully
-            guard animationView.animation != nil else {
-                print("Warning: Lottie animation '\(animationName)' not found")
-                return view
-            }
-            
-            animationView.loopMode = loopMode
-            animationView.animationSpeed = animationSpeed
-            animationView.contentMode = contentMode
-            animationView.translatesAutoresizingMaskIntoConstraints = false
-            
-            view.addSubview(animationView)
-            
-            NSLayoutConstraint.activate([
-                animationView.heightAnchor.constraint(equalTo: view.heightAnchor),
-                animationView.widthAnchor.constraint(equalTo: view.widthAnchor)
-            ])
-        } catch {
-            print("Error creating Lottie animation: \(error)")
+        // Create the Lottie animation view
+        let animationView = Lottie.LottieAnimationView(name: animationName)
+        
+        // Check if animation loaded successfully
+        guard animationView.animation != nil else {
+            print("Warning: Lottie animation '\(animationName)' not found")
+            return view
         }
+        
+        animationView.loopMode = loopMode
+        animationView.animationSpeed = animationSpeed
+        animationView.contentMode = contentMode
+        animationView.translatesAutoresizingMaskIntoConstraints = false
+        
+        view.addSubview(animationView)
+        
+        NSLayoutConstraint.activate([
+            animationView.heightAnchor.constraint(equalTo: view.heightAnchor),
+            animationView.widthAnchor.constraint(equalTo: view.widthAnchor)
+        ])
         
         return view
     }

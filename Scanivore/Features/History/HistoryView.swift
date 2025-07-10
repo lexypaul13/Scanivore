@@ -15,7 +15,7 @@ struct HistoryFeatureDomain {
     struct State: Equatable {
         var searchText = ""
         var showingFilters = false
-        var scanHistory: [ProductRecommendation] = ProductRecommendation.mockRecommendations
+        var scanHistory: [ProductRecommendation] = []
         
         var filteredProducts: [ProductRecommendation] {
             let filtered = searchText.isEmpty 

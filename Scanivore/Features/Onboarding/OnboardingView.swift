@@ -110,10 +110,7 @@ struct OnboardingFeatureDomain {
                     // Save meat selection to preferences
                     state.preferences.preferredMeatTypes = selectedTypes
                     
-                    // Mark onboarding as complete and persist
-                    UserDefaults.standard.setOnboardingPreferences(state.preferences)
-                    UserDefaults.standard.set(true, forKey: UserDefaultsKeys.hasCompletedOnboarding)
-                    
+                    // Onboarding is complete - delegate will handle persistence
                     return .send(.delegate(.onboardingCompleted(state.preferences)))
                 }
                 

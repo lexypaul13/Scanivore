@@ -2,13 +2,20 @@
 //  SharedKeys.swift
 //  Scanivore
 //
-//  Shared state keys for TCA features - Simplified approach
+//  Legacy file - UserDefaults keys are now managed by TCA persistence clients
+//  This file is kept for migration purposes and will be removed in future versions
 //
 
 import Foundation
-import ComposableArchitecture
 
-// MARK: - UserDefaults Keys
+// MARK: - Deprecated UserDefaults Keys
+// These keys are now managed by TCA persistence clients:
+// - UserDefaultsClient for low-level key-value storage
+// - AuthStateClient for authentication state
+// - SettingsClient for app settings
+// - OnboardingClient for onboarding preferences
+
+@available(*, deprecated, message: "Use TCA persistence clients instead")
 enum UserDefaultsKeys {
     static let hasCompletedIntro = "hasCompletedIntro"
     static let hasCompletedOnboarding = "hasCompletedOnboarding"
@@ -18,24 +25,23 @@ enum UserDefaultsKeys {
     static let autoSaveScans = "autoSaveScans"
     static let useMetricUnits = "useMetricUnits"
     static let scanQuality = "scanQuality"
+    static let freshnessAlerts = "freshnessAlerts"
+    static let weeklyReports = "weeklyReports"
+    static let priceAlerts = "priceAlerts"
+    static let hasAuthToken = "has_auth_token"
 }
 
-// MARK: - UserDefaults Helper
-extension UserDefaults {
-    func setOnboardingPreferences(_ preferences: OnboardingPreferences?) {
-        if let preferences = preferences,
-           let data = try? JSONEncoder().encode(preferences) {
-            set(data, forKey: UserDefaultsKeys.onboardingPreferences)
-        } else {
-            removeObject(forKey: UserDefaultsKeys.onboardingPreferences)
-        }
-    }
-    
-    func getOnboardingPreferences() -> OnboardingPreferences? {
-        guard let data = data(forKey: UserDefaultsKeys.onboardingPreferences),
-              let preferences = try? JSONDecoder().decode(OnboardingPreferences.self, from: data) else {
-            return nil
-        }
-        return preferences
-    }
-} 
+// MARK: - Migration Notes
+// These keys and methods have been replaced by TCA persistence clients:
+//
+// 1. AuthState management: Use @Dependency(\.authState) 
+// 2. App settings: Use @Dependency(\.settings)
+// 3. Onboarding preferences: Use @Dependency(\.onboarding)
+// 4. Low-level UserDefaults: Use @Dependency(\.userDefaults)
+//
+// Benefits of TCA approach:
+// - Better testability with dependency injection
+// - Centralized state management
+// - Type-safe persistence
+// - Easier to mock for testing
+// - Follows TCA architectural patterns 

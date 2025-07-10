@@ -18,18 +18,17 @@ struct ScanivoreApp: App {
     
     init() {
         // Uncomment to reset onboarding for testing
-        resetOnboarding()
+        // resetOnboarding()
     }
     
     var body: some Scene {
         WindowGroup {
             ContentView(store: Self.store)
+                .onAppear {
+                    Self.store.send(.appDidLaunch)
+                    // Uncomment to reset onboarding for testing
+                    // Self.store.send(.resetOnboarding)
+                }
         }
-    }
-    
-    private func resetOnboarding() {
-        UserDefaults.standard.set(false, forKey: UserDefaultsKeys.hasCompletedOnboarding)
-        UserDefaults.standard.set(false, forKey: UserDefaultsKeys.hasCompletedIntro)
-        UserDefaults.standard.set(false, forKey: UserDefaultsKeys.isLoggedIn)
     }
 }

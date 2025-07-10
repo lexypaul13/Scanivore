@@ -60,6 +60,195 @@ extension APIClient: DependencyKey {
 }
 ```
 
+## TCA Network Client Pattern Cheat Sheet
+🏗️ The 4-Step Pattern
+### Step 1: Define the Client
+```swift
+@DependencyClient
+public struct [Name]Client: Sendable {
+    public var methodName: @Sendable (InputType) async throws -> OutputType
+}
+```
+
+### Step 2: Live Implementation
+```swift
+extension [Name]Client: DependencyKey {
+    public static let liveValue = [Name]Client(
+        methodName: { input in
+            @Dependency(\.httpClient) var httpClient
+            return try await httpClient.request(
+                json: input,
+                to: "api/path",
+                as: OutputType.self,
+                method: .post
+            )
+        }
+    )
+}
+```
+
+### Step 3: Register Dependency
+```swift
+extension DependencyValues {
+    public var [name]Client: [Name]Client {
+        get { self[[Name]Client.self] }
+        set { self[[Name]Client.self] = newValue }
+    }
+}
+```
+
+### Step 4: Test/Preview Values
+```swift
+// GET with path parameter
+httpClient.request(
+    json: EmptyRequestBody(), 
+    to: "users/\(id)", 
+    as: User.self, 
+    method: .get
+)
+
+// POST with body
+httpClient.request(
+    json: createUserRequest, 
+    to: "users", 
+    as: User.self, 
+    method: .post
+)
+
+// GraphQL
+graphQLClient.fetch(GetUsersQuery())
+
+// WebSocket
+webSocket.openAndObserve(id: socketID, decodingTo: Event.self)
+```
+
+## Complete Gateway Example
+```swift
+import Dependencies
+import FirebaseStorage
+import Foundation
+
+// MARK: - Gateway
+@DependencyClient
+public struct UserAccountGateway: Sendable {
+  public var fetchProfile:   @Sendable () async throws -> AccountDetails
+  public var encodeImage:    @Sendable (_ image: Image) async throws -> String
+  public var uploadAvatar:   @Sendable (_ image: Image, _ email: String) async throws -> Void
+  public var downloadAvatar: @Sendable (_ email: String) async throws -> String
+  public var removeAvatar:   @Sendable (_ email: String) async throws -> Void
+  public var refreshToken:   @Sendable () async throws -> EncodedJWT
+}
+
+// MARK: - Test & Preview
+extension UserAccountGateway: TestDependencyKey {
+  public static let testValue = Self()
+
+  public static let previewValue: Self = .init(
+    fetchProfile:  { .mock },
+    encodeImage:   { _ in "data:image/png;base64," },
+    uploadAvatar:  { _, _  in },
+    downloadAvatar:{ _ in "data:image/png;base64," },
+    removeAvatar:  { _ in },
+    refreshToken:  { "PREVIEW.JWT.TOKEN" }
+  )
+}
+
+extension AccountDetails {
+  static let mock = AccountDetails(
+    id: 1,
+    adminInfo: .init(
+      id: 1234,
+      username: "DemoUser",
+      firstName: "John",
+      middleName: "",
+      lastName: "Doe",
+      email: "demo@mock.com",
+      phoneNumber: "(800) 123-4567"
+    ),
+    accountInfo: .init(
+      id: 1,
+      accountObjectId: 99,
+      accountName: "Mock Account",
+      dealerName: "Mock Dealer",
+      dealerAccountId: 456,
+      subscriptionLevel: "Test",
+      facialIDValue: true,
+      accountFeatures: .init(isLPRByAvutecEnabled: true, isLPRByEEEnabled: true)
+    ),
+    accessibleAccounts: [ .init(id: 0, name: "Primary", requiresSSOLogin: false) ],
+    permissions: Set(Permission.allCases),
+    assignments: .init(
+      lockdowns: .init(
+        isAll: true,
+        lockdowns: Set(LockdownScenario.previewData.map(\.id))
+      )
+    )
+  )
+}
+
+// MARK: - Live Implementation
+extension UserAccountGateway {
+  public static let liveValue: Self = .init(
+    fetchProfile: {
+      @Dependency(\.httpClient) var http
+      struct DTO: Decodable { let data: AccountDetails }
+      return try await http
+        .get("https://api.example.com/users/me", decodingTo: DTO.self)
+        .data
+    },
+
+    encodeImage: { image in
+      @Dependency(\.imageCompressor) var compressor
+      let ui = await image.uiImage
+      guard let png = await compressor.compressImage(
+              ui, maxSize: .megabytes(2), outputType: .png)
+      else { return "" }
+      return "data:image/png;base64," + png.base64EncodedString()
+    },
+
+    uploadAvatar: { image, email in
+      let ref = Storage.storage().reference()
+        .child("example-bucket/\(email)/avatar")
+      guard let data = await image.uiImage.jpegData(compressionQuality: 0.5) else { return }
+      _ = try await ref.putDataAsync(data)
+    },
+
+    downloadAvatar: { email in
+      let ref = Storage.storage().reference()
+        .child("example-bucket/\(email)/avatar")
+      let blob = try await ref.data(maxSize: 2 * 1024 * 1024)
+      return "data:image/png;base64," + blob.base64EncodedString()
+    },
+
+    removeAvatar: { email in
+      let ref = Storage.storage().reference()
+        .child("example-bucket/\(email)/avatar")
+      try await ref.delete()
+    },
+
+    refreshToken: {
+      enum TokenError: Error { case missing }
+      return try await withDependencies {
+        @Shared(.accessToken)  var at
+        @Shared(.refreshToken) var rt
+        guard let at, let rt else { throw TokenError.missing }
+        $0.requestHeaders = [
+          HTTPField.Name("access_token")!: at.rawValue,
+          HTTPField.Name("refresh_token")!: rt.rawValue
+        ]
+      } operation: {
+        struct JWTResponse: Decodable { let jwt: String }
+        @Dependency(\.httpClient) var http
+        let jwt = try await http
+          .post("https://api.example.com/auth/refresh",
+                decodingTo: JWTResponse.self).jwt
+        return EncodedJWT(jwt)
+      }
+    }
+  )
+}
+```
+
 ## Effects & Side Effects
 - Use .run for all async operations
 - Wrap network calls in TaskResult

@@ -16,24 +16,40 @@ struct ExploreFeatureDomain {
         var searchText = ""
         var showingFilters = false
         var selectedMeatTypes: Set<MeatType> = []
-        var recommendations: [ProductRecommendation] = ProductRecommendation.mockRecommendations
+        var recommendations: IdentifiedArrayOf<ProductRecommendation> = []
         
-        var filteredRecommendations: [ProductRecommendation] {
+        // Pagination state
+        var isLoading = false
+        var isLoadingMore = false
+        var error: String?
+        var currentPage = 0
+        var hasMorePages = true
+        var totalItems = 0
+        
+        // Auto-refresh timer state
+        var timerActive = false
+        
+        // Computed properties
+        var canLoadMore: Bool {
+            !isLoadingMore && hasMorePages && currentPage < 3
+        }
+        
+        var filteredRecommendations: IdentifiedArrayOf<ProductRecommendation> {
             var filtered = recommendations
             
             // Simple search filter
             if !searchText.isEmpty {
-                filtered = filtered.filter { recommendation in
+                filtered = IdentifiedArrayOf(uniqueElements: filtered.filter { recommendation in
                     recommendation.name.localizedCaseInsensitiveContains(searchText) ||
                     recommendation.brand.localizedCaseInsensitiveContains(searchText)
-                }
+                })
             }
             
             // Simple meat type filter
             if !selectedMeatTypes.isEmpty {
-                filtered = filtered.filter { recommendation in
+                filtered = IdentifiedArrayOf(uniqueElements: filtered.filter { recommendation in
                     selectedMeatTypes.contains(recommendation.meatType)
-                }
+                })
             }
             
             return filtered
@@ -46,6 +62,22 @@ struct ExploreFeatureDomain {
         case filtersDismissed
         case meatTypeToggled(MeatType)
         case clearAllFilters
+        
+        // Recommendations loading
+        case onAppear
+        case loadRecommendations
+        case loadMoreRecommendations
+        case recommendationsResponse(TaskResult<ExploreResponse>)
+        case moreRecommendationsResponse(TaskResult<ExploreResponse>)
+        case pullToRefresh
+        
+        // Timer actions
+        case startAutoRefreshTimer
+        case stopAutoRefreshTimer
+        case timerTick
+        
+        // Helper actions
+        case ensureUserPreferences
     }
     
     var body: some ReducerOf<Self> {
@@ -74,6 +106,140 @@ struct ExploreFeatureDomain {
             case .clearAllFilters:
                 state.selectedMeatTypes.removeAll()
                 return .none
+                
+            case .onAppear:
+                guard state.recommendations.isEmpty else { return .none }
+                return .run { send in
+                    await send(.ensureUserPreferences)
+                    await send(.loadRecommendations)
+                }
+                
+            case .loadRecommendations:
+                state.isLoading = true
+                state.error = nil
+                state.currentPage = 0
+                state.hasMorePages = true
+                
+                return .run { send in
+                    await send(.recommendationsResponse(
+                        TaskResult {
+                            @Dependency(\.productGateway) var productGateway
+                            return try await productGateway.getRecommendations()
+                        }
+                    ))
+                }
+                .cancellable(id: "explore-recommendations")
+                
+            case .loadMoreRecommendations:
+                guard state.canLoadMore else { return .none }
+                
+                state.isLoadingMore = true
+                let nextPage = state.currentPage + 1
+                let offset = nextPage * 10
+                
+                return .run { send in
+                    await send(.moreRecommendationsResponse(
+                        TaskResult {
+                            @Dependency(\.productGateway) var productGateway
+                            return try await productGateway.getExploreRecommendations(offset, 10)
+                        }
+                    ))
+                }
+                
+            case let .recommendationsResponse(.success(response)):
+                state.isLoading = false
+                state.currentPage = 0
+                state.totalItems = response.totalMatches
+                state.hasMorePages = response.recommendations.count == 10 && state.totalItems > 10
+                
+                // Convert API response to app models
+                let newRecommendations = response.recommendations.map { item in
+                    ProductRecommendation.fromRecommendationItem(item)
+                }
+                state.recommendations = IdentifiedArrayOf(uniqueElements: newRecommendations)
+                
+                return .run { send in
+                    await send(.startAutoRefreshTimer)
+                }
+                
+            case let .recommendationsResponse(.failure(error)):
+                state.isLoading = false
+                state.error = error.localizedDescription
+                return .none
+                
+            case let .moreRecommendationsResponse(.success(response)):
+                state.isLoadingMore = false
+                state.currentPage += 1
+                state.hasMorePages = response.recommendations.count == 10 && 
+                                   (state.currentPage + 1) * 10 < state.totalItems &&
+                                   state.currentPage < 2  // Max 3 pages (0, 1, 2)
+                
+                // Convert and append new recommendations
+                let newRecommendations = response.recommendations.map { item in
+                    ProductRecommendation.fromRecommendationItem(item)
+                }
+                state.recommendations.append(contentsOf: newRecommendations)
+                
+                return .none
+                
+            case let .moreRecommendationsResponse(.failure(error)):
+                state.isLoadingMore = false
+                // Don't show error for pagination failure, just stop loading
+                return .none
+                
+            case .pullToRefresh:
+                return .run { send in
+                    await send(.loadRecommendations)
+                }
+                
+            case .startAutoRefreshTimer:
+                guard !state.timerActive else { return .none }
+                state.timerActive = true
+                return .run { send in
+                    @Dependency(\.continuousClock) var clock
+                    for await _ in clock.timer(interval: .seconds(3600)) {
+                        await send(.timerTick)
+                    }
+                }
+                .cancellable(id: "auto-refresh-timer")
+                
+            case .stopAutoRefreshTimer:
+                state.timerActive = false
+                return .cancel(id: "auto-refresh-timer")
+                
+            case .timerTick:
+                guard state.timerActive else { return .none }
+                return .run { send in
+                    await send(.loadRecommendations)
+                }
+                
+            case .ensureUserPreferences:
+                return .run { _ in
+                    @Dependency(\.userGateway) var userGateway
+                    
+                    do {
+                        let user = try? await userGateway.getProfile()
+                        
+                        if user?.preferences == nil {
+                            let defaultPreferences = UserPreferences(
+                                nutritionFocus: "balanced",
+                                avoidPreservatives: true,
+                                meatPreferences: ["chicken", "beef", "fish"],
+                                prefer_no_preservatives: true,
+                                prefer_antibiotic_free: true,
+                                prefer_organic_or_grass_fed: false,
+                                prefer_no_added_sugars: true,
+                                prefer_no_flavor_enhancers: true,
+                                prefer_reduced_sodium: false,
+                                preferred_meat_types: ["chicken", "beef", "fish"]
+                            )
+                            
+                            _ = try? await userGateway.updatePreferences(defaultPreferences)
+                        }
+                    } catch {
+                        // Silently handle preference setup errors
+                    }
+                }
             }
         }
     }
@@ -110,15 +276,88 @@ struct ExploreView: View {
                                     .foregroundColor(DesignSystem.Colors.textPrimary)
                                     .padding(.horizontal, DesignSystem.Spacing.screenPadding)
                                 
+                                // Loading state
+                                if store.isLoading && store.recommendations.isEmpty {
+                                    VStack {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle())
+                                            .scaleEffect(1.5)
+                                        Text("Loading recommendations...")
+                                            .font(DesignSystem.Typography.body)
+                                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                                            .padding(.top, DesignSystem.Spacing.md)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.top, 100)
+                                }
+                                
+                                // Error state
+                                else if let error = store.error, store.recommendations.isEmpty {
+                                    VStack(spacing: DesignSystem.Spacing.md) {
+                                        Image(systemName: "exclamationmark.triangle")
+                                            .font(.system(size: 50))
+                                            .foregroundColor(DesignSystem.Colors.error)
+                                        Text("Failed to load recommendations")
+                                            .font(DesignSystem.Typography.bodyMedium)
+                                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                                        Text(error)
+                                            .font(DesignSystem.Typography.caption)
+                                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                                            .multilineTextAlignment(.center)
+                                        Button("Try Again") {
+                                            store.send(.loadRecommendations)
+                                        }
+                                        .font(DesignSystem.Typography.bodyMedium)
+                                        .foregroundColor(DesignSystem.Colors.primaryRed)
+                                        .padding(.top)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.horizontal, DesignSystem.Spacing.xl)
+                                    .padding(.top, 100)
+                                }
+                                
                                 // Product Grid
-                                VStack(spacing: DesignSystem.Spacing.lg) {
-                                    ForEach(store.filteredRecommendations) { recommendation in
-                                        ProductRecommendationCard(recommendation: recommendation)
-                                            .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+                                else {
+                                    VStack(spacing: DesignSystem.Spacing.lg) {
+                                        ForEach(store.filteredRecommendations) { recommendation in
+                                            ProductRecommendationCard(recommendation: recommendation)
+                                                .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+                                                .onAppear {
+                                                    let isNearEnd = store.filteredRecommendations.suffix(3).contains(recommendation)
+                                                    if isNearEnd {
+                                                        store.send(.loadMoreRecommendations)
+                                                    }
+                                                }
+                                        }
+                                        
+                                        // Loading more indicator
+                                        if store.isLoadingMore {
+                                            HStack {
+                                                ProgressView()
+                                                    .progressViewStyle(CircularProgressViewStyle())
+                                                Text("Loading more...")
+                                                    .font(DesignSystem.Typography.caption)
+                                                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, DesignSystem.Spacing.lg)
+                                        }
+                                        
+                                        // End of list message
+                                        else if !store.hasMorePages && !store.recommendations.isEmpty {
+                                            Text("That's all for now!")
+                                                .font(DesignSystem.Typography.caption)
+                                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                                                .frame(maxWidth: .infinity)
+                                                .padding(.vertical, DesignSystem.Spacing.lg)
+                                        }
                                     }
                                 }
                             }
                             .padding(.vertical, DesignSystem.Spacing.base)
+                        }
+                        .refreshable {
+                            await store.send(.pullToRefresh).finish()
                         }
                     }
                 }
@@ -139,6 +378,12 @@ struct ExploreView: View {
                     set: { _ in store.send(.filtersDismissed) }
                 )) {
                     MeatTypeFilterView(store: store)
+                }
+                .onAppear {
+                    store.send(.onAppear)
+                }
+                .onDisappear {
+                    store.send(.stopAutoRefreshTimer)
                 }
             }
         }
@@ -179,14 +424,44 @@ struct ProductRecommendationCard: View {
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.base) {
             // Product Image
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                .fill(DesignSystem.Colors.backgroundSecondary)
-                .frame(width: 120, height: 120)
-                .overlay(
-                    Image(systemName: "photo")
-                        .font(.system(size: 40))
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                )
+            ZStack {
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                    .fill(DesignSystem.Colors.backgroundSecondary)
+                    .frame(width: 120, height: 120)
+                
+                if let imageUrl = recommendation.imageUrl, !imageUrl.isEmpty, let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 120, height: 120)
+                                .clipped()
+                                .cornerRadius(DesignSystem.CornerRadius.md)
+                        case .failure(_):
+                            // Show placeholder when image fails to load
+                            PlaceholderImage()
+                        case .empty:
+                            ProgressView()
+                                .frame(width: 120, height: 120)
+                        @unknown default:
+                            PlaceholderImage()
+                        }
+                    }
+                } else if let imageData = recommendation.imageData,
+                          let data = Data(base64Encoded: imageData),
+                          let uiImage = UIImage(data: data) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 120, height: 120)
+                        .clipped()
+                        .cornerRadius(DesignSystem.CornerRadius.md)
+                } else {
+                    PlaceholderImage()
+                }
+            }
             
             // Product Info
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
@@ -328,13 +603,59 @@ struct MeatTypeFilterView: View {
 
 // MARK: - Data Models
 struct ProductRecommendation: Identifiable, Equatable {
-    let id = UUID()
+    let id: String
     let name: String
     let brand: String
-    let image: String
+    let imageUrl: String?
+    let imageData: String?
     let meatType: MeatType
     let qualityRating: QualityLevel
     let isRecommended: Bool
+    let matchReasons: [String]
+    let concerns: [String]
+    
+    // Convert from API model
+    static func fromRecommendationItem(_ item: RecommendationItem) -> ProductRecommendation {
+        let riskRating = item.product.risk_rating ?? "Green"
+        
+        return ProductRecommendation(
+            id: item.product.code,
+            name: item.product.name ?? "Unknown Product",
+            brand: item.product.brand ?? "Unknown Brand",
+            imageUrl: item.product.image_url,
+            imageData: item.product.image_data,
+            meatType: determineMeatType(from: item.product),
+            qualityRating: mapRiskRatingToQuality(riskRating),
+            isRecommended: item.matchDetails.concerns.isEmpty,
+            matchReasons: item.matchDetails.matches,
+            concerns: item.matchDetails.concerns
+        )
+    }
+    
+    static func determineMeatType(from product: Product) -> MeatType {
+        let name = (product.name ?? "").lowercased()
+        let categories = product.categories?.joined(separator: " ").lowercased() ?? ""
+        let combined = name + " " + categories
+        
+        if combined.contains("chicken") { return .chicken }
+        if combined.contains("beef") || combined.contains("steak") { return .beef }
+        if combined.contains("pork") || combined.contains("bacon") { return .pork }
+        if combined.contains("turkey") { return .turkey }
+        if combined.contains("lamb") { return .lamb }
+        if combined.contains("fish") || combined.contains("salmon") { return .fish }
+        
+        return .beef // Default
+    }
+    
+    static func mapRiskRatingToQuality(_ rating: String) -> QualityLevel {
+        switch rating.lowercased() {
+        case "green": return .excellent
+        case "yellow": return .good
+        case "orange": return .poor
+        case "red": return .bad
+        default: return .good
+        }
+    }
 }
 
 enum QualityLevel: Equatable {
@@ -362,83 +683,28 @@ enum QualityLevel: Equatable {
     }
 }
 
-// MARK: - Mock Data
-extension ProductRecommendation {
-    static let mockRecommendations: [ProductRecommendation] = [
-        ProductRecommendation(
-            name: "Sliced Oven Roasted Turkey Breast",
-            brand: "Kirkland Signature",
-            image: "turkey1",
-            meatType: .turkey,
-            qualityRating: .poor,
-            isRecommended: false
-        ),
-        ProductRecommendation(
-            name: "Organic Roasted Turkey Breast",
-            brand: "Dietz & Watson",
-            image: "turkey2",
-            meatType: .turkey,
-            qualityRating: .excellent,
-            isRecommended: true
-        ),
-        ProductRecommendation(
-            name: "Jamaican Style Beef Patties",
-            brand: "Caribbean Food Delights",
-            image: "beef1",
-            meatType: .beef,
-            qualityRating: .bad,
-            isRecommended: false
-        ),
-        ProductRecommendation(
-            name: "Beef and Vegetables Empanadas",
-            brand: "Maspanadas",
-            image: "beef2",
-            meatType: .beef,
-            qualityRating: .excellent,
-            isRecommended: true
-        ),
-        ProductRecommendation(
-            name: "Premium Grass-Fed Ribeye",
-            brand: "Whole Foods Market",
-            image: "beef3",
-            meatType: .beef,
-            qualityRating: .excellent,
-            isRecommended: true
-        ),
-        ProductRecommendation(
-            name: "Organic Free-Range Chicken Breast",
-            brand: "Nature's Promise",
-            image: "chicken1",
-            meatType: .chicken,
-            qualityRating: .good,
-            isRecommended: true
-        ),
-        ProductRecommendation(
-            name: "Heritage Pork Chops",
-            brand: "Local Farms",
-            image: "pork1",
-            meatType: .pork,
-            qualityRating: .good,
-            isRecommended: true
-        ),
-        ProductRecommendation(
-            name: "Wild-Caught Salmon Fillets",
-            brand: "Pacific Seafood",
-            image: "fish1",
-            meatType: .fish,
-            qualityRating: .excellent,
-            isRecommended: true
-        ),
-        ProductRecommendation(
-            name: "New Zealand Lamb Chops",
-            brand: "Silver Fern Farms",
-            image: "lamb1",
-            meatType: .lamb,
-            qualityRating: .excellent,
-            isRecommended: true
-        )
-    ]
+// MARK: - Placeholder Image Component
+struct PlaceholderImage: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                .fill(DesignSystem.Colors.backgroundSecondary)
+                .frame(width: 120, height: 120)
+            
+            VStack(spacing: DesignSystem.Spacing.xs) {
+                Image(systemName: "photo")
+                    .font(.system(size: 30))
+                    .foregroundColor(DesignSystem.Colors.textSecondary.opacity(0.6))
+                
+                Text("No Image")
+                    .font(DesignSystem.Typography.bodyMedium)
+                    .foregroundColor(DesignSystem.Colors.textSecondary.opacity(0.8))
+            }
+        }
+        .frame(width: 120, height: 120)
+    }
 }
+
 
 #Preview {
     ExploreView(

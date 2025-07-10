@@ -8,17 +8,35 @@
 import Foundation
 import SwiftUI
 
-struct OnboardingPreferences: Codable, Equatable {
-    var avoidPreservatives: Bool?
-    var antibioticFree: Bool?
-    var preferOrganic: Bool?
-    var avoidSugars: Bool?
-    var avoidMSG: Bool?
-    var lowerSodium: Bool?
-    var preferredMeatTypes: Set<MeatType> = []
+public struct OnboardingPreferences: Codable, Equatable {
+    public var avoidPreservatives: Bool?
+    public var antibioticFree: Bool?
+    public var preferOrganic: Bool?
+    public var avoidSugars: Bool?
+    public var avoidMSG: Bool?
+    public var lowerSodium: Bool?
+    public var preferredMeatTypes: Set<MeatType> = []
+    
+    public init(
+        avoidPreservatives: Bool? = nil,
+        antibioticFree: Bool? = nil,
+        preferOrganic: Bool? = nil,
+        avoidSugars: Bool? = nil,
+        avoidMSG: Bool? = nil,
+        lowerSodium: Bool? = nil,
+        preferredMeatTypes: Set<MeatType> = []
+    ) {
+        self.avoidPreservatives = avoidPreservatives
+        self.antibioticFree = antibioticFree
+        self.preferOrganic = preferOrganic
+        self.avoidSugars = avoidSugars
+        self.avoidMSG = avoidMSG
+        self.lowerSodium = lowerSodium
+        self.preferredMeatTypes = preferredMeatTypes
+    }
     
     // Check if onboarding is complete
-    var isComplete: Bool {
+    public var isComplete: Bool {
         // All questions must be answered
         return avoidPreservatives != nil &&
                antibioticFree != nil &&

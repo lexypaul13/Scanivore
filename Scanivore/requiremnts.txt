@@ -1,1 +1,60 @@
  
+## Assets in Assets.xcassets
+
+• Scanivore\_Logo
+• Steak\_Icon
+• Bacon\_Icon
+• Fish\_Icon
+• Cheese\_Icon
+• Eggs\_icon
+
+## Design tokens
+Use colours straight from the  design system already included in the project:
+• brandRed, brandWhite for logo and accents
+• appBackground (or whatever key you use) for the splash backdrop
+
+## Goal
+
+Generate SplashView\.swift (iPhone) that mimics the Sift-style layout:
+
+1. Background
+   • Fill safe-area with the app’s default background colour (no hard-coded hex).
+
+2. Central logo + captions
+   • Centre **Scanivore\_Logo** at 180 × 180 pt.
+   • 12 pt below the logo: **App name “Scanivore”** — SF Pro Bold 24 pt, colour `brandRed`.
+   • 8 pt below the app name: **Welcome caption** — white text, SF Pro Semibold 17 pt, e.g. “Welcome! Scan any animal product”.
+   • 24 pt below the welcome caption: supporting tagline (optional) — white text, SF Pro Regular 15 pt, e.g. “Know what’s in your meat & dairy”.
+
+3. Edge decorations
+   • Five icons, partly off-screen:
+   UL — Steak\_Icon
+   UR — Bacon\_Icon
+   LR — Fish\_Icon
+   LL — Cheese\_Icon
+   Top‑centre — Eggs\_icon
+   • Each 120 × 120 pt, rotation ±8°, opacity 0.8.
+   Edge decorations
+   • Five icons, partly off-screen:
+   UL — Steak\_Icon
+   UR — Bacon\_Icon
+   LR — Fish\_Icon
+   LL — Cheese\_Icon
+   Top-centre — Eggs\_icon
+   • Each 120 × 120 pt, rotation ±8°, opacity 0.8.
+
+4. Subtle motion
+   • On appear, each icon drifts 4 pt on a 6 s sine loop (autoreverse).
+
+5. Auto-transition
+   • After 3 s, fade out and present MainAppView() via .transition(.opacity).
+
+## Code style
+
+• One self-contained SwiftUI file (SplashView\.swift) with helper structs.
+• Use colour look-ups like `Color("brandRed")` / `Color("brandWhite")` rather than literals.
+• No external libraries.
+
+## Output
+
+Return only the code block for **SplashView\.swift** (ready to paste into Xcode).

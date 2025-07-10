@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		570E40392E13ADC2007B7099 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = 570E40382E13ADC2007B7098 /* ComposableArchitecture */; };
 		57417DA82E19CA8700D8782B /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 57417DA72E19CA8700D8782B /* Lottie */; };
+		577715692E1CCC65008C4268 /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 577715682E1CCC65008C4268 /* Alamofire */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +58,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				577715692E1CCC65008C4268 /* Alamofire in Frameworks */,
 				570E40392E13ADC2007B7099 /* ComposableArchitecture in Frameworks */,
 				57417DA82E19CA8700D8782B /* Lottie in Frameworks */,
 			);
@@ -121,6 +123,7 @@
 			packageProductDependencies = (
 				570E40382E13ADC2007B7098 /* ComposableArchitecture */,
 				57417DA72E19CA8700D8782B /* Lottie */,
+				577715682E1CCC65008C4268 /* Alamofire */,
 			);
 			productName = Scanivore;
 			productReference = 572FF01C2E105AA1003D1F3F /* Scanivore.app */;
@@ -207,6 +210,7 @@
 			packageReferences = (
 				570E40372E13ADC2007B7098 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */,
 				57417DA62E19CA8700D8782B /* XCRemoteSwiftPackageReference "lottie-ios" */,
+				577715672E1CCC65008C4268 /* XCRemoteSwiftPackageReference "Alamofire" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 572FF01D2E105AA1003D1F3F /* Products */;
@@ -630,6 +634,14 @@
 				minimumVersion = 4.5.2;
 			};
 		};
+		577715672E1CCC65008C4268 /* XCRemoteSwiftPackageReference "Alamofire" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Alamofire/Alamofire.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.10.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -642,6 +654,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 57417DA62E19CA8700D8782B /* XCRemoteSwiftPackageReference "lottie-ios" */;
 			productName = Lottie;
+		};
+		577715682E1CCC65008C4268 /* Alamofire */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 577715672E1CCC65008C4268 /* XCRemoteSwiftPackageReference "Alamofire" */;
+			productName = Alamofire;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
