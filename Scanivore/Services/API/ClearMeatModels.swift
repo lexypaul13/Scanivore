@@ -8,7 +8,7 @@
 import Foundation
 
 // MARK: - Authentication Models
-public struct AuthRequest: Codable {
+public struct AuthRequest: Codable, Equatable {
     let email: String
     let password: String
     let fullName: String?
@@ -19,7 +19,7 @@ public struct AuthRequest: Codable {
     }
 }
 
-public struct AuthResponse: Codable {
+public struct AuthResponse: Codable, Equatable {
     let accessToken: String
     let tokenType: String
     let message: String?
@@ -32,8 +32,8 @@ public struct AuthResponse: Codable {
 }
 
 // MARK: - Product Models
-public struct Product: Codable {
-    let code: String
+public struct Product: Codable, Equatable {
+    let code: String?
     let name: String?
     let brand: String?
     let categories: [String]?
@@ -50,7 +50,7 @@ public struct Product: Codable {
     }
 }
 
-public struct NutritionFacts: Codable {
+public struct NutritionFacts: Codable, Equatable {
     let servingSize: String?
     let calories: Double?
     let totalFat: Double?
@@ -76,33 +76,56 @@ public struct NutritionFacts: Codable {
 }
 
 // MARK: - Health Assessment Models
-public struct HealthAssessmentResponse: Codable {
+public struct HealthAssessmentResponse: Codable, Equatable {
     let summary: String
-    let riskSummary: RiskSummary
-    let ingredientsAssessment: IngredientsAssessment
-    let nutritionInsights: [NutritionInsight]
-    let citations: [Citation]
+    let grade: String?
+    let color: String?
+    let highRisk: [IngredientRisk]?
+    let moderateRisk: [IngredientRisk]?
+    let lowRisk: [IngredientRisk]?
+    let nutrition: [NutritionInsight]?
+    let citations: [Citation]?
     let lastUpdated: String?
+    
+    // Computed properties for backward compatibility
+    var riskSummary: RiskSummary? {
+        return RiskSummary(grade: grade, color: color, score: nil)
+    }
+    
+    var ingredientsAssessment: IngredientsAssessment? {
+        return IngredientsAssessment(
+            highRisk: highRisk,
+            moderateRisk: moderateRisk,
+            lowRisk: lowRisk
+        )
+    }
+    
+    var nutritionInsights: [NutritionInsight]? {
+        return nutrition
+    }
     
     enum CodingKeys: String, CodingKey {
         case summary
-        case riskSummary = "risk_summary"
-        case ingredientsAssessment = "ingredients_assessment"
-        case nutritionInsights = "nutrition_insights"
+        case grade
+        case color
+        case highRisk = "high_risk"
+        case moderateRisk = "moderate_risk"
+        case lowRisk = "low_risk"
+        case nutrition
         case citations
         case lastUpdated = "last_updated"
     }
 }
 
-public struct RiskSummary: Codable {
-    let grade: String
-    let color: String
+public struct RiskSummary: Codable, Equatable {
+    let grade: String?
+    let color: String?
     let score: Double?
 }
 
-public struct IngredientsAssessment: Codable {
-    let highRisk: [IngredientRisk]
-    let moderateRisk: [IngredientRisk]
+public struct IngredientsAssessment: Codable, Equatable {
+    let highRisk: [IngredientRisk]?
+    let moderateRisk: [IngredientRisk]?
     let lowRisk: [IngredientRisk]?
     
     enum CodingKeys: String, CodingKey {
@@ -112,35 +135,51 @@ public struct IngredientsAssessment: Codable {
     }
 }
 
-public struct IngredientRisk: Codable {
+public struct IngredientRisk: Codable, Equatable {
     let name: String
-    let microReport: String
+    let risk: String
     let riskLevel: String?
+    
+    // Computed property for backward compatibility
+    var microReport: String {
+        return risk
+    }
     
     enum CodingKeys: String, CodingKey {
         case name
-        case microReport = "micro_report"
+        case risk
         case riskLevel = "risk_level"
     }
 }
 
-public struct NutritionInsight: Codable {
+public struct NutritionInsight: Codable, Equatable {
     let nutrient: String
-    let amountPerServing: String
-    let evaluation: String
+    let amount: String
+    let eval: String
+    let comment: String?
     let dailyValue: String?
     let recommendation: String?
     
+    // Computed properties for backward compatibility
+    var amountPerServing: String {
+        return amount
+    }
+    
+    var evaluation: String {
+        return eval
+    }
+    
     enum CodingKeys: String, CodingKey {
         case nutrient
-        case amountPerServing = "amount_per_serving"
-        case evaluation
+        case amount
+        case eval
+        case comment
         case dailyValue = "daily_value"
         case recommendation
     }
 }
 
-public struct Citation: Codable {
+public struct Citation: Codable, Equatable {
     let id: Int
     let title: String
     let authors: String?
@@ -151,7 +190,7 @@ public struct Citation: Codable {
 }
 
 // MARK: - User Models
-public struct User: Codable {
+public struct User: Codable, Equatable {
     let id: String
     let email: String
     let fullName: String?
@@ -166,7 +205,7 @@ public struct User: Codable {
     }
 }
 
-public struct UserPreferences: Codable {
+public struct UserPreferences: Codable, Equatable {
     let nutritionFocus: String?
     let avoidPreservatives: Bool?
     let meatPreferences: [String]?
@@ -219,7 +258,7 @@ public struct UserPreferences: Codable {
 }
 
 // MARK: - API Error Models
-public struct APIError: Codable, Error {
+public struct APIError: Codable, Equatable, Error {
     let detail: String
     let statusCode: Int?
     
@@ -230,7 +269,7 @@ public struct APIError: Codable, Error {
 }
 
 // MARK: - Explore/Recommendations Models
-public struct ExploreResponse: Codable {
+public struct ExploreResponse: Codable, Equatable {
     let recommendations: [RecommendationItem]
     let totalMatches: Int
     
@@ -240,7 +279,7 @@ public struct ExploreResponse: Codable {
     }
 }
 
-public struct RecommendationItem: Codable {
+public struct RecommendationItem: Codable, Equatable {
     let product: Product
     let matchDetails: MatchDetails
     let matchScore: Double?
@@ -252,7 +291,7 @@ public struct RecommendationItem: Codable {
     }
 }
 
-public struct MatchDetails: Codable {
+public struct MatchDetails: Codable, Equatable {
     let matches: [String]
     let concerns: [String]
 }
@@ -262,11 +301,12 @@ public extension HealthAssessmentResponse {
     /// Convert API response to app's MeatScan model
     func toMeatScan(barcode: String) -> MeatScan {
         let meatType = determineMeatType(from: summary)
+        let grade = riskSummary?.grade ?? "C"
         let quality = QualityRating(
-            score: riskSummary.score ?? gradeToScore(riskSummary.grade),
-            grade: riskSummary.grade
+            score: riskSummary?.score ?? gradeToScore(grade),
+            grade: grade
         )
-        let freshness = determineFreshness(from: riskSummary.grade)
+        let freshness = determineFreshness(from: grade)
         let nutrition = extractNutritionInfo()
         let warnings = extractWarnings()
         let recommendations = extractRecommendations()
@@ -329,24 +369,26 @@ public extension HealthAssessmentResponse {
         var cholesterol = 0
         var sodium = 0
         
-        for insight in nutritionInsights {
-            let amount = extractNumericValue(from: insight.amountPerServing)
-            
-            switch insight.nutrient.lowercased() {
-            case "calories", "energy":
-                calories = Int(amount)
-            case "protein":
-                protein = amount
-            case "total fat", "fat":
-                fat = amount
-            case "saturated fat":
-                saturatedFat = amount
-            case "cholesterol":
-                cholesterol = Int(amount)
-            case "sodium", "salt":
-                sodium = Int(amount)
-            default:
-                break
+        if let insights = nutritionInsights {
+            for insight in insights {
+                let amount = extractNumericValue(from: insight.amountPerServing)
+                
+                switch insight.nutrient.lowercased() {
+                case "calories", "energy":
+                    calories = Int(amount)
+                case "protein":
+                    protein = amount
+                case "total fat", "fat":
+                    fat = amount
+                case "saturated fat":
+                    saturatedFat = amount
+                case "cholesterol":
+                    cholesterol = Int(amount)
+                case "sodium", "salt":
+                    sodium = Int(amount)
+                default:
+                    break
+                }
             }
         }
         
@@ -373,14 +415,18 @@ public extension HealthAssessmentResponse {
     private func extractWarnings() -> [String] {
         var warnings: [String] = []
         
-        // Add warnings from high-risk ingredients
-        for ingredient in ingredientsAssessment.highRisk {
-            warnings.append("⚠️ \(ingredient.name): \(ingredient.microReport)")
-        }
-        
-        // Add warnings from moderate-risk ingredients if there are many
-        if ingredientsAssessment.moderateRisk.count > 3 {
-            warnings.append("⚠️ Contains multiple ingredients requiring attention")
+        if let ingredientsAssessment = ingredientsAssessment {
+            // Add warnings from high-risk ingredients
+            if let highRisk = ingredientsAssessment.highRisk {
+                for ingredient in highRisk {
+                    warnings.append("⚠️ \(ingredient.name): \(ingredient.microReport)")
+                }
+            }
+            
+            // Add warnings from moderate-risk ingredients if there are many
+            if let moderateRisk = ingredientsAssessment.moderateRisk, moderateRisk.count > 3 {
+                warnings.append("⚠️ Contains multiple ingredients requiring attention")
+            }
         }
         
         return warnings
@@ -393,9 +439,11 @@ public extension HealthAssessmentResponse {
         recommendations.append(summary)
         
         // Add specific nutrition recommendations
-        for insight in nutritionInsights.prefix(2) {
-            if let recommendation = insight.recommendation {
-                recommendations.append("💡 \(recommendation)")
+        if let insights = nutritionInsights {
+            for insight in insights.prefix(2) {
+                if let recommendation = insight.recommendation {
+                    recommendations.append("💡 \(recommendation)")
+                }
             }
         }
         

@@ -26,29 +26,55 @@ extension ProductGateway: DependencyKey {
     public static let liveValue: Self = .init(
         getProduct: { barcode in
             let headers = try await createAuthHeaders()
+            let url = "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)"
             
-            return try await AF.request(
-                "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)",
+            print("🔍 Fetching basic product for barcode: \(barcode)")
+            print("🌐 URL: \(url)")
+            
+            let response = try await AF.request(
+                url,
                 method: .get,
                 headers: headers
             )
             .validate()
-            .serializingDecodable(Product.self)
+            .serializingData()
             .value
+            
+            // Log the raw response for debugging
+            if let responseString = String(data: response, encoding: .utf8) {
+                print("📄 Raw product response: \(responseString)")
+            }
+            
+            // Try to decode
+            let decoder = JSONDecoder()
+            return try decoder.decode(Product.self, from: response)
         },
         
         getHealthAssessment: { barcode in
             let headers = try await createAuthHeaders()
+            let url = "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)/health-assessment-mcp"
             
-            return try await AF.request(
-                "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)/health-assessment-mcp",
+            print("🔍 Fetching health assessment for barcode: \(barcode)")
+            print("🌐 URL: \(url)")
+            
+            let response = try await AF.request(
+                url,
                 method: .get,
                 parameters: ["format": "mobile"],
                 headers: headers
             )
             .validate()
-            .serializingDecodable(HealthAssessmentResponse.self)
+            .serializingData()
             .value
+            
+            // Log the raw response for debugging
+            if let responseString = String(data: response, encoding: .utf8) {
+                print("📄 Raw health assessment response: \(responseString)")
+            }
+            
+            // Try to decode
+            let decoder = JSONDecoder()
+            return try decoder.decode(HealthAssessmentResponse.self, from: response)
         },
         
         getMeatScanFromBarcode: { barcode in
@@ -188,41 +214,62 @@ extension Product {
 
 extension HealthAssessmentResponse {
     static let mockHealthAssessment = HealthAssessmentResponse(
-        summary: "This is a high-quality beef product with excellent nutritional profile. Rich in protein and essential nutrients.",
-        riskSummary: RiskSummary(grade: "A", color: "Green", score: 92),
-        ingredientsAssessment: IngredientsAssessment(
-            highRisk: [],
-            moderateRisk: [
-                IngredientRisk(name: "Salt", microReport: "Moderate sodium content. Consider portion control.", riskLevel: "moderate")
-            ],
-            lowRisk: [
-                IngredientRisk(name: "Beef", microReport: "High-quality protein source", riskLevel: "low")
-            ]
-        ),
-        nutritionInsights: [
+        summary: "This Ground Turkey contains high-risk preservatives requiring caution. Moderate consumption recommended.",
+        grade: "C",
+        color: "Yellow",
+        highRisk: [
+            IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", riskLevel: "high")
+        ],
+        moderateRisk: [
+            IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", riskLevel: "moderate"),
+            IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", riskLevel: "moderate")
+        ],
+        lowRisk: [
+            IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", riskLevel: "low"),
+            IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", riskLevel: "low")
+        ],
+        nutrition: [
             NutritionInsight(
                 nutrient: "Protein",
-                amountPerServing: "26g",
-                evaluation: "excellent",
-                dailyValue: "52%",
-                recommendation: "Great source of complete protein"
+                amount: "22g",
+                eval: "excellent",
+                comment: "Great source of lean protein",
+                dailyValue: "44%",
+                recommendation: "Great source of lean protein"
+            ),
+            NutritionInsight(
+                nutrient: "Calories",
+                amount: "120",
+                eval: "good",
+                comment: "Low calorie option for weight management",
+                dailyValue: "6%",
+                recommendation: "Low calorie option for weight management"
+            ),
+            NutritionInsight(
+                nutrient: "Fat",
+                amount: "8g",
+                eval: "moderate",
+                comment: "Moderate fat content",
+                dailyValue: "12%",
+                recommendation: "Moderate fat content"
             ),
             NutritionInsight(
                 nutrient: "Sodium",
-                amountPerServing: "75mg",
-                evaluation: "low",
-                dailyValue: "3%",
-                recommendation: "Low sodium content supports heart health"
+                amount: "380mg",
+                eval: "high",
+                comment: "Higher sodium content - monitor intake",
+                dailyValue: "16%",
+                recommendation: "Higher sodium content - monitor intake"
             )
         ],
         citations: [
             Citation(
                 id: 1,
-                title: "Nutritional Benefits of Lean Beef",
-                authors: "Smith, J. et al.",
-                journal: "Journal of Nutrition",
+                title: "Health Effects of Processed Meat Preservatives",
+                authors: "Johnson, M. et al.",
+                journal: "Food Safety Journal",
                 year: 2023,
-                doi: "10.1234/jn.2023.001",
+                doi: "10.1234/fsj.2023.002",
                 url: "https://example.com/citation1"
             )
         ],

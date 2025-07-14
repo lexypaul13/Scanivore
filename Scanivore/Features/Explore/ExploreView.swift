@@ -18,6 +18,14 @@ struct ExploreFeatureDomain {
         var selectedMeatTypes: Set<MeatType> = []
         var recommendations: IdentifiedArrayOf<ProductRecommendation> = []
         
+        // Search state
+        var searchResults: IdentifiedArrayOf<ProductRecommendation> = []
+        var isSearching = false
+        var searchError: String?
+        var isSearchActive: Bool {
+            !searchText.isEmpty || !searchResults.isEmpty
+        }
+        
         // Pagination state
         var isLoading = false
         var isLoadingMore = false
@@ -29,30 +37,28 @@ struct ExploreFeatureDomain {
         // Auto-refresh timer state
         var timerActive = false
         
+        // Navigation state
+        @Presents var productDetail: ProductDetailFeatureDomain.State?
+        
         // Computed properties
         var canLoadMore: Bool {
             !isLoadingMore && hasMorePages && currentPage < 3
         }
         
-        var filteredRecommendations: IdentifiedArrayOf<ProductRecommendation> {
-            var filtered = recommendations
-            
-            // Simple search filter
-            if !searchText.isEmpty {
-                filtered = IdentifiedArrayOf(uniqueElements: filtered.filter { recommendation in
-                    recommendation.name.localizedCaseInsensitiveContains(searchText) ||
-                    recommendation.brand.localizedCaseInsensitiveContains(searchText)
-                })
+        var displayedProducts: IdentifiedArrayOf<ProductRecommendation> {
+            // If search is active, show search results
+            if isSearchActive {
+                return searchResults
             }
             
-            // Simple meat type filter
+            // Otherwise show recommendations with meat type filter
             if !selectedMeatTypes.isEmpty {
-                filtered = IdentifiedArrayOf(uniqueElements: filtered.filter { recommendation in
+                return IdentifiedArrayOf(uniqueElements: recommendations.filter { recommendation in
                     selectedMeatTypes.contains(recommendation.meatType)
                 })
             }
             
-            return filtered
+            return recommendations
         }
     }
     
@@ -78,6 +84,16 @@ struct ExploreFeatureDomain {
         
         // Helper actions
         case ensureUserPreferences
+        
+        // Search actions
+        case searchDebounced
+        case searchSubmitted(String)
+        case searchResponse(TaskResult<[Product]>)
+        case clearSearch
+        
+        // Navigation actions
+        case productTapped(ProductRecommendation)
+        case productDetail(PresentationAction<ProductDetailFeatureDomain.Action>)
     }
     
     var body: some ReducerOf<Self> {
@@ -85,7 +101,21 @@ struct ExploreFeatureDomain {
             switch action {
             case let .searchTextChanged(text):
                 state.searchText = text
-                return .none
+                
+                // Clear search results if text is empty
+                if text.isEmpty {
+                    state.searchResults = []
+                    state.searchError = nil
+                    return .cancel(id: "search-debounce")
+                }
+                
+                // Debounce search
+                return .run { send in
+                    @Dependency(\.continuousClock) var clock
+                    try await clock.sleep(for: .milliseconds(300))
+                    await send(.searchDebounced)
+                }
+                .cancellable(id: "search-debounce")
                 
             case .filterButtonTapped:
                 state.showingFilters = true
@@ -240,7 +270,68 @@ struct ExploreFeatureDomain {
                         // Silently handle preference setup errors
                     }
                 }
+                
+            case .searchDebounced:
+                guard !state.searchText.isEmpty else { return .none }
+                return .run { [query = state.searchText] send in
+                    await send(.searchSubmitted(query))
+                }
+                
+            case let .searchSubmitted(query):
+                guard !query.isEmpty else { return .none }
+                
+                state.isSearching = true
+                state.searchError = nil
+                
+                return .run { send in
+                    await send(.searchResponse(
+                        TaskResult {
+                            @Dependency(\.productGateway) var productGateway
+                            return try await productGateway.searchProducts(query)
+                        }
+                    ))
+                }
+                .cancellable(id: "search-request")
+                
+            case let .searchResponse(.success(products)):
+                state.isSearching = false
+                
+                // Convert Product array to ProductRecommendation array
+                let searchRecommendations = products.map { product in
+                    ProductRecommendation.fromProduct(product)
+                }
+                state.searchResults = IdentifiedArrayOf(uniqueElements: searchRecommendations)
+                
+                return .none
+                
+            case let .searchResponse(.failure(error)):
+                state.isSearching = false
+                state.searchError = error.localizedDescription
+                return .none
+                
+            case .clearSearch:
+                state.searchText = ""
+                state.searchResults = []
+                state.searchError = nil
+                return .cancel(id: "search-debounce")
+                    .merge(with: .cancel(id: "search-request"))
+                    
+            case let .productTapped(recommendation):
+                print("🎯 Product tapped: \(recommendation.name) (Code: \(recommendation.id))")
+                state.productDetail = ProductDetailFeatureDomain.State(
+                    productCode: recommendation.id,
+                    productName: recommendation.name,
+                    productBrand: recommendation.brand,
+                    productImageUrl: recommendation.imageUrl
+                )
+                return .none
+                
+            case .productDetail:
+                return .none
             }
+        }
+        .ifLet(\.$productDetail, action: \.productDetail) {
+            ProductDetailFeatureDomain()
         }
     }
 }
@@ -270,19 +361,33 @@ struct ExploreView: View {
                         // Content
                         ScrollView {
                             VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
-                                // Recommendations Header
-                                Text("Recommendations")
-                                    .font(DesignSystem.Typography.heading1)
-                                    .foregroundColor(DesignSystem.Colors.textPrimary)
-                                    .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+                                // Header - Dynamic based on search state
+                                HStack {
+                                    Text(store.isSearchActive ? "Search Results" : "Recommendations")
+                                        .font(DesignSystem.Typography.heading1)
+                                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                                    
+                                    Spacer()
+                                    
+                                    // Clear search button
+                                    if store.isSearchActive {
+                                        Button("Clear") {
+                                            store.send(.clearSearch)
+                                        }
+                                        .font(DesignSystem.Typography.bodyMedium)
+                                        .foregroundColor(DesignSystem.Colors.primaryRed)
+                                    }
+                                }
+                                .padding(.horizontal, DesignSystem.Spacing.screenPadding)
                                 
                                 // Loading state
-                                if store.isLoading && store.recommendations.isEmpty {
+                                if (store.isLoading && store.recommendations.isEmpty && !store.isSearchActive) ||
+                                   (store.isSearching && store.searchResults.isEmpty) {
                                     VStack {
                                         ProgressView()
                                             .progressViewStyle(CircularProgressViewStyle())
                                             .scaleEffect(1.5)
-                                        Text("Loading recommendations...")
+                                        Text(store.isSearchActive ? "Searching products..." : "Loading recommendations...")
                                             .font(DesignSystem.Typography.body)
                                             .foregroundColor(DesignSystem.Colors.textSecondary)
                                             .padding(.top, DesignSystem.Spacing.md)
@@ -292,12 +397,13 @@ struct ExploreView: View {
                                 }
                                 
                                 // Error state
-                                else if let error = store.error, store.recommendations.isEmpty {
+                                else if let error = store.searchError ?? store.error, 
+                                        (store.isSearchActive ? store.searchResults.isEmpty : store.recommendations.isEmpty) {
                                     VStack(spacing: DesignSystem.Spacing.md) {
                                         Image(systemName: "exclamationmark.triangle")
                                             .font(.system(size: 50))
                                             .foregroundColor(DesignSystem.Colors.error)
-                                        Text("Failed to load recommendations")
+                                        Text(store.isSearchActive ? "Search failed" : "Failed to load recommendations")
                                             .font(DesignSystem.Typography.bodyMedium)
                                             .foregroundColor(DesignSystem.Colors.textPrimary)
                                         Text(error)
@@ -305,7 +411,11 @@ struct ExploreView: View {
                                             .foregroundColor(DesignSystem.Colors.textSecondary)
                                             .multilineTextAlignment(.center)
                                         Button("Try Again") {
-                                            store.send(.loadRecommendations)
+                                            if store.isSearchActive {
+                                                store.send(.searchSubmitted(store.searchText))
+                                            } else {
+                                                store.send(.loadRecommendations)
+                                            }
                                         }
                                         .font(DesignSystem.Typography.bodyMedium)
                                         .foregroundColor(DesignSystem.Colors.primaryRed)
@@ -319,19 +429,27 @@ struct ExploreView: View {
                                 // Product Grid
                                 else {
                                     VStack(spacing: DesignSystem.Spacing.lg) {
-                                        ForEach(store.filteredRecommendations) { recommendation in
-                                            ProductRecommendationCard(recommendation: recommendation)
-                                                .padding(.horizontal, DesignSystem.Spacing.screenPadding)
-                                                .onAppear {
-                                                    let isNearEnd = store.filteredRecommendations.suffix(3).contains(recommendation)
+                                        ForEach(store.displayedProducts) { recommendation in
+                                            ProductRecommendationCard(
+                                                recommendation: recommendation,
+                                                onTap: {
+                                                    store.send(.productTapped(recommendation))
+                                                }
+                                            )
+                                            .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+                                            .onAppear {
+                                                // Only load more for recommendations, not search results
+                                                if !store.isSearchActive {
+                                                    let isNearEnd = store.displayedProducts.suffix(3).contains(recommendation)
                                                     if isNearEnd {
                                                         store.send(.loadMoreRecommendations)
                                                     }
                                                 }
+                                            }
                                         }
                                         
-                                        // Loading more indicator
-                                        if store.isLoadingMore {
+                                        // Loading more indicator (only for recommendations)
+                                        if store.isLoadingMore && !store.isSearchActive {
                                             HStack {
                                                 ProgressView()
                                                     .progressViewStyle(CircularProgressViewStyle())
@@ -343,9 +461,18 @@ struct ExploreView: View {
                                             .padding(.vertical, DesignSystem.Spacing.lg)
                                         }
                                         
-                                        // End of list message
-                                        else if !store.hasMorePages && !store.recommendations.isEmpty {
+                                        // End of list message (only for recommendations)
+                                        else if !store.hasMorePages && !store.recommendations.isEmpty && !store.isSearchActive {
                                             Text("That's all for now!")
+                                                .font(DesignSystem.Typography.caption)
+                                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                                                .frame(maxWidth: .infinity)
+                                                .padding(.vertical, DesignSystem.Spacing.lg)
+                                        }
+                                        
+                                        // Search results count
+                                        else if store.isSearchActive && !store.searchResults.isEmpty {
+                                            Text("Found \(store.searchResults.count) products")
                                                 .font(DesignSystem.Typography.caption)
                                                 .foregroundColor(DesignSystem.Colors.textSecondary)
                                                 .frame(maxWidth: .infinity)
@@ -385,6 +512,11 @@ struct ExploreView: View {
                 .onDisappear {
                     store.send(.stopAutoRefreshTimer)
                 }
+                .sheet(
+                    store: store.scope(state: \.$productDetail, action: \.productDetail)
+                ) { productDetailStore in
+                    ProductDetailView(store: productDetailStore)
+                }
             }
         }
     }
@@ -420,6 +552,12 @@ struct SearchBar: View {
 // MARK: - Product Recommendation Card
 struct ProductRecommendationCard: View {
     let recommendation: ProductRecommendation
+    let onTap: (() -> Void)?
+    
+    init(recommendation: ProductRecommendation, onTap: (() -> Void)? = nil) {
+        self.recommendation = recommendation
+        self.onTap = onTap
+    }
     
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.base) {
@@ -491,6 +629,9 @@ struct ProductRecommendationCard: View {
             x: 0,
             y: DesignSystem.Shadow.offsetLight.height
         )
+        .onTapGesture {
+            onTap?()
+        }
     }
 }
 
@@ -619,7 +760,7 @@ struct ProductRecommendation: Identifiable, Equatable {
         let riskRating = item.product.risk_rating ?? "Green"
         
         return ProductRecommendation(
-            id: item.product.code,
+            id: item.product.code ?? "unknown",
             name: item.product.name ?? "Unknown Product",
             brand: item.product.brand ?? "Unknown Brand",
             imageUrl: item.product.image_url,
@@ -655,6 +796,24 @@ struct ProductRecommendation: Identifiable, Equatable {
         case "red": return .bad
         default: return .good
         }
+    }
+    
+    // Convert from Product (for search results)
+    static func fromProduct(_ product: Product) -> ProductRecommendation {
+        let riskRating = product.risk_rating ?? "Green"
+        
+        return ProductRecommendation(
+            id: product.code ?? "unknown",
+            name: product.name ?? "Unknown Product",
+            brand: product.brand ?? "Unknown Brand",
+            imageUrl: product.image_url,
+            imageData: product.image_data,
+            meatType: determineMeatType(from: product),
+            qualityRating: mapRiskRatingToQuality(riskRating),
+            isRecommended: true, // Search results are considered recommendations
+            matchReasons: ["Search result"], // Could be enhanced with match details
+            concerns: []
+        )
     }
 }
 
