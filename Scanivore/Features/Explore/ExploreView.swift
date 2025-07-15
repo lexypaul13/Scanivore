@@ -22,6 +22,8 @@ struct ExploreFeatureDomain {
         var searchResults: IdentifiedArrayOf<ProductRecommendation> = []
         var isSearching = false
         var searchError: String?
+        var searchParsedIntent: ParsedIntent?
+        var isUsingFallbackSearch = false
         var isSearchActive: Bool {
             !searchText.isEmpty || !searchResults.isEmpty
         }
@@ -88,7 +90,7 @@ struct ExploreFeatureDomain {
         // Search actions
         case searchDebounced
         case searchSubmitted(String)
-        case searchResponse(TaskResult<[Product]>)
+        case searchResponse(TaskResult<SearchResponse>)
         case clearSearch
         
         // Navigation actions
@@ -293,11 +295,15 @@ struct ExploreFeatureDomain {
                 }
                 .cancellable(id: "search-request")
                 
-            case let .searchResponse(.success(products)):
+            case let .searchResponse(.success(searchResponse)):
                 state.isSearching = false
                 
+                // Store AI insights from the search response
+                state.searchParsedIntent = searchResponse.parsedIntent
+                state.isUsingFallbackSearch = searchResponse.fallbackMode ?? false
+                
                 // Convert Product array to ProductRecommendation array
-                let searchRecommendations = products.map { product in
+                let searchRecommendations = searchResponse.products.map { product in
                     ProductRecommendation.fromProduct(product)
                 }
                 state.searchResults = IdentifiedArrayOf(uniqueElements: searchRecommendations)
@@ -322,7 +328,8 @@ struct ExploreFeatureDomain {
                     productCode: recommendation.id,
                     productName: recommendation.name,
                     productBrand: recommendation.brand,
-                    productImageUrl: recommendation.imageUrl
+                    productImageUrl: recommendation.imageUrl,
+                    originalRiskRating: recommendation.originalRiskRating
                 )
                 return .none
                 
@@ -642,13 +649,13 @@ struct QualityBadge: View {
     var badgeColor: Color {
         switch level {
         case .excellent:
-            return DesignSystem.Colors.success
+            return DesignSystem.Colors.success  // A = Green
         case .good:
-            return Color.blue
+            return DesignSystem.Colors.warning  // C = Yellow (matches ProductDetail)
         case .poor:
-            return Color.orange
+            return Color.orange  // D = Orange
         case .bad:
-            return DesignSystem.Colors.error
+            return DesignSystem.Colors.error  // F = Red
         }
     }
     
@@ -751,6 +758,7 @@ struct ProductRecommendation: Identifiable, Equatable {
     let imageData: String?
     let meatType: MeatType
     let qualityRating: QualityLevel
+    let originalRiskRating: String // Store original OpenFoodFacts risk rating
     let isRecommended: Bool
     let matchReasons: [String]
     let concerns: [String]
@@ -767,6 +775,7 @@ struct ProductRecommendation: Identifiable, Equatable {
             imageData: item.product.image_data,
             meatType: determineMeatType(from: item.product),
             qualityRating: mapRiskRatingToQuality(riskRating),
+            originalRiskRating: riskRating, // Store the original risk rating
             isRecommended: item.matchDetails.concerns.isEmpty,
             matchReasons: item.matchDetails.matches,
             concerns: item.matchDetails.concerns
@@ -774,6 +783,20 @@ struct ProductRecommendation: Identifiable, Equatable {
     }
     
     static func determineMeatType(from product: Product) -> MeatType {
+        // First check if we have the direct meat_type field from NLP search
+        if let meatType = product.meat_type?.lowercased() {
+            switch meatType {
+            case "chicken": return .chicken
+            case "beef": return .beef
+            case "pork": return .pork
+            case "turkey": return .turkey
+            case "lamb": return .lamb
+            case "fish": return .fish
+            default: break
+            }
+        }
+        
+        // Fallback to name/category analysis for backward compatibility
         let name = (product.name ?? "").lowercased()
         let categories = product.categories?.joined(separator: " ").lowercased() ?? ""
         let combined = name + " " + categories
@@ -802,6 +825,36 @@ struct ProductRecommendation: Identifiable, Equatable {
     static func fromProduct(_ product: Product) -> ProductRecommendation {
         let riskRating = product.risk_rating ?? "Green"
         
+        // Generate match reasons based on available data
+        var matchReasons: [String] = []
+        
+        // Add relevance-based reasons if we have a score from NLP search
+        if let relevanceScore = product._relevance_score, relevanceScore > 0.7 {
+            matchReasons.append("High relevance match")
+        } else if let relevanceScore = product._relevance_score, relevanceScore > 0.5 {
+            matchReasons.append("Good match")
+        } else {
+            matchReasons.append("Search result")
+        }
+        
+        // Add nutrition-based reasons
+        if let protein = product.protein, protein > 20 {
+            matchReasons.append("High protein content")
+        }
+        
+        if let salt = product.salt, salt < 0.5 {
+            matchReasons.append("Low sodium")
+        }
+        
+        // Add quality-based reasons from ingredient flags
+        if product.antibiotic_free == true {
+            matchReasons.append("Antibiotic-free")
+        }
+        
+        if product.contains_preservatives == false {
+            matchReasons.append("No preservatives")
+        }
+        
         return ProductRecommendation(
             id: product.code ?? "unknown",
             name: product.name ?? "Unknown Product",
@@ -810,8 +863,9 @@ struct ProductRecommendation: Identifiable, Equatable {
             imageData: product.image_data,
             meatType: determineMeatType(from: product),
             qualityRating: mapRiskRatingToQuality(riskRating),
-            isRecommended: true, // Search results are considered recommendations
-            matchReasons: ["Search result"], // Could be enhanced with match details
+            originalRiskRating: riskRating,
+            isRecommended: true,
+            matchReasons: matchReasons,
             concerns: []
         )
     }
@@ -825,10 +879,10 @@ enum QualityLevel: Equatable {
     
     var displayName: String {
         switch self {
-        case .excellent: return "Excellent"
-        case .good: return "Good"
-        case .poor: return "Poor"
-        case .bad: return "Bad"
+        case .excellent: return "A"
+        case .good: return "C"
+        case .poor: return "D"
+        case .bad: return "F"
         }
     }
     

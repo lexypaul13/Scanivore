@@ -43,10 +43,33 @@ public struct Product: Codable, Equatable {
     let image_data: String?
     let risk_rating: String?
     
+    // Additional fields from NLP search response
+    let description: String?
+    let ingredients_text: String?
+    let calories: Double?
+    let protein: Double?
+    let fat: Double?
+    let carbohydrates: Double?
+    let salt: Double?
+    let meat_type: String?
+    let contains_nitrites: Bool?
+    let contains_phosphates: Bool?
+    let contains_preservatives: Bool?
+    let antibiotic_free: Bool?
+    let hormone_free: Bool?
+    let pasture_raised: Bool?
+    let last_updated: String?
+    let created_at: String?
+    let _relevance_score: Double?
+    
     enum CodingKeys: String, CodingKey {
         case code, name, brand, categories, ingredients
         case nutritionFacts = "nutrition_facts"
         case image_url, image_data, risk_rating
+        case description, ingredients_text, calories, protein, fat, carbohydrates, salt, meat_type
+        case contains_nitrites, contains_phosphates, contains_preservatives
+        case antibiotic_free, hormone_free, pasture_raised
+        case last_updated, created_at, _relevance_score
     }
 }
 
@@ -75,45 +98,94 @@ public struct NutritionFacts: Codable, Equatable {
     }
 }
 
-// MARK: - Health Assessment Models
+// MARK: - Search Models
+public struct SearchResponse: Codable, Equatable {
+    let query: String
+    let totalResults: Int
+    let limit: Int
+    let skip: Int
+    let products: [Product]
+    let parsedIntent: ParsedIntent?
+    let fallbackMode: Bool?
+    
+    enum CodingKeys: String, CodingKey {
+        case query
+        case totalResults = "total_results"
+        case limit, skip, products
+        case parsedIntent = "parsed_intent"
+        case fallbackMode = "fallback_mode"
+    }
+}
+
+public struct ParsedIntent: Codable, Equatable {
+    let meatTypes: [String]
+    let nutritionFilters: [String: Double]
+    let qualityPreferences: [String]
+    let healthIntent: String
+    let confidence: Double
+    
+    enum CodingKeys: String, CodingKey {
+        case meatTypes = "meat_types"
+        case nutritionFilters = "nutrition_filters"
+        case qualityPreferences = "quality_preferences"
+        case healthIntent = "health_intent"
+        case confidence
+    }
+}
+
+// MARK: - Health Assessment Models  
 public struct HealthAssessmentResponse: Codable, Equatable {
     let summary: String
     let grade: String?
     let color: String?
-    let highRisk: [IngredientRisk]?
-    let moderateRisk: [IngredientRisk]?
-    let lowRisk: [IngredientRisk]?
+    let ingredientsAssessment: IngredientsAssessment?
     let nutrition: [NutritionInsight]?
     let citations: [Citation]?
-    let lastUpdated: String?
+    let meta: ResponseMetadata?
     
     // Computed properties for backward compatibility
     var riskSummary: RiskSummary? {
         return RiskSummary(grade: grade, color: color, score: nil)
     }
     
-    var ingredientsAssessment: IngredientsAssessment? {
-        return IngredientsAssessment(
-            highRisk: highRisk,
-            moderateRisk: moderateRisk,
-            lowRisk: lowRisk
-        )
+    var highRisk: [IngredientRisk]? {
+        return ingredientsAssessment?.highRisk
+    }
+    
+    var moderateRisk: [IngredientRisk]? {
+        return ingredientsAssessment?.moderateRisk
+    }
+    
+    var lowRisk: [IngredientRisk]? {
+        return ingredientsAssessment?.lowRisk
     }
     
     var nutritionInsights: [NutritionInsight]? {
         return nutrition
     }
     
+    var lastUpdated: String? {
+        return meta?.generated
+    }
+    
     enum CodingKeys: String, CodingKey {
         case summary
         case grade
         case color
-        case highRisk = "high_risk"
-        case moderateRisk = "moderate_risk"
-        case lowRisk = "low_risk"
-        case nutrition
+        case ingredientsAssessment = "ingredients_assessment"
+        case nutrition = "nutrition_insights"
         case citations
-        case lastUpdated = "last_updated"
+        case meta = "metadata"
+    }
+}
+
+public struct ResponseMetadata: Codable, Equatable {
+    let product: String?
+    let generated: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case product = "product_name"
+        case generated = "generated_at"
     }
 }
 
@@ -147,7 +219,7 @@ public struct IngredientRisk: Codable, Equatable {
     
     enum CodingKeys: String, CodingKey {
         case name
-        case risk
+        case risk = "micro_report"
         case riskLevel = "risk_level"
     }
 }
@@ -171,9 +243,9 @@ public struct NutritionInsight: Codable, Equatable {
     
     enum CodingKeys: String, CodingKey {
         case nutrient
-        case amount
-        case eval
-        case comment
+        case amount = "amount_per_serving"
+        case eval = "evaluation"
+        case comment = "ai_commentary"
         case dailyValue = "daily_value"
         case recommendation
     }
