@@ -17,7 +17,6 @@ struct CreateAccountFeatureDomain {
         var password = ""
         var confirmPassword = ""
         var fullName = ""
-        var acceptTerms = false
         var isLoading = false
         var errorMessage: String?
         
@@ -30,7 +29,6 @@ struct CreateAccountFeatureDomain {
             !email.isEmpty &&
             !password.isEmpty &&
             !confirmPassword.isEmpty &&
-            acceptTerms &&
             emailError == nil &&
             passwordError == nil &&
             confirmPasswordError == nil
@@ -42,7 +40,6 @@ struct CreateAccountFeatureDomain {
         case passwordChanged(String)
         case confirmPasswordChanged(String)
         case fullNameChanged(String)
-        case acceptTermsToggled
         case createAccountTapped
         case backTapped
         case clearError
@@ -87,10 +84,6 @@ struct CreateAccountFeatureDomain {
                 
             case let .fullNameChanged(fullName):
                 state.fullName = fullName
-                return .none
-                
-            case .acceptTermsToggled:
-                state.acceptTerms.toggle()
                 return .none
                 
             case .validateEmail:
@@ -258,52 +251,6 @@ struct CreateAccountView: View {
                                 isSecure: true,
                                 errorMessage: store.confirmPasswordError
                             )
-                            
-                            // Terms and conditions
-                            VStack(spacing: DesignSystem.Spacing.md) {
-                                HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
-                                    Button(action: {
-                                        store.send(.acceptTermsToggled)
-                                    }) {
-                                        Image(systemName: store.acceptTerms ? "checkmark.square.fill" : "square")
-                                            .foregroundColor(
-                                                store.acceptTerms ? 
-                                                DesignSystem.Colors.primaryRed : 
-                                                DesignSystem.Colors.border
-                                            )
-                                            .font(.system(size: 20))
-                                    }
-                                    .buttonStyle(PlainButtonStyle())
-                                    
-                                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                                        Text("I agree to the")
-                                            .font(DesignSystem.Typography.caption)
-                                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                                        
-                                        HStack(spacing: DesignSystem.Spacing.xs) {
-                                            Button("Terms of Service") {
-                                                // Handle terms tap
-                                            }
-                                            .font(DesignSystem.Typography.caption)
-                                            .foregroundColor(DesignSystem.Colors.primaryRed)
-                                            .underline()
-                                            
-                                            Text("and")
-                                                .font(DesignSystem.Typography.caption)
-                                                .foregroundColor(DesignSystem.Colors.textSecondary)
-                                            
-                                            Button("Privacy Policy") {
-                                                // Handle privacy tap
-                                            }
-                                            .font(DesignSystem.Typography.caption)
-                                            .foregroundColor(DesignSystem.Colors.primaryRed)
-                                            .underline()
-                                        }
-                                    }
-                                    
-                                    Spacer()
-                                }
-                            }
                             
                             // Error message
                             if let errorMessage = store.errorMessage {

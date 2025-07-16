@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 import Lottie
 
 struct LottieAnimationView: View {
@@ -85,9 +86,9 @@ struct LottieViewRepresentable: UIViewRepresentable {
         // Safely handle animation playback
         DispatchQueue.main.async {
             if isAnimating && animationView.animation != nil {
-                animationView.play()
-            } else {
-                animationView.stop()
+            animationView.play()
+        } else {
+            animationView.stop()
             }
         }
     }

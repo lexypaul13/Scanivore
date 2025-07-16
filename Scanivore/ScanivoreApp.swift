@@ -17,6 +17,9 @@ struct ScanivoreApp: App {
     }
     
     init() {
+        // Clear all cache on app launch due to model structure changes
+        HealthAssessmentCache.shared.clearAllCache()
+        
         // Uncomment to reset onboarding for testing
         // resetOnboarding()
     }

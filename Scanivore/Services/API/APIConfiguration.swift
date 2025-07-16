@@ -72,18 +72,20 @@ public enum APIEnvironment {
 // MARK: - Current Environment
 public extension APIConfiguration {
     static var currentEnvironment: APIEnvironment {
-        #if DEBUG
-        return .development
-        #else
+        // Always use production for physical devices
+        // localhost won't work on real devices
         return .production
-        #endif
     }
     
     static var currentBaseURL: String {
-        return currentEnvironment.baseURL
+        return baseURL // Always use production URL
     }
     
     static var isDebugMode: Bool {
-        return currentEnvironment.isDebugMode
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
     }
 }

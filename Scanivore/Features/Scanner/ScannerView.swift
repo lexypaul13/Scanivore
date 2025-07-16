@@ -7,6 +7,7 @@
 
 import SwiftUI
 import ComposableArchitecture
+import AVFoundation
 
 // MARK: - Scanner Feature Domain
 @Reducer
@@ -14,89 +15,212 @@ struct ScannerFeatureDomain {
     @ObservableState
     struct State: Equatable {
         var scanState: ScanState = .idle
-        var scanResult: MeatScan?
+        var scannedProductCode: String?
+        var productName: String?
+        var productBrand: String?
+        var cameraPermissionStatus: CameraPermissionStatus = .notRequested
+        var errorMessage: String?
         
         enum ScanState: Equatable {
             case idle
-            case scanning(progress: Double)
-            case completed(MeatScan)
+            case requestingPermission
+            case preparing
+            case scanning
+            case processing(barcode: String)
+            case presentingDetail(productCode: String)
+            case productNotFound(barcode: String)
+            case error(String)
         }
         
         var isScanning: Bool {
-            if case .scanning = scanState { return true }
+            switch scanState {
+            case .scanning, .processing:
+                return true
+            default:
             return false
         }
-        
-        var scanProgress: Double {
-            if case .scanning(let progress) = scanState { return progress }
-            return 0
         }
         
         var showingResults: Bool {
-            if case .completed = scanState { return true }
+            if case .presentingDetail = scanState { return true }
+            return false
+        }
+        
+        var showingError: Bool {
+            if case .error = scanState { return true }
             return false
         }
     }
     
     enum Action {
         case scanButtonTapped
-        case scanProgressTick
-        case scanCompleted(MeatScan)
+        case permissionResponse(CameraPermissionStatus)
+        case scanningStarted
+        case barcodeDetected(String)
+        case checkProductAvailability(String)
+        case productAvailabilityResponse(String, TaskResult<Void>)
+        case productDetailReady
+        case productNotFound(String)
+        case scanFailed(ScannerError)
         case cancelScan
         case resultsDismissed
+        case productNotFoundDismissed
+        case errorDismissed
         case helpButtonTapped
     }
     
-    @Dependency(\.continuousClock) var clock
-    
-    private enum ScanTimerID: Hashable {
-        case scanner
-    }
+    @Dependency(\.barcodeScanner) var barcodeScanner
+    @Dependency(\.productGateway) var productGateway
     
     var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
             case .scanButtonTapped:
-                state.scanState = .scanning(progress: 0)
+                state.scanState = .requestingPermission
+                state.errorMessage = nil
+                
+                print("🔍 Scanner: Scan button tapped")
                 
                 return .run { send in
-                    await withTaskCancellation(id: ScanTimerID.scanner, cancelInFlight: true) {
-                        var progress: Double = 0
-                        
-                        for await _ in clock.timer(interval: .milliseconds(100)) {
-                            progress += 0.05
-                            
-                            if progress >= 1.0 {
-                                let mockResult = MeatScan.mockScans.randomElement()!
-                                await send(.scanCompleted(mockResult))
-                                break
-                            } else {
-                                await send(.scanProgressTick)
+                    let permissionStatus = await barcodeScanner.requestCameraPermission()
+                    print("🔍 Scanner: Permission status: \(permissionStatus)")
+                    await send(.permissionResponse(permissionStatus))
+                }
+                
+            case .permissionResponse(let status):
+                state.cameraPermissionStatus = status
+                
+                switch status {
+                case .granted:
+                    state.scanState = .preparing
+                    print("🔍 Scanner: Permission granted, preparing scanner")
+                    
+                    return .run { send in
+                        // Start barcode scanning
+                        await withTaskGroup(of: Void.self) { group in
+                            group.addTask {
+                                barcodeScanner.startScanning(
+                                    { barcode in
+                                        print("🔍 Scanner: Barcode detected: \(barcode)")
+                                        Task {
+                                            await send(.barcodeDetected(barcode))
+                                        }
+                                    },
+                                    { error in
+                                        print("🔍 Scanner: Error occurred: \(error)")
+                                        Task {
+                                            await send(.scanFailed(error))
+                                        }
+                                    }
+                                )
                             }
                         }
+                        
+                        // Small delay to show preparing state
+                        try await Task.sleep(for: .milliseconds(500))
+                        await send(.scanningStarted)
                     }
+                    
+                case .denied, .restricted:
+                    state.scanState = .error("Camera permission is required to scan barcodes. Please enable camera access in Settings.")
+                    print("🔍 Scanner: Permission denied or restricted")
+                    return .none
+                    
+                case .notRequested:
+                    state.scanState = .idle
+                    print("🔍 Scanner: Permission not requested")
+                    return .none
                 }
                 
-            case .scanProgressTick:
-                if case .scanning(let currentProgress) = state.scanState {
-                    let newProgress = min(currentProgress + 0.05, 1.0)
-                    state.scanState = .scanning(progress: newProgress)
-                }
+            case .scanningStarted:
+                state.scanState = .scanning
+                print("🔍 Scanner: Scanning started")
                 return .none
                 
-            case .scanCompleted(let result):
-                state.scanState = .completed(result)
-                state.scanResult = result
-                return .cancel(id: ScanTimerID.scanner)
+            case .barcodeDetected(let barcode):
+                state.scanState = .processing(barcode: barcode)
+                print("🔍 Scanner: Processing barcode: \(barcode)")
+                
+                return .run { send in
+                    // Stop scanning first
+                    barcodeScanner.stopScanning()
+                    
+                    // Brief delay to show processing state
+                    try await Task.sleep(for: .milliseconds(800))
+                    
+                    // Check if product exists before showing detail view
+                    await send(.checkProductAvailability(barcode))
+                }
+                
+            case .checkProductAvailability(let barcode):
+                return .run { send in
+                    await send(.productAvailabilityResponse(barcode, TaskResult {
+                        // Try to get health assessment to check if product exists
+                        _ = try await productGateway.getHealthAssessment(barcode)
+                    }))
+                }
+                
+            case .productAvailabilityResponse(let barcode, let result):
+                switch result {
+                case .success:
+                    // Product exists, show detail view
+                    state.scannedProductCode = barcode
+                    state.scanState = .presentingDetail(productCode: barcode)
+                    print("🔍 Scanner: Product found, presenting detail for: \(barcode)")
+                    
+                case .failure(let error):
+                    // Check if it's a 404 error
+                    if let apiError = error as? APIError, apiError.statusCode == 404 {
+                        // Product not found, show ProductNotFoundView
+                        state.scanState = .productNotFound(barcode: barcode)
+                        print("🔍 Scanner: Product not found (404) for: \(barcode)")
+                    } else {
+                        // Other error, still try to show detail view (may show graceful fallback)
+                        state.scannedProductCode = barcode
+                        state.scanState = .presentingDetail(productCode: barcode)
+                        print("🔍 Scanner: Product check failed with non-404 error, showing detail anyway for: \(barcode)")
+                    }
+                }
+                return .none
+            
+            case .productDetailReady:
+                // This action is now handled by productAvailabilityResponse
+                return .none
+                
+            case .scanFailed(let error):
+                barcodeScanner.stopScanning()
+                state.scanState = .error(error.localizedDescription)
+                return .none
                 
             case .cancelScan:
+                barcodeScanner.stopScanning()
                 state.scanState = .idle
-                state.scanResult = nil
-                return .cancel(id: ScanTimerID.scanner)
+                state.scannedProductCode = nil
+                state.productName = nil
+                state.productBrand = nil
+                return .none
                 
             case .resultsDismissed:
                 state.scanState = .idle
-                state.scanResult = nil
+                state.scannedProductCode = nil
+                state.productName = nil
+                state.productBrand = nil
+                return .none
+                
+            case .productNotFound(let barcode):
+                state.scanState = .productNotFound(barcode: barcode)
+                return .none
+                
+            case .productNotFoundDismissed:
+                state.scanState = .idle
+                state.scannedProductCode = nil
+                state.productName = nil
+                state.productBrand = nil
+                return .none
+                
+            case .errorDismissed:
+                state.scanState = .idle
+                state.errorMessage = nil
                 return .none
                 
             case .helpButtonTapped:
@@ -123,8 +247,26 @@ struct ScannerView: View {
                     VStack {
                         Spacer()
                         
-                        if store.isScanning {
-                            ScanningOverlay(progress: store.scanProgress)
+                        // Show different overlays based on scan state
+                        switch store.scanState {
+                        case .requestingPermission:
+                            PermissionOverlay()
+                        case .preparing:
+                            PreparingOverlay()
+                        case .scanning:
+                            ScanningActiveOverlay()
+                        case .processing(let barcode):
+                            ProcessingOverlay(barcode: barcode)
+                        case .error(let message):
+                            ErrorOverlay(message: message) {
+                                store.send(.errorDismissed)
+                            }
+                        case .productNotFound(let barcode):
+                            ProductNotFoundOverlay(barcode: barcode) {
+                                store.send(.productNotFoundDismissed)
+                            }
+                        case .idle, .presentingDetail:
+                            EmptyView()
                         }
                         
                         ScanButton(
@@ -149,10 +291,16 @@ struct ScannerView: View {
                     get: { store.showingResults },
                     set: { _ in store.send(.resultsDismissed) }
                 )) {
-                    if let result = store.scanResult {
-                        ScanResultView(
-                            store: Store(initialState: ScanResultFeatureDomain.State(scan: result)) {
-                                ScanResultFeatureDomain()
+                    if let productCode = store.scannedProductCode {
+                        ProductDetailView(
+                            store: Store(
+                                initialState: ProductDetailFeatureDomain.State(
+                                    productCode: productCode,
+                                    productName: store.productName,
+                                    productBrand: store.productBrand
+                                )
+                            ) {
+                                ProductDetailFeatureDomain()
                             }
                         )
                     }
@@ -165,103 +313,14 @@ struct ScannerView: View {
     }
 }
 
-struct CameraPreviewView: View {
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                Rectangle()
-                    .fill(Color.black)
-                
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xl)
-                    .stroke(DesignSystem.Colors.primaryRed.opacity(0.8), lineWidth: 3)
-                    .frame(width: geometry.size.width * 0.8, height: geometry.size.width * 0.8)
-                
-                VStack {
-                    Text("Position meat within frame")
-                        .font(DesignSystem.Typography.heading2)
-                        .foregroundColor(DesignSystem.Colors.background)
-                        .padding(.horizontal, DesignSystem.Spacing.xl)
-                        .padding(.vertical, DesignSystem.Spacing.md)
-                        .background(DesignSystem.Colors.textPrimary.opacity(0.8))
-                        .cornerRadius(DesignSystem.CornerRadius.md)
-                        .padding(.top, 100)
-                    
-                    Spacer()
-                }
-            }
-        }
-    }
-}
-
-struct ScanningOverlay: View {
-    let progress: Double
-    
-    var body: some View {
-        VStack(spacing: DesignSystem.Spacing.lg) {
-            ProgressView(value: progress)
-                .progressViewStyle(CircularProgressViewStyle())
-                .scaleEffect(2.5)
-                .tint(DesignSystem.Colors.primaryRed)
-            
-            Text("Analyzing...")
-                .font(DesignSystem.Typography.heading2)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-            
-            Text("\(Int(progress * 100))%")
-                .font(DesignSystem.Typography.heading1)
-                .foregroundColor(DesignSystem.Colors.primaryRed)
-        }
-        .padding(DesignSystem.Spacing.xxxl)
-        .background(DesignSystem.Colors.background.opacity(0.95))
-        .cornerRadius(DesignSystem.CornerRadius.xxl)
-        .shadow(
-            color: DesignSystem.Shadow.medium,
-            radius: DesignSystem.Shadow.radiusMedium,
-            x: DesignSystem.Shadow.offsetMedium.width,
-            y: DesignSystem.Shadow.offsetMedium.height
-        )
-    }
-}
-
-struct ScanButton: View {
-    let isScanning: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(DesignSystem.Colors.primaryRed)
-                    .frame(width: DesignSystem.Components.Scanner.buttonSize, height: DesignSystem.Components.Scanner.buttonSize)
-                
-                Circle()
-                    .stroke(DesignSystem.Colors.background, lineWidth: 4)
-                    .frame(width: DesignSystem.Components.Scanner.buttonSize, height: DesignSystem.Components.Scanner.buttonSize)
-                
-                Image(systemName: "camera.fill")
-                    .font(DesignSystem.Typography.heading1)
-                    .foregroundColor(DesignSystem.Colors.background)
-            }
-        }
-        .disabled(isScanning)
-        .scaleEffect(isScanning ? 0.9 : 1.0)
-        .opacity(isScanning ? 0.7 : 1.0)
-        .animation(.easeInOut(duration: 0.2), value: isScanning)
-        .shadow(
-            color: DesignSystem.Shadow.medium,
-            radius: DesignSystem.Shadow.radiusMedium,
-            x: DesignSystem.Shadow.offsetMedium.width,
-            y: DesignSystem.Shadow.offsetMedium.height
-        )
-    }
-}
-
 #Preview {
     ScannerView(
         store: Store(
             initialState: ScannerFeatureDomain.State()
         ) {
             ScannerFeatureDomain()
+        } withDependencies: {
+            $0.barcodeScanner = .previewValue
         }
     )
 }

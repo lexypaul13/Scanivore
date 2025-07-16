@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "xcodebuild": {
+      "command": "node",
+      "args": ["/Users/alexpaul/XcodeBuildMCP/build/index.js"],
+      "env": {
+        "XCODE_BUILD_MCP_LOG_LEVEL": "info"
+      }
+    }
+  }
+} 
