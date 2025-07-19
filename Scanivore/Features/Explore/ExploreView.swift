@@ -404,10 +404,10 @@ struct ExploreView: View {
                                     .padding(.top, 100)
                                 }
                                 
-                                // Product Grid
+                                // Product Grid - LazyVStack for better scroll performance
                                 else {
-                                    VStack(spacing: DesignSystem.Spacing.lg) {
-                                        ForEach(store.displayedProducts) { recommendation in
+                                    LazyVStack(spacing: DesignSystem.Spacing.lg) {
+                                        ForEach(Array(store.displayedProducts.enumerated()), id: \.element.id) { index, recommendation in
                                             ProductRecommendationCard(
                                                 recommendation: recommendation,
                                                 onTap: {
@@ -418,14 +418,12 @@ struct ExploreView: View {
                                             .onAppear {
                                                 // Only load more for recommendations, not search results
                                                 if !store.isSearchActive && store.canLoadMore {
-                                                    // Trigger when we're in the last 5 items, but only once per page
+                                                    // Efficient pagination using enumerated index (O(1) instead of O(n))
                                                     let totalItems = store.displayedProducts.count
-                                                    if let currentIndex = store.displayedProducts.firstIndex(of: recommendation) {
-                                                        let itemsFromEnd = totalItems - currentIndex
-                                                        // Trigger when we're 5 items from the end
-                                                        if itemsFromEnd <= 5 {
-                                                            store.send(.loadMoreRecommendations)
-                                                        }
+                                                    let itemsFromEnd = totalItems - index
+                                                    // Trigger when we're 5 items from the end
+                                                    if itemsFromEnd <= 5 {
+                                                        store.send(.loadMoreRecommendations)
                                                     }
                                                 }
                                             }
@@ -582,15 +580,19 @@ struct ProductRecommendationCard: View {
                             PlaceholderImage()
                         }
                     }
-                } else if let imageData = recommendation.imageData,
-                          let data = Data(base64Encoded: imageData),
-                          let uiImage = UIImage(data: data) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 120, height: 120)
-                        .clipped()
-                        .cornerRadius(DesignSystem.CornerRadius.md)
+                } else if let imageData = recommendation.imageData {
+                    // Async base64 decoding to avoid main thread blocking during scroll
+                    AsyncImageDecoder(base64String: imageData) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 120, height: 120)
+                            .clipped()
+                            .cornerRadius(DesignSystem.CornerRadius.md)
+                    } placeholder: {
+                        ProgressView()
+                            .frame(width: 120, height: 120)
+                    }
                 } else {
                     PlaceholderImage()
                 }
@@ -618,15 +620,55 @@ struct ProductRecommendationCard: View {
         .padding(DesignSystem.Spacing.base)
         .background(DesignSystem.Colors.background)
         .cornerRadius(DesignSystem.CornerRadius.md)
-        .shadow(
-            color: DesignSystem.Shadow.light,
-            radius: DesignSystem.Shadow.radiusLight,
-            x: 0,
-            y: DesignSystem.Shadow.offsetLight.height
+        .overlay(
+            // Use border instead of shadow for better scroll performance
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                .stroke(DesignSystem.Colors.border.opacity(0.1), lineWidth: 1)
         )
         .onTapGesture {
             onTap?()
         }
+    }
+}
+
+// MARK: - Async Image Decoder for Base64 Images
+struct AsyncImageDecoder<Content: View, Placeholder: View>: View {
+    let base64String: String
+    let content: (Image) -> Content
+    let placeholder: () -> Placeholder
+    
+    @State private var decodedImage: UIImage?
+    @State private var isLoading = true
+    
+    var body: some View {
+        Group {
+            if let uiImage = decodedImage {
+                content(Image(uiImage: uiImage))
+            } else if isLoading {
+                placeholder()
+            } else {
+                // Failed to decode
+                PlaceholderImage()
+            }
+        }
+        .task {
+            await decodeImage()
+        }
+    }
+    
+    @MainActor
+    private func decodeImage() async {
+        // Move expensive base64 decoding to background queue
+        let result = await Task.detached(priority: .userInitiated) {
+            guard let data = Data(base64Encoded: base64String),
+                  let image = UIImage(data: data) else {
+                return nil
+            }
+            return image
+        }.value
+        
+        decodedImage = result
+        isLoading = false
     }
 }
 
