@@ -54,10 +54,40 @@ extension ProductGateway: DependencyKey {
             print("📄 Product response: \(response.count) bytes")
             
             // Decode JSON on background queue to avoid main thread blocking
-            return try await Task.detached(priority: .userInitiated) {
+            let product = try await Task.detached(priority: .userInitiated) {
                 let decoder = JSONDecoder()
                 return try decoder.decode(Product.self, from: response)
             }.value
+            
+            // Strip image_data to prevent massive memory usage (keep only image_url)
+            return Product(
+                code: product.code,
+                name: product.name,
+                brand: product.brand,
+                categories: product.categories,
+                ingredients: product.ingredients,
+                nutritionFacts: product.nutritionFacts,
+                image_url: product.image_url,
+                image_data: nil,  // Remove massive base64 data
+                risk_rating: product.risk_rating,
+                description: product.description,
+                ingredients_text: product.ingredients_text,
+                calories: product.calories,
+                protein: product.protein,
+                fat: product.fat,
+                carbohydrates: product.carbohydrates,
+                salt: product.salt,
+                meat_type: product.meat_type,
+                contains_nitrites: product.contains_nitrites,
+                contains_phosphates: product.contains_phosphates,
+                contains_preservatives: product.contains_preservatives,
+                antibiotic_free: product.antibiotic_free,
+                hormone_free: product.hormone_free,
+                pasture_raised: product.pasture_raised,
+                last_updated: product.last_updated,
+                created_at: product.created_at,
+                _relevance_score: product._relevance_score
+            )
         },
         
         getHealthAssessment: { barcode in
@@ -89,8 +119,14 @@ extension ProductGateway: DependencyKey {
                 .serializingData()
                 .value
                 
-                // Log response size for debugging (avoid expensive string conversion)
-                print("📄 Health assessment response: \(response.count) bytes")
+                // Log response size for debugging and check for massive responses
+                let responseSizeMB = Double(response.count) / (1024 * 1024)
+                print("📄 Health assessment response: \(response.count) bytes (\(String(format: "%.2f", responseSizeMB)) MB)")
+                
+                // Warn about large responses that could cause performance issues
+                if response.count > 500_000 {  // 500KB
+                    print("⚠️ WARNING: Large response detected (\(String(format: "%.2f", responseSizeMB)) MB) - potential performance impact")
+                }
                 
                 // Decode JSON on background queue to avoid main thread blocking
                 let decodedResponse = try await Task.detached(priority: .userInitiated) {
@@ -162,7 +198,7 @@ extension ProductGateway: DependencyKey {
         getAlternatives: { barcode in
             let headers = try await createAuthHeaders()
             
-            return try await AF.request(
+            let products = try await AF.request(
                 "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)/alternatives",
                 method: .get,
                 headers: headers
@@ -170,6 +206,38 @@ extension ProductGateway: DependencyKey {
             .validate()
             .serializingDecodable([Product].self)
             .value
+            
+            // Strip image_data from all products to prevent massive memory usage
+            return products.map { product in
+                Product(
+                    code: product.code,
+                    name: product.name,
+                    brand: product.brand,
+                    categories: product.categories,
+                    ingredients: product.ingredients,
+                    nutritionFacts: product.nutritionFacts,
+                    image_url: product.image_url,
+                    image_data: nil,  // Remove massive base64 data
+                    risk_rating: product.risk_rating,
+                    description: product.description,
+                    ingredients_text: product.ingredients_text,
+                    calories: product.calories,
+                    protein: product.protein,
+                    fat: product.fat,
+                    carbohydrates: product.carbohydrates,
+                    salt: product.salt,
+                    meat_type: product.meat_type,
+                    contains_nitrites: product.contains_nitrites,
+                    contains_phosphates: product.contains_phosphates,
+                    contains_preservatives: product.contains_preservatives,
+                    antibiotic_free: product.antibiotic_free,
+                    hormone_free: product.hormone_free,
+                    pasture_raised: product.pasture_raised,
+                    last_updated: product.last_updated,
+                    created_at: product.created_at,
+                    _relevance_score: product._relevance_score
+                )
+            }
         },
         
         searchProducts: { query in
@@ -185,13 +253,53 @@ extension ProductGateway: DependencyKey {
             .serializingDecodable(SearchResponse.self)
             .value
             
-            return searchResponse
+            // Strip image_data from search results to prevent massive memory usage
+            let optimizedProducts = searchResponse.products.map { product in
+                Product(
+                    code: product.code,
+                    name: product.name,
+                    brand: product.brand,
+                    categories: product.categories,
+                    ingredients: product.ingredients,
+                    nutritionFacts: product.nutritionFacts,
+                    image_url: product.image_url,
+                    image_data: nil,  // Remove massive base64 data
+                    risk_rating: product.risk_rating,
+                    description: product.description,
+                    ingredients_text: product.ingredients_text,
+                    calories: product.calories,
+                    protein: product.protein,
+                    fat: product.fat,
+                    carbohydrates: product.carbohydrates,
+                    salt: product.salt,
+                    meat_type: product.meat_type,
+                    contains_nitrites: product.contains_nitrites,
+                    contains_phosphates: product.contains_phosphates,
+                    contains_preservatives: product.contains_preservatives,
+                    antibiotic_free: product.antibiotic_free,
+                    hormone_free: product.hormone_free,
+                    pasture_raised: product.pasture_raised,
+                    last_updated: product.last_updated,
+                    created_at: product.created_at,
+                    _relevance_score: product._relevance_score
+                )
+            }
+            
+            return SearchResponse(
+                query: searchResponse.query,
+                totalResults: searchResponse.totalResults,
+                limit: searchResponse.limit,
+                skip: searchResponse.skip,
+                products: optimizedProducts,
+                parsedIntent: searchResponse.parsedIntent,
+                fallbackMode: searchResponse.fallbackMode
+            )
         },
         
         getRecommendations: { offset, pageSize in
             let headers = try await createAuthHeaders()
             
-            return try await AF.request(
+            let exploreResponse = try await AF.request(
                 "\(APIConfiguration.baseURL)/api/v1/products/recommendations",
                 method: .get,
                 parameters: ["offset": offset, "page_size": pageSize],
@@ -200,12 +308,55 @@ extension ProductGateway: DependencyKey {
             .validate()
             .serializingDecodable(ExploreResponse.self)
             .value
+            
+            // Strip image_data from recommendations to prevent massive memory usage and debug logs
+            let optimizedRecommendations = exploreResponse.recommendations.map { item in
+                let optimizedProduct = Product(
+                    code: item.product.code,
+                    name: item.product.name,
+                    brand: item.product.brand,
+                    categories: item.product.categories,
+                    ingredients: item.product.ingredients,
+                    nutritionFacts: item.product.nutritionFacts,
+                    image_url: item.product.image_url,
+                    image_data: nil,  // Remove massive base64 data that causes debug spam
+                    risk_rating: item.product.risk_rating,
+                    description: item.product.description,
+                    ingredients_text: item.product.ingredients_text,
+                    calories: item.product.calories,
+                    protein: item.product.protein,
+                    fat: item.product.fat,
+                    carbohydrates: item.product.carbohydrates,
+                    salt: item.product.salt,
+                    meat_type: item.product.meat_type,
+                    contains_nitrites: item.product.contains_nitrites,
+                    contains_phosphates: item.product.contains_phosphates,
+                    contains_preservatives: item.product.contains_preservatives,
+                    antibiotic_free: item.product.antibiotic_free,
+                    hormone_free: item.product.hormone_free,
+                    pasture_raised: item.product.pasture_raised,
+                    last_updated: item.product.last_updated,
+                    created_at: item.product.created_at,
+                    _relevance_score: item.product._relevance_score
+                )
+                
+                return RecommendationItem(
+                    product: optimizedProduct,
+                    matchDetails: item.matchDetails,
+                    matchScore: item.matchScore
+                )
+            }
+            
+            return ExploreResponse(
+                recommendations: optimizedRecommendations,
+                totalMatches: exploreResponse.totalMatches
+            )
         },
         
         getExploreRecommendations: { offset, limit in
             let headers = try await createAuthHeaders()
             
-            return try await AF.request(
+            let exploreResponse = try await AF.request(
                 "\(APIConfiguration.baseURL)/api/v1/users/explore",
                 method: .get,
                 parameters: ["offset": offset, "limit": limit],
@@ -214,6 +365,49 @@ extension ProductGateway: DependencyKey {
             .validate()
             .serializingDecodable(ExploreResponse.self)
             .value
+            
+            // Strip image_data from user explore results to prevent massive memory usage
+            let optimizedRecommendations = exploreResponse.recommendations.map { item in
+                let optimizedProduct = Product(
+                    code: item.product.code,
+                    name: item.product.name,
+                    brand: item.product.brand,
+                    categories: item.product.categories,
+                    ingredients: item.product.ingredients,
+                    nutritionFacts: item.product.nutritionFacts,
+                    image_url: item.product.image_url,
+                    image_data: nil,  // Remove massive base64 data
+                    risk_rating: item.product.risk_rating,
+                    description: item.product.description,
+                    ingredients_text: item.product.ingredients_text,
+                    calories: item.product.calories,
+                    protein: item.product.protein,
+                    fat: item.product.fat,
+                    carbohydrates: item.product.carbohydrates,
+                    salt: item.product.salt,
+                    meat_type: item.product.meat_type,
+                    contains_nitrites: item.product.contains_nitrites,
+                    contains_phosphates: item.product.contains_phosphates,
+                    contains_preservatives: item.product.contains_preservatives,
+                    antibiotic_free: item.product.antibiotic_free,
+                    hormone_free: item.product.hormone_free,
+                    pasture_raised: item.product.pasture_raised,
+                    last_updated: item.product.last_updated,
+                    created_at: item.product.created_at,
+                    _relevance_score: item.product._relevance_score
+                )
+                
+                return RecommendationItem(
+                    product: optimizedProduct,
+                    matchDetails: item.matchDetails,
+                    matchScore: item.matchScore
+                )
+            }
+            
+            return ExploreResponse(
+                recommendations: optimizedRecommendations,
+                totalMatches: exploreResponse.totalMatches
+            )
         }
     )
     
