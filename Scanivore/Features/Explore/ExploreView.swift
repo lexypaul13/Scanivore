@@ -659,7 +659,7 @@ struct AsyncImageDecoder<Content: View, Placeholder: View>: View {
     @MainActor
     private func decodeImage() async {
         // Move expensive base64 decoding to background queue
-        let result = await Task.detached(priority: .userInitiated) -> UIImage? in
+        let result = await Task.detached(priority: .userInitiated) { () -> UIImage? in
             guard let data = Data(base64Encoded: base64String),
                   let image = UIImage(data: data) else {
                 return nil
