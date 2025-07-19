@@ -25,7 +25,7 @@ struct ExploreFeatureDomain {
         var searchParsedIntent: ParsedIntent?
         var isUsingFallbackSearch = false
         var isSearchActive: Bool {
-            !searchText.isEmpty || !searchResults.isEmpty
+            !searchText.isEmpty
         }
         
         // Pagination state
@@ -87,7 +87,6 @@ struct ExploreFeatureDomain {
         case ensureUserPreferences
         
         // Search actions
-        case searchDebounced
         case searchSubmitted(String)
         case searchResponse(TaskResult<SearchResponse>)
         case clearSearch
@@ -110,11 +109,13 @@ struct ExploreFeatureDomain {
                     return .cancel(id: "search-debounce")
                 }
                 
-                // Debounce search
+                // Debounce search - direct submission with minimum length validation
+                guard text.count >= 2 else { return .none }
+                
                 return .run { send in
                     @Dependency(\.continuousClock) var clock
                     try await clock.sleep(for: .milliseconds(300))
-                    await send(.searchDebounced)
+                    await send(.searchSubmitted(text))
                 }
                 .cancellable(id: "search-debounce")
                 
@@ -229,11 +230,6 @@ struct ExploreFeatureDomain {
             case .ensureUserPreferences:
                 return .none
                 
-            case .searchDebounced:
-                return .run { [searchText = state.searchText] send in
-                    await send(.searchSubmitted(searchText))
-                }
-                
             case let .searchSubmitted(query):
                 guard !query.isEmpty else { return .none }
                 
@@ -268,12 +264,16 @@ struct ExploreFeatureDomain {
             case let .searchResponse(.failure(error)):
                 state.isSearching = false
                 state.searchError = error.localizedDescription
+                // Clear search results on error to avoid showing stale data
+                state.searchResults = []
                 return .none
                 
             case .clearSearch:
                 state.searchText = ""
                 state.searchResults = []
                 state.searchError = nil
+                state.searchParsedIntent = nil
+                state.isUsingFallbackSearch = false
                 return .cancel(id: "search-debounce")
                     .merge(with: .cancel(id: "search-request"))
                     
@@ -375,7 +375,7 @@ struct ExploreView: View {
                                 }
                                 
                                 // Error state
-                                else if let error = store.searchError ?? store.error, 
+                                else if let error = (store.isSearchActive ? store.searchError : store.error), 
                                         (store.isSearchActive ? store.searchResults.isEmpty : store.recommendations.isEmpty) {
                                     VStack(spacing: DesignSystem.Spacing.md) {
                                         Image(systemName: "exclamationmark.triangle")
