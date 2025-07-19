@@ -143,6 +143,11 @@ public struct HealthAssessmentResponse: Codable, Equatable {
     let citations: [Citation]?
     let meta: ResponseMetadata?
     
+    // Direct API fields to match actual response structure
+    let high_risk: [IngredientRisk]?
+    let moderate_risk: [IngredientRisk]?
+    let low_risk: [IngredientRisk]?
+    
     // Computed properties for backward compatibility
     var riskSummary: RiskSummary? {
         return RiskSummary(grade: grade, color: color, score: nil)
@@ -173,9 +178,14 @@ public struct HealthAssessmentResponse: Codable, Equatable {
         case grade
         case color
         case ingredientsAssessment = "ingredients_assessment"
-        case nutrition = "nutrition_insights"
+        case nutrition = "nutrition"
         case citations
         case meta = "metadata"
+        
+        // Direct API fields
+        case high_risk = "high_risk"
+        case moderate_risk = "moderate_risk" 
+        case low_risk = "low_risk"
     }
 }
 
@@ -219,7 +229,7 @@ public struct IngredientRisk: Codable, Equatable {
     
     enum CodingKeys: String, CodingKey {
         case name
-        case risk = "micro_report"
+        case risk = "risk"
         case riskLevel = "risk_level"
     }
 }
@@ -243,9 +253,9 @@ public struct NutritionInsight: Codable, Equatable {
     
     enum CodingKeys: String, CodingKey {
         case nutrient
-        case amount = "amount_per_serving"
-        case eval = "evaluation"
-        case comment = "ai_commentary"
+        case amount = "amount"
+        case eval = "eval"
+        case comment = "comment"
         case dailyValue = "daily_value"
         case recommendation
     }

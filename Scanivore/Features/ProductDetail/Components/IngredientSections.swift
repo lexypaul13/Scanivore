@@ -22,8 +22,8 @@ struct CollapsibleIngredientSections: View {
                 .padding(.horizontal, DesignSystem.Spacing.screenPadding)
             
             VStack(spacing: DesignSystem.Spacing.base) {
-                // High Risk Ingredients - using direct fields from assessment
-                if let highRisk = assessment.highRisk, !highRisk.isEmpty {
+                // High Risk Ingredients - using direct API fields
+                if let highRisk = assessment.high_risk, !highRisk.isEmpty {
                     CollapsibleIngredientSection(
                         sectionId: "high-risk",
                         title: "High Risk",
@@ -37,8 +37,8 @@ struct CollapsibleIngredientSections: View {
                     )
                 }
                 
-                // Moderate Risk Ingredients - using direct fields from assessment
-                if let moderateRisk = assessment.moderateRisk, !moderateRisk.isEmpty {
+                // Moderate Risk Ingredients - using direct API fields
+                if let moderateRisk = assessment.moderate_risk, !moderateRisk.isEmpty {
                     CollapsibleIngredientSection(
                         sectionId: "moderate-risk",
                         title: "Moderate Risk",
@@ -52,8 +52,8 @@ struct CollapsibleIngredientSections: View {
                     )
                 }
                 
-                // Low Risk Ingredients - using direct fields from assessment  
-                if let lowRisk = assessment.lowRisk, !lowRisk.isEmpty {
+                // Low Risk Ingredients - using direct API fields
+                if let lowRisk = assessment.low_risk, !lowRisk.isEmpty {
                     CollapsibleIngredientSection(
                         sectionId: "low-risk",
                         title: "Low Risk",
@@ -68,9 +68,9 @@ struct CollapsibleIngredientSections: View {
                 }
                 
                 // Show message if no risk ingredients found
-                if (assessment.highRisk?.isEmpty ?? true) &&
-                   (assessment.moderateRisk?.isEmpty ?? true) &&
-                   (assessment.lowRisk?.isEmpty ?? true) {
+                if (assessment.high_risk?.isEmpty ?? true) &&
+                   (assessment.moderate_risk?.isEmpty ?? true) &&
+                   (assessment.low_risk?.isEmpty ?? true) {
                     Text("Ingredient analysis not available for this product")
                         .font(DesignSystem.Typography.body)
                         .foregroundColor(DesignSystem.Colors.textSecondary)

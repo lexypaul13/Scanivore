@@ -110,11 +110,16 @@ struct ProductDetailFeatureDomain {
         }
         
         var allIngredients: [IngredientRisk] {
-            guard let assessment = healthAssessment,
-                  let ingredientsAssessment = assessment.ingredientsAssessment else { return [] }
-            return (ingredientsAssessment.highRisk ?? []) + 
-                   (ingredientsAssessment.moderateRisk ?? []) + 
-                   (ingredientsAssessment.lowRisk ?? [])
+            guard let assessment = healthAssessment else { 
+                return [] 
+            }
+            
+            // Use direct API fields that match actual response structure
+            let highRisk = assessment.high_risk ?? []
+            let moderateRisk = assessment.moderate_risk ?? []
+            let lowRisk = assessment.low_risk ?? []
+            
+            return highRisk + moderateRisk + lowRisk
         }
         
         init(productCode: String, productName: String? = nil, productBrand: String? = nil, productImageUrl: String? = nil, originalRiskRating: String? = nil) {
@@ -154,10 +159,16 @@ struct ProductDetailFeatureDomain {
                 guard state.healthAssessment == nil else { return .none }
                 
                 // Check cache first to potentially avoid loading state
-                if let cachedAssessment = HealthAssessmentCache.shared.getCachedAssessment(for: state.productCode) {
-                    state.healthAssessment = cachedAssessment
+                if let cacheResult = HealthAssessmentCache.shared.getCachedAssessment(for: state.productCode) {
+                    state.healthAssessment = cacheResult.assessment
                     state.isLoading = false
                     state.error = nil
+                    
+                    // Log instant performance for cache hits
+                    if cacheResult.fromCache {
+                        print("🚀 ProductDetail: INSTANT cache hit - no loading needed!")
+                    }
+                    
                     return .none
                 }
                 
@@ -520,9 +531,13 @@ struct LoadingView: View {
                 .progressViewStyle(CircularProgressViewStyle())
                 .scaleEffect(1.5)
             
-            Text("Loading product details...")
+            Text("Analyzing product...")
                 .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
+            
+            Text("Health assessment in ~5 seconds")
+                .font(DesignSystem.Typography.caption)
+                .foregroundColor(DesignSystem.Colors.textPrimary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
