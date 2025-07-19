@@ -50,19 +50,19 @@ extension ProductGateway: DependencyKey {
             .serializingData()
             .value
             
-            // Log the raw response for debugging
-            if let responseString = String(data: response, encoding: .utf8) {
-                print("📄 Raw product response: \(responseString)")
-            }
+            // Log response size for debugging (avoid expensive string conversion)
+            print("📄 Product response: \(response.count) bytes")
             
-            // Try to decode
-            let decoder = JSONDecoder()
-            return try decoder.decode(Product.self, from: response)
+            // Decode JSON on background queue to avoid main thread blocking
+            return try await Task.detached(priority: .userInitiated) {
+                let decoder = JSONDecoder()
+                return try decoder.decode(Product.self, from: response)
+            }.value
         },
         
         getHealthAssessment: { barcode in
-            // Check cache first with performance-aware feedback
-            if let cacheResult = HealthAssessmentCache.shared.getCachedAssessment(for: barcode) {
+            // Check cache first with performance-aware feedback (async to avoid main thread blocking)
+            if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: barcode) {
                 if cacheResult.fromCache {
                     print("🚀 INSTANT response from cache (0.00s) - 94% optimization active!")
                 }
@@ -89,21 +89,21 @@ extension ProductGateway: DependencyKey {
                 .serializingData()
                 .value
                 
-                // Log the raw response for debugging
-                if let responseString = String(data: response, encoding: .utf8) {
-                    print("📄 Raw health assessment response: \(responseString)")
-                }
+                // Log response size for debugging (avoid expensive string conversion)
+                print("📄 Health assessment response: \(response.count) bytes")
                 
-                // Try to decode
-                let decoder = JSONDecoder()
-                let decodedResponse = try decoder.decode(HealthAssessmentResponse.self, from: response)
+                // Decode JSON on background queue to avoid main thread blocking
+                let decodedResponse = try await Task.detached(priority: .userInitiated) {
+                    let decoder = JSONDecoder()
+                    return try decoder.decode(HealthAssessmentResponse.self, from: response)
+                }.value
                 
                 // Log actual performance
                 let actualTime = Date().timeIntervalSince(startTime)
                 print("⚡ Health assessment completed in \(String(format: "%.2f", actualTime))s (Expected: ~5s)")
                 
-                // Cache the response for future instant access
-                HealthAssessmentCache.shared.cacheAssessment(decodedResponse, for: barcode)
+                // Cache the response for future instant access (async to avoid main thread blocking)
+                await HealthAssessmentCache.shared.cacheAssessment(decodedResponse, for: barcode)
                 
                 return decodedResponse
                 

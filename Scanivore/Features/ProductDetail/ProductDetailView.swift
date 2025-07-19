@@ -158,22 +158,19 @@ struct ProductDetailFeatureDomain {
                 // Check if we already have the assessment or if it needs refresh
                 guard state.healthAssessment == nil else { return .none }
                 
-                // Check cache first to potentially avoid loading state
-                if let cacheResult = HealthAssessmentCache.shared.getCachedAssessment(for: state.productCode) {
-                    state.healthAssessment = cacheResult.assessment
-                    state.isLoading = false
-                    state.error = nil
-                    
-                    // Log instant performance for cache hits
-                    if cacheResult.fromCache {
-                        print("🚀 ProductDetail: INSTANT cache hit - no loading needed!")
+                // Check cache first to potentially avoid loading state (async to avoid main thread blocking)
+                return .run { [productCode = state.productCode] send in
+                    if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: productCode) {
+                        await send(.healthAssessmentResponse(.success(cacheResult.assessment)))
+                        
+                        // Log instant performance for cache hits
+                        if cacheResult.fromCache {
+                            print("🚀 ProductDetail: INSTANT cache hit - no loading needed!")
+                        }
+                    } else {
+                        // Cache miss - proceed with network fetch
+                        await send(.loadHealthAssessment)
                     }
-                    
-                    return .none
-                }
-                
-                return .run { send in
-                    await send(.loadHealthAssessment)
                 }
                 
             case .loadHealthAssessment:

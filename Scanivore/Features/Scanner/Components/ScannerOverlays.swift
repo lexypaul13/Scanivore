@@ -15,17 +15,17 @@ struct PermissionOverlay: View {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle())
                 .scaleEffect(2.0)
-                .tint(DesignSystem.Colors.primaryRed)
+                .tint(.white)
             
             Text("Requesting Camera Permission...")
                 .font(DesignSystem.Typography.heading2)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
+                .foregroundColor(.white)
                 .multilineTextAlignment(.center)
         }
         .padding(DesignSystem.Spacing.xxxl)
-        .background(DesignSystem.Colors.background.opacity(0.95))
+        .background(Color.black.opacity(0.8))
         .cornerRadius(DesignSystem.CornerRadius.xxl)
-        .shadow(color: DesignSystem.Shadow.medium, radius: DesignSystem.Shadow.radiusMedium)
+        .shadow(color: .black.opacity(0.5), radius: 8)
     }
 }
 
@@ -35,16 +35,16 @@ struct PreparingOverlay: View {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle())
                 .scaleEffect(2.0)
-                .tint(DesignSystem.Colors.primaryRed)
+                .tint(.white)
             
-            Text("Preparing Camera...")
+            Text("Starting Camera...")
                 .font(DesignSystem.Typography.heading2)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
+                .foregroundColor(.white)
         }
         .padding(DesignSystem.Spacing.xxxl)
-        .background(DesignSystem.Colors.background.opacity(0.95))
+        .background(Color.black.opacity(0.8))
         .cornerRadius(DesignSystem.CornerRadius.xxl)
-        .shadow(color: DesignSystem.Shadow.medium, radius: DesignSystem.Shadow.radiusMedium)
+        .shadow(color: .black.opacity(0.5), radius: 8)
     }
 }
 

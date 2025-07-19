@@ -30,9 +30,8 @@ struct ExploreFeatureDomain {
         
         // Pagination state
         var isLoading = false
-        var isLoadingMore = false
+        var isLoadingNextPage = false
         var error: String?
-        var currentPage = 0
         var hasMorePages = true
         var totalItems = 0
         
@@ -44,7 +43,7 @@ struct ExploreFeatureDomain {
         
         // Computed properties
         var canLoadMore: Bool {
-            !isLoadingMore && hasMorePages && currentPage < 3
+            !isLoadingNextPage && hasMorePages
         }
         
         var displayedProducts: IdentifiedArrayOf<ProductRecommendation> {
@@ -149,40 +148,24 @@ struct ExploreFeatureDomain {
             case .loadRecommendations:
                 state.isLoading = true
                 state.error = nil
-                state.currentPage = 0
                 state.hasMorePages = true
                 
                 return .run { send in
                     await send(.recommendationsResponse(
                         TaskResult {
                             @Dependency(\.productGateway) var productGateway
-                            return try await productGateway.getRecommendations()
+                            // First page: offset=0, pageSize=10
+                            return try await productGateway.getRecommendations(0, 10)
                         }
                     ))
                 }
                 .cancellable(id: "explore-recommendations")
                 
-            case .loadMoreRecommendations:
-                guard state.canLoadMore else { return .none }
-                
-                state.isLoadingMore = true
-                let nextPage = state.currentPage + 1
-                let offset = nextPage * 10
-                
-                return .run { send in
-                    await send(.moreRecommendationsResponse(
-                        TaskResult {
-                            @Dependency(\.productGateway) var productGateway
-                            return try await productGateway.getExploreRecommendations(offset, 10)
-                        }
-                    ))
-                }
-                
             case let .recommendationsResponse(.success(response)):
                 state.isLoading = false
-                state.currentPage = 0
                 state.totalItems = response.totalMatches
-                state.hasMorePages = response.recommendations.count == 10 && state.totalItems > 10
+                state.hasMorePages = response.recommendations.count == 10
+                
                 
                 // Convert API response to app models
                 let newRecommendations = response.recommendations.map { item in
@@ -200,11 +183,9 @@ struct ExploreFeatureDomain {
                 return .none
                 
             case let .moreRecommendationsResponse(.success(response)):
-                state.isLoadingMore = false
-                state.currentPage += 1
-                state.hasMorePages = response.recommendations.count == 10 && 
-                                   (state.currentPage + 1) * 10 < state.totalItems &&
-                                   state.currentPage < 2  // Max 3 pages (0, 1, 2)
+                state.isLoadingNextPage = false
+                state.hasMorePages = response.recommendations.count == 10
+                
                 
                 // Convert and append new recommendations
                 let newRecommendations = response.recommendations.map { item in
@@ -215,7 +196,7 @@ struct ExploreFeatureDomain {
                 return .none
                 
             case let .moreRecommendationsResponse(.failure(error)):
-                state.isLoadingMore = false
+                state.isLoadingNextPage = false
                 // Don't show error for pagination failure, just stop loading
                 return .none
                 
@@ -246,37 +227,11 @@ struct ExploreFeatureDomain {
                 }
                 
             case .ensureUserPreferences:
-                return .run { _ in
-                    @Dependency(\.userGateway) var userGateway
-                    
-                    do {
-                        let user = try? await userGateway.getProfile()
-                        
-                        if user?.preferences == nil {
-                            let defaultPreferences = UserPreferences(
-                                nutritionFocus: "balanced",
-                                avoidPreservatives: true,
-                                meatPreferences: ["chicken", "beef", "fish"],
-                                prefer_no_preservatives: true,
-                                prefer_antibiotic_free: true,
-                                prefer_organic_or_grass_fed: false,
-                                prefer_no_added_sugars: true,
-                                prefer_no_flavor_enhancers: true,
-                                prefer_reduced_sodium: false,
-                                preferred_meat_types: ["chicken", "beef", "fish"]
-                            )
-                            
-                            _ = try? await userGateway.updatePreferences(defaultPreferences)
-                        }
-                    } catch {
-                        // Silently handle preference setup errors
-                    }
-                }
+                return .none
                 
             case .searchDebounced:
-                guard !state.searchText.isEmpty else { return .none }
-                return .run { [query = state.searchText] send in
-                    await send(.searchSubmitted(query))
+                return .run { [searchText = state.searchText] send in
+                    await send(.searchSubmitted(searchText))
                 }
                 
             case let .searchSubmitted(query):
@@ -323,7 +278,6 @@ struct ExploreFeatureDomain {
                     .merge(with: .cancel(id: "search-request"))
                     
             case let .productTapped(recommendation):
-                print("🎯 Product tapped: \(recommendation.name) (Code: \(recommendation.id))")
                 state.productDetail = ProductDetailFeatureDomain.State(
                     productCode: recommendation.id,
                     productName: recommendation.name,
@@ -335,6 +289,23 @@ struct ExploreFeatureDomain {
                 
             case .productDetail:
                 return .none
+            case .loadMoreRecommendations:
+                guard state.canLoadMore else { return .none }
+                state.isLoadingNextPage = true
+                
+                let offset = state.recommendations.count
+                
+                return .run { send in
+                    await send(.moreRecommendationsResponse(
+                        TaskResult {
+                            @Dependency(\.productGateway) var productGateway
+                            // Next page: offset=current count, pageSize=10
+                            return try await productGateway.getRecommendations(offset, 10)
+                        }
+                    ))
+                }
+                .cancellable(id: "explore-more-recommendations")
+
             }
         }
         .ifLet(\.$productDetail, action: \.productDetail) {
@@ -446,17 +417,22 @@ struct ExploreView: View {
                                             .padding(.horizontal, DesignSystem.Spacing.screenPadding)
                                             .onAppear {
                                                 // Only load more for recommendations, not search results
-                                                if !store.isSearchActive {
-                                                    let isNearEnd = store.displayedProducts.suffix(3).contains(recommendation)
-                                                    if isNearEnd {
-                                                        store.send(.loadMoreRecommendations)
+                                                if !store.isSearchActive && store.canLoadMore {
+                                                    // Trigger when we're in the last 5 items, but only once per page
+                                                    let totalItems = store.displayedProducts.count
+                                                    if let currentIndex = store.displayedProducts.firstIndex(of: recommendation) {
+                                                        let itemsFromEnd = totalItems - currentIndex
+                                                        // Trigger when we're 5 items from the end
+                                                        if itemsFromEnd <= 5 {
+                                                            store.send(.loadMoreRecommendations)
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                         
                                         // Loading more indicator (only for recommendations)
-                                        if store.isLoadingMore && !store.isSearchActive {
+                                        if store.isLoadingNextPage && !store.isSearchActive {
                                             HStack {
                                                 ProgressView()
                                                     .progressViewStyle(CircularProgressViewStyle())
@@ -470,11 +446,23 @@ struct ExploreView: View {
                                         
                                         // End of list message (only for recommendations)
                                         else if !store.hasMorePages && !store.recommendations.isEmpty && !store.isSearchActive {
-                                            Text("That's all for now!")
-                                                .font(DesignSystem.Typography.caption)
-                                                .foregroundColor(DesignSystem.Colors.textSecondary)
-                                                .frame(maxWidth: .infinity)
-                                                .padding(.vertical, DesignSystem.Spacing.lg)
+                                            VStack(spacing: DesignSystem.Spacing.sm) {
+                                                Text(store.recommendations.count < 20 ? 
+                                                     "Found \(store.recommendations.count) products matching your preferences" : 
+                                                     "That's all for now!")
+                                                    .font(DesignSystem.Typography.caption)
+                                                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                                                    .multilineTextAlignment(.center)
+                                                
+                                                if store.recommendations.count < 10 {
+                                                    Text("Try adjusting your filters for more results")
+                                                        .font(DesignSystem.Typography.caption)
+                                                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                                                        .multilineTextAlignment(.center)
+                                                }
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, DesignSystem.Spacing.lg)
                                         }
                                         
                                         // Search results count

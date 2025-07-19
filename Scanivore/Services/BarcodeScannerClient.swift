@@ -23,6 +23,8 @@ struct BarcodeScannerClient: Sendable {
     var requestCameraPermission: @Sendable () async -> CameraPermissionStatus = { .notRequested }
     var startScanning: @Sendable (@escaping (String) -> Void, @escaping (ScannerError) -> Void) -> Void = { _, _ in }
     var stopScanning: @Sendable () -> Void = { }
+    var pauseDetection: @Sendable () -> Void = { }
+    var resumeDetection: @Sendable () -> Void = { }
 }
 
 // MARK: - Models
@@ -100,6 +102,18 @@ extension BarcodeScannerClient: DependencyKey {
                 BarcodeScanner.shared?.stopScanning()
                 BarcodeScanner.shared = nil
             }
+        },
+        
+        pauseDetection: {
+            Task { @MainActor in
+                BarcodeScanner.shared?.pauseDetection()
+            }
+        },
+        
+        resumeDetection: {
+            Task { @MainActor in
+                BarcodeScanner.shared?.resumeDetection()
+            }
         }
     )
 }
@@ -121,7 +135,9 @@ extension BarcodeScannerClient: TestDependencyKey {
                 onBarcodeDetected("0002000003197") // Mock barcode for testing
             }
         },
-        stopScanning: { }
+        stopScanning: { },
+        pauseDetection: { },
+        resumeDetection: { }
     )
 }
 
@@ -146,6 +162,7 @@ class BarcodeScanner: NSObject, ObservableObject {
     private var onError: ((ScannerError) -> Void)?
     private var lastDetectedBarcode: String?
     private var lastDetectionTime: Date?
+    private var isDetectionActive: Bool = true
     
     override init() {
         super.init()
@@ -159,6 +176,7 @@ class BarcodeScanner: NSObject, ObservableObject {
         
         self.onBarcodeDetected = onBarcodeDetected
         self.onError = onError
+        self.isDetectionActive = true
         
         guard let captureDevice = AVCaptureDevice.default(for: .video) else {
             print("📸 BarcodeScanner: No camera device available")
@@ -170,9 +188,30 @@ class BarcodeScanner: NSObject, ObservableObject {
         let captureSession = AVCaptureSession()
         self.captureSession = captureSession
         
-        // Configure session preset for better barcode detection
-        if captureSession.canSetSessionPreset(.high) {
+        // Configure session preset for optimal performance
+        if captureDevice.supportsSessionPreset(.high) {
             captureSession.sessionPreset = .high
+        } else {
+            captureSession.sessionPreset = .medium
+        }
+        
+        // Configure capture device for better barcode detection
+        do {
+            try captureDevice.lockForConfiguration()
+            
+            // Enable auto-focus if available
+            if captureDevice.isFocusModeSupported(.continuousAutoFocus) {
+                captureDevice.focusMode = .continuousAutoFocus
+            }
+            
+            // Enable auto-exposure if available
+            if captureDevice.isExposureModeSupported(.continuousAutoExposure) {
+                captureDevice.exposureMode = .continuousAutoExposure
+            }
+            
+            captureDevice.unlockForConfiguration()
+        } catch {
+            print("📸 BarcodeScanner: Failed to configure capture device: \(error)")
         }
         
         do {
@@ -196,15 +235,19 @@ class BarcodeScanner: NSObject, ObservableObject {
             throw ScannerError.scanningFailed("Failed to add metadata output")
         }
         
+        // Set up metadata detection on main queue for better performance
         captureMetadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
         
-        // Support multiple barcode formats commonly found on food products
+        // Focus on most common barcode types for food products
         captureMetadataOutput.metadataObjectTypes = [
-            .ean8, .ean13, .pdf417, .qr, .upce, .code128, .code39, .code93,
-            .interleaved2of5, .itf14, .dataMatrix
+            .ean13, .ean8, .upce, .code128, .code39, .qr, .pdf417, .itf14
         ]
         
-        print("📸 BarcodeScanner: Supported barcode types configured")
+        // Expand detection area for better usability (80% width, 80% height, centered)
+        let centerRect = CGRect(x: 0.1, y: 0.1, width: 0.8, height: 0.8)
+        captureMetadataOutput.rectOfInterest = centerRect
+        
+        print("📸 BarcodeScanner: Detection area expanded to \(centerRect) with enhanced barcode types")
         
         // Create preview layer
         let previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
@@ -213,8 +256,8 @@ class BarcodeScanner: NSObject, ObservableObject {
         
         print("📸 BarcodeScanner: Preview layer created")
         
-        // Start the capture session
-        DispatchQueue.global(qos: .userInitiated).async { [weak captureSession] in
+        // Start the capture session on a background queue
+        DispatchQueue.global(qos: .userInitiated).async { [weak self, weak captureSession] in
             captureSession?.startRunning()
             print("📸 BarcodeScanner: Capture session started running")
             
@@ -231,13 +274,30 @@ class BarcodeScanner: NSObject, ObservableObject {
     
     func stopScanning() {
         print("📸 BarcodeScanner: Stopping scanning session")
-        captureSession?.stopRunning()
-        captureSession = nil
-        previewLayer = nil
-        onBarcodeDetected = nil
-        onError = nil
-        lastDetectedBarcode = nil
-        lastDetectionTime = nil
+        isDetectionActive = false
+        
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            self?.captureSession?.stopRunning()
+            
+            DispatchQueue.main.async {
+                self?.captureSession = nil
+                self?.previewLayer = nil
+                self?.onBarcodeDetected = nil
+                self?.onError = nil
+                self?.lastDetectedBarcode = nil
+                self?.lastDetectionTime = nil
+            }
+        }
+    }
+    
+    func pauseDetection() {
+        isDetectionActive = false
+        print("📸 BarcodeScanner: Detection paused")
+    }
+    
+    func resumeDetection() {
+        isDetectionActive = true
+        print("📸 BarcodeScanner: Detection resumed")
     }
     
     func getPreviewLayer() -> AVCaptureVideoPreviewLayer? {
@@ -253,49 +313,98 @@ extension BarcodeScanner: AVCaptureMetadataOutputObjectsDelegate {
         didOutput metadataObjects: [AVMetadataObject],
         from connection: AVCaptureConnection
     ) {
+        // Skip processing if detection is paused
+        guard isDetectionActive else { return }
+        
+        // Process only the first detected barcode for better performance
         guard let metadataObject = metadataObjects.first,
               let readableObject = metadataObject as? AVMetadataMachineReadableCodeObject,
-              let stringValue = readableObject.stringValue else {
+              let stringValue = readableObject.stringValue,
+              !stringValue.isEmpty else {
             return
         }
         
-        print("📸 BarcodeScanner: Detected barcode type: \(readableObject.type.rawValue), value: \(stringValue)")
+        print("📸 Detected: type: \(readableObject.type.rawValue), value: \(stringValue), bounds: \(readableObject.bounds)")
         
-        // Validate barcode format for food products
-        if isValidFoodBarcode(stringValue) {
-            // Debounce: Ignore if same barcode detected within 2 seconds
+        // Validate checksum on original format (EAN-13 with leading zero)
+        if isValidBarcodeChecksum(stringValue) {
+            print("📸 BarcodeScanner: Valid checksum for \(stringValue)")
+            
+            // Convert EAN-13 to UPC-A format for API (trim leading zero)
+            var processedValue = stringValue
+            if readableObject.type == .ean13 && stringValue.hasPrefix("0") && stringValue.count == 13 {
+                processedValue = String(stringValue.dropFirst())
+                print("📸 Converted to UPC-A format for API: \(processedValue)")
+            }
+            
+            // Debounce: Ignore if same barcode detected within 1 second (reduced from 1.5s)
             let now = Date()
             if let lastBarcode = lastDetectedBarcode,
                let lastTime = lastDetectionTime,
-               lastBarcode == stringValue,
-               now.timeIntervalSince(lastTime) < 2.0 {
+               lastBarcode == processedValue,
+               now.timeIntervalSince(lastTime) < 1.0 {
                 print("📸 BarcodeScanner: Ignoring duplicate barcode (debounce)")
                 return
             }
             
-            lastDetectedBarcode = stringValue
+            lastDetectedBarcode = processedValue
             lastDetectionTime = now
+            
+            // Pause detection temporarily to prevent multiple triggers
+            pauseDetection()
             
             print("📸 BarcodeScanner: Valid barcode detected, calling handler")
             
-            // Don't stop scanning here - let the reducer handle it
-            // This prevents the preview from going black immediately
-            onBarcodeDetected?(stringValue)
+            // Call the handler
+            onBarcodeDetected?(processedValue)
+            
+            // Resume detection after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                self?.resumeDetection()
+            }
         } else {
-            print("📸 BarcodeScanner: Invalid barcode format: \(stringValue)")
+            print("📸 Invalid checksum, skipping: \(stringValue)")
         }
     }
     
-    private func isValidFoodBarcode(_ barcode: String) -> Bool {
-        // Basic validation for common food product barcode formats
-        let trimmed = barcode.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func isValidBarcodeChecksum(_ barcode: String) -> Bool {
+        guard barcode.allSatisfy({ $0.isNumber }) else { return false }
         
-        // EAN-13 (13 digits), UPC-A (12 digits), EAN-8 (8 digits)
-        if trimmed.count == 13 || trimmed.count == 12 || trimmed.count == 8 {
-            return trimmed.allSatisfy { $0.isNumber }
+        let digits = barcode.compactMap { Int(String($0)) }
+        guard digits.count >= 8 else { return false }
+        
+        // For UPC-A (12 digits) and EAN-13 (13 digits) checksum calculation
+        if digits.count == 12 || digits.count == 13 {
+            var sum = 0
+            let dataDigits = digits.dropLast()
+            
+            for (index, digit) in dataDigits.enumerated() {
+                // UPC-A/EAN-13: odd positions (1st, 3rd, 5th...) get weight 1, even positions get weight 3
+                // But in 0-based indexing, this is reversed
+                if digits.count == 12 {
+                    // UPC-A: positions 0,2,4,6,8,10 get weight 1, positions 1,3,5,7,9 get weight 3
+                    sum += digit * (index % 2 == 0 ? 1 : 3)
+                } else {
+                    // EAN-13: positions 0,2,4,6,8,10,12 get weight 1, positions 1,3,5,7,9,11 get weight 3
+                    sum += digit * (index % 2 == 0 ? 1 : 3)
+                }
+            }
+            let checksum = (10 - (sum % 10)) % 10
+            let isValid = checksum == digits.last
+            
+            if !isValid {
+                print("📸 Checksum debug for \(barcode): sum=\(sum), calculated=\(checksum), expected=\(digits.last ?? -1)")
+            }
+            
+            return isValid
         }
         
-        // Allow other formats for flexibility
-        return trimmed.count >= 8 && trimmed.count <= 20
+        // For other formats, just validate it's numeric and reasonable length
+        return digits.count >= 8 && digits.count <= 20
+    }
+    
+    private func isValidFoodBarcode(_ barcode: String) -> Bool {
+        // This method is now replaced by isValidBarcodeChecksum for better validation
+        return isValidBarcodeChecksum(barcode)
     }
 }
