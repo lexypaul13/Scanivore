@@ -15,7 +15,7 @@ private func createOptimizedSession() -> Session {
     let configuration = URLSessionConfiguration.default
     // Optimized for 94% faster backend performance (5s vs 83s)
     configuration.timeoutIntervalForRequest = APIConfiguration.healthAssessmentTimeout  // 20s (updated)
-    configuration.timeoutIntervalForResource = APIConfiguration.timeout  // 15s
+    configuration.timeoutIntervalForResource = APIConfiguration.healthAssessmentTimeout * 2  // 40s for total resource
     return Session(configuration: configuration)
 }
 
