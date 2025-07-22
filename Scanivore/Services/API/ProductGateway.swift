@@ -108,43 +108,79 @@ extension ProductGateway: DependencyKey {
             print("⚡ Expected response time: ~5s (94% faster backend + 65% mobile optimization)")
             
             let startTime = Date()
+            var lastError: Error?
+            let maxRetries = 2
             
-            do {
-                let response = try await optimizedSession.request(
-                    url,
-                    method: .get,
-                    headers: headers
-                )
-                .validate(statusCode: 200..<300)
-                .serializingData()
-                .value
+            // Retry logic for timeout errors
+            for attempt in 0...maxRetries {
+                do {
+                    if attempt > 0 {
+                        print("🔄 Retry attempt \(attempt) of \(maxRetries) for health assessment")
+                        // Exponential backoff: 1s, 2s
+                        try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
+                    }
+                    
+                    let response = try await optimizedSession.request(
+                        url,
+                        method: .get,
+                        headers: headers
+                    )
+                    .validate(statusCode: 200..<300)
+                    .serializingData()
+                    .value
                 
-                // Log response size for debugging and check for massive responses
-                let responseSizeMB = Double(response.count) / (1024 * 1024)
-                print("📄 Health assessment response: \(response.count) bytes (\(String(format: "%.2f", responseSizeMB)) MB)")
-                
-                // Warn about large responses that could cause performance issues
-                if response.count > 500_000 {  // 500KB
-                    print("⚠️ WARNING: Large response detected (\(String(format: "%.2f", responseSizeMB)) MB) - potential performance impact")
+                    // Log response size for debugging and check for massive responses
+                    let responseSizeMB = Double(response.count) / (1024 * 1024)
+                    print("📄 Health assessment response: \(response.count) bytes (\(String(format: "%.2f", responseSizeMB)) MB)")
+                    
+                    // Warn about large responses that could cause performance issues
+                    if response.count > 500_000 {  // 500KB
+                        print("⚠️ WARNING: Large response detected (\(String(format: "%.2f", responseSizeMB)) MB) - potential performance impact")
+                    }
+                    
+                    // Decode JSON on background queue to avoid main thread blocking
+                    let decodedResponse = try await Task.detached(priority: .userInitiated) {
+                        let decoder = JSONDecoder()
+                        return try decoder.decode(HealthAssessmentResponse.self, from: response)
+                    }.value
+                    
+                    // Log actual performance
+                    let actualTime = Date().timeIntervalSince(startTime)
+                    print("⚡ Health assessment completed in \(String(format: "%.2f", actualTime))s (Expected: ~5s)")
+                    
+                    // Cache the response for future instant access (async to avoid main thread blocking)
+                    await HealthAssessmentCache.shared.cacheAssessment(decodedResponse, for: barcode)
+                    
+                    return decodedResponse
+                    
+                } catch {
+                    lastError = error
+                    
+                    // Check if it's a timeout error
+                    if let urlError = error as? URLError, urlError.code == .timedOut {
+                        print("⏱️ Request timed out for \(barcode) (attempt \(attempt + 1)/\(maxRetries + 1))")
+                        if attempt < maxRetries {
+                            continue // Try again
+                        }
+                    }
+                    
+                    // For non-timeout errors, don't retry
+                    print("❌ Health assessment failed for \(barcode): \(error)")
+                    break
                 }
+            }
+            
+            // If we got here, all retries failed
+            if let error = lastError {
                 
-                // Decode JSON on background queue to avoid main thread blocking
-                let decodedResponse = try await Task.detached(priority: .userInitiated) {
-                    let decoder = JSONDecoder()
-                    return try decoder.decode(HealthAssessmentResponse.self, from: response)
-                }.value
-                
-                // Log actual performance
-                let actualTime = Date().timeIntervalSince(startTime)
-                print("⚡ Health assessment completed in \(String(format: "%.2f", actualTime))s (Expected: ~5s)")
-                
-                // Cache the response for future instant access (async to avoid main thread blocking)
-                await HealthAssessmentCache.shared.cacheAssessment(decodedResponse, for: barcode)
-                
-                return decodedResponse
-                
-            } catch {
-                print("❌ Health assessment failed for \(barcode): \(error)")
+                // Check for timeout error first
+                if let urlError = error as? URLError, urlError.code == .timedOut {
+                    print("⏱️ All retry attempts failed - request timed out for \(barcode)")
+                    throw APIError(
+                        detail: "Request timed out after \(maxRetries + 1) attempts. Please check your network connection.",
+                        statusCode: -1001
+                    )
+                }
                 
                 // If it's a validation error, try to get more specific error information
                 if let afError = error as? AFError {
@@ -177,6 +213,9 @@ extension ProductGateway: DependencyKey {
                 // Re-throw the original error for other cases
                 throw error
             }
+            
+            // This should never be reached, but provide a fallback
+            throw APIError(detail: "Unexpected error during health assessment", statusCode: -1)
         },
         
         getMeatScanFromBarcode: { barcode in
