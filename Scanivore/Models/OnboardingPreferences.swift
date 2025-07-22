@@ -49,4 +49,3 @@ public struct OnboardingPreferences: Codable, Equatable {
 }
 
 // Extension to make MeatType conform to Codable for storage
-extension MeatType: Codable {}

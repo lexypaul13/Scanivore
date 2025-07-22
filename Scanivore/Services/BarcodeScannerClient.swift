@@ -324,17 +324,23 @@ extension BarcodeScanner: AVCaptureMetadataOutputObjectsDelegate {
             return
         }
         
-        print("📸 Detected: type: \(readableObject.type.rawValue), value: \(stringValue), bounds: \(readableObject.bounds)")
+        print("🔍 BARCODE DETECTED: '\(stringValue)' (\(readableObject.type.rawValue))")
+        print("🔍 BARCODE LENGTH: \(stringValue.count) digits")
+        print("🔍 BARCODE TYPE: \(readableObject.type.rawValue)")
         
-        // Validate checksum on original format (EAN-13 with leading zero)
+        // Validate checksum on original format
         if isValidBarcodeChecksum(stringValue) {
-            print("📸 BarcodeScanner: Valid checksum for \(stringValue)")
+            print("✅ Valid checksum for \(stringValue)")
             
-            // Convert EAN-13 to UPC-A format for API (trim leading zero)
+            // Process barcode based on actual type and length - NO AUTOMATIC CONVERSION
             var processedValue = stringValue
+            
+            // Only convert 13-digit EAN-13 codes starting with 0 to 12-digit UPC-A
             if readableObject.type == .ean13 && stringValue.hasPrefix("0") && stringValue.count == 13 {
                 processedValue = String(stringValue.dropFirst())
-                print("📸 Converted to UPC-A format for API: \(processedValue)")
+                print("📸 EAN-13 to UPC-A conversion: \(stringValue) → \(processedValue)")
+            } else {
+                print("📸 Using barcode as-is: \(stringValue) (no conversion needed)")
             }
             
             // Debounce: Ignore if same barcode detected within 1 second (reduced from 1.5s)
@@ -353,7 +359,7 @@ extension BarcodeScanner: AVCaptureMetadataOutputObjectsDelegate {
             // Pause detection temporarily to prevent multiple triggers
             pauseDetection()
             
-            print("📸 BarcodeScanner: Valid barcode detected, calling handler")
+            print("🎯 PRODUCT CODE FOR LOOKUP: '\(processedValue)'")
             
             // Call the handler
             onBarcodeDetected?(processedValue)

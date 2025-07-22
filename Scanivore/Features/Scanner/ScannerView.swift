@@ -9,6 +9,12 @@ import SwiftUI
 import ComposableArchitecture
 import AVFoundation
 
+// MARK: - Scanner Events
+private enum ScannerEvent {
+    case barcodeDetected(String)
+    case scanFailed(ScannerError)
+}
+
 // MARK: - Scanner Feature Domain
 @Reducer
 struct ScannerFeatureDomain {
@@ -102,7 +108,7 @@ struct ScannerFeatureDomain {
                 barcodeScanner.stopScanning()
                 state.isSessionActive = false
                 state.scanState = .idle
-                return .none
+                return .cancel(id: "scanner_session")
                 
             case .permissionResponse(let status):
                 state.cameraPermissionStatus = status
@@ -113,26 +119,36 @@ struct ScannerFeatureDomain {
                     print("🔍 Scanner: Permission granted, starting session")
                     
                     return .run { send in
-                        // Start barcode scanning immediately
-                        barcodeScanner.startScanning(
-                            { barcode in
-                                print("🔍 Scanner: Barcode detected: \(barcode)")
-                                Task {
-                                    await send(.barcodeDetected(barcode))
-                                }
-                            },
-                            { error in
-                                print("🔍 Scanner: Error occurred: \(error)")
-                                Task {
-                                    await send(.scanFailed(error))
-                                }
-                            }
-                        )
-                        
                         // Small delay to show preparing state
                         try await Task.sleep(for: .milliseconds(300))
                         await send(.sessionStarted)
+                        
+                        // Start the long-running scanner effect
+                        for await event in AsyncStream<ScannerEvent> { continuation in
+                            barcodeScanner.startScanning(
+                                { barcode in
+                                    print("🔍 Scanner: Barcode detected: \(barcode)")
+                                    continuation.yield(.barcodeDetected(barcode))
+                                },
+                                { error in
+                                    print("🔍 Scanner: Error occurred: \(error)")
+                                    continuation.yield(.scanFailed(error))
+                                }
+                            )
+                            
+                            continuation.onTermination = { _ in
+                                barcodeScanner.stopScanning()
+                            }
+                        } {
+                            switch event {
+                            case .barcodeDetected(let barcode):
+                                await send(.barcodeDetected(barcode))
+                            case .scanFailed(let error):
+                                await send(.scanFailed(error))
+                            }
+                        }
                     }
+                    .cancellable(id: "scanner_session")
                     
                 case .denied, .restricted:
                     state.scanState = .error("Camera permission is required to scan barcodes. Please enable camera access in Settings.")

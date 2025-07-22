@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-public struct MeatScan: Identifiable, Equatable {
+public struct MeatScan: Identifiable, Equatable, Codable {
     public let id = UUID()
     let date: Date
     let image: String
@@ -20,7 +20,7 @@ public struct MeatScan: Identifiable, Equatable {
     let recommendations: [String]
 }
 
-public enum MeatType: String, CaseIterable, Equatable {
+public enum MeatType: String, CaseIterable, Equatable, Codable {
     case beef = "Beef"
     case pork = "Pork"
     case chicken = "Chicken"
@@ -42,7 +42,7 @@ public enum MeatType: String, CaseIterable, Equatable {
     }
 }
 
-public struct QualityRating: Equatable {
+public struct QualityRating: Equatable, Codable {
     let score: Double // 0-100
     let grade: String // A+, A, B+, B, C
     
@@ -56,7 +56,7 @@ public struct QualityRating: Equatable {
     }
 }
 
-public enum FreshnessLevel: String, CaseIterable, Equatable {
+public enum FreshnessLevel: String, CaseIterable, Equatable, Codable {
     case fresh = "Fresh"
     case good = "Good"
     case acceptable = "Acceptable"
@@ -74,7 +74,7 @@ public enum FreshnessLevel: String, CaseIterable, Equatable {
     }
 }
 
-public struct NutritionInfo: Equatable {
+public struct NutritionInfo: Equatable, Codable {
     let calories: Int
     let protein: Double
     let fat: Double
@@ -84,6 +84,23 @@ public struct NutritionInfo: Equatable {
 }
 
 extension MeatScan {
+        static let mock = MeatScan(
+            date: Date(),
+            image: "scan1",
+            meatType: .beef,
+            quality: QualityRating(score: 92, grade: "A+"),
+            freshness: .fresh,
+            nutritionInfo: NutritionInfo(
+                calories: 250,
+                protein: 26.0,
+                fat: 17.0,
+                saturatedFat: 7.0,
+                cholesterol: 80,
+                sodium: 75
+            ),
+            warnings: [],
+            recommendations: ["Perfect for grilling", "Best consumed within 3 days"]
+        )
     static let mockScans: [MeatScan] = [
         MeatScan(
             date: Date(),

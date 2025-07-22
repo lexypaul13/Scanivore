@@ -308,10 +308,12 @@ struct ExploreFeatureDomain {
 
             }
         }
+        ._printChanges()
         .ifLet(\.$productDetail, action: \.productDetail) {
             ProductDetailFeatureDomain()
         }
     }
+         
 }
 
 struct ExploreView: View {
