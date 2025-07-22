@@ -11,13 +11,13 @@ import Dependencies
 import ComposableArchitecture
 
 // MARK: - Alamofire Session Configuration
-private let optimizedSession: Session = {
+private func createOptimizedSession() -> Session {
     let configuration = URLSessionConfiguration.default
     // Optimized for 94% faster backend performance (5s vs 83s)
-    configuration.timeoutIntervalForRequest = APIConfiguration.healthAssessmentTimeout  // 10s
+    configuration.timeoutIntervalForRequest = APIConfiguration.healthAssessmentTimeout  // 20s (updated)
     configuration.timeoutIntervalForResource = APIConfiguration.timeout  // 15s
     return Session(configuration: configuration)
-}()
+}
 
 // MARK: - Product Gateway
 @DependencyClient
@@ -120,7 +120,7 @@ extension ProductGateway: DependencyKey {
                         try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
                     }
                     
-                    let response = try await optimizedSession.request(
+                    let response = try await createOptimizedSession().request(
                         url,
                         method: .get,
                         headers: headers
@@ -221,7 +221,7 @@ extension ProductGateway: DependencyKey {
         getMeatScanFromBarcode: { barcode in
             let headers = try await createAuthHeaders()
             
-            let healthAssessment = try await optimizedSession.request(
+            let healthAssessment = try await createOptimizedSession().request(
                 "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)/health-assessment-mcp?format=\(APIConfiguration.ResponseFormat.mobile)",
                 method: .get,
                 headers: headers
