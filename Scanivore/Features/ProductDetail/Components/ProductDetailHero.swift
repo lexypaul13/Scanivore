@@ -122,11 +122,26 @@ struct AIHealthSummary: View {
     let assessment: HealthAssessmentResponse
     
     private var cleanedSummary: String {
+        var cleaned = assessment.summary
+        
         // Remove citation markers like [1], [2], etc.
-        let pattern = "\\[\\d+\\]"
-        let regex = try? NSRegularExpression(pattern: pattern, options: [])
-        let range = NSRange(location: 0, length: assessment.summary.count)
-        return regex?.stringByReplacingMatches(in: assessment.summary, options: [], range: range, withTemplate: "") ?? assessment.summary
+        let citationPattern = "\\[\\d+\\]"
+        if let citationRegex = try? NSRegularExpression(pattern: citationPattern, options: []) {
+            let range = NSRange(location: 0, length: cleaned.count)
+            cleaned = citationRegex.stringByReplacingMatches(in: cleaned, options: [], range: range, withTemplate: "")
+        }
+        
+        // Remove markdown bold formatting like **text**
+        let boldPattern = "\\*\\*([^*]+)\\*\\*"
+        if let boldRegex = try? NSRegularExpression(pattern: boldPattern, options: []) {
+            let range = NSRange(location: 0, length: cleaned.count)
+            cleaned = boldRegex.stringByReplacingMatches(in: cleaned, options: [], range: range, withTemplate: "$1")
+        }
+        
+        // Clean up any double spaces left by removing citations
+        cleaned = cleaned.replacingOccurrences(of: "  ", with: " ")
+        
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     var body: some View {
