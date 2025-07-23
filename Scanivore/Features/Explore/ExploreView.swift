@@ -360,20 +360,30 @@ struct ExploreView: View {
                                 }
                                 .padding(.horizontal, DesignSystem.Spacing.screenPadding)
                                 
-                                // Loading state
+                                // Enhanced loading state with parallel processing info
                                 if (store.isLoading && store.recommendations.isEmpty && !store.isSearchActive) ||
                                    (store.isSearching && store.searchResults.isEmpty) {
-                                    VStack {
+                                    VStack(spacing: DesignSystem.Spacing.md) {
                                         ProgressView()
                                             .progressViewStyle(CircularProgressViewStyle())
                                             .scaleEffect(1.5)
-                                        Text(store.isSearchActive ? "Searching products..." : "Loading recommendations...")
-                                            .font(DesignSystem.Typography.body)
-                                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                                            .padding(.top, DesignSystem.Spacing.md)
+                                        
+                                        VStack(spacing: DesignSystem.Spacing.sm) {
+                                            Text(store.isSearchActive ? "Searching products..." : "Loading recommendations...")
+                                                .font(DesignSystem.Typography.bodyMedium)
+                                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                                            
+                                            if !store.isSearchActive {
+                                                Text("Loading recommendations...")
+                                                    .font(DesignSystem.Typography.caption)
+                                                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                                                    .multilineTextAlignment(.center)
+                                            }
+                                        }
                                     }
                                     .frame(maxWidth: .infinity)
-                                    .padding(.top, 100)
+                                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                                    .padding(.top, 80)
                                 }
                                 
                                 // Error state

@@ -27,18 +27,6 @@ struct CameraPreviewView: View {
                     .stroke(DesignSystem.Colors.primaryRed.opacity(0.8), lineWidth: 3)
                     .frame(width: geometry.size.width * 0.8, height: geometry.size.width * 0.8)
                 
-                VStack {
-                    Text("Position barcode within frame")
-                        .font(DesignSystem.Typography.heading2)
-                        .foregroundColor(DesignSystem.Colors.background)
-                        .padding(.horizontal, DesignSystem.Spacing.xl)
-                        .padding(.vertical, DesignSystem.Spacing.md)
-                        .background(DesignSystem.Colors.textPrimary.opacity(0.8))
-                        .cornerRadius(DesignSystem.CornerRadius.md)
-                        .padding(.top, 100)
-                    
-                    Spacer()
-                }
             }
         }
     }

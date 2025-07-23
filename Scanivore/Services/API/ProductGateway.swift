@@ -11,12 +11,18 @@ import Dependencies
 import ComposableArchitecture
 
 // MARK: - Alamofire Session Configuration
-private func createOptimizedSession() -> Session {
+// Shared session to prevent deallocation issues
+private let sharedOptimizedSession: Session = {
     let configuration = URLSessionConfiguration.default
     // Optimized for 94% faster backend performance (5s vs 83s)
     configuration.timeoutIntervalForRequest = APIConfiguration.healthAssessmentTimeout  // 20s (updated)
     configuration.timeoutIntervalForResource = APIConfiguration.healthAssessmentTimeout * 2  // 40s for total resource
     return Session(configuration: configuration)
+}()
+
+private func createOptimizedSession() -> Session {
+    // Return the shared session to prevent sessionDeinitialized errors
+    return sharedOptimizedSession
 }
 
 // MARK: - Product Gateway
@@ -25,7 +31,7 @@ public struct ProductGateway: Sendable {
     public var getProduct: @Sendable (String) async throws -> Product
     public var getHealthAssessment: @Sendable (String) async throws -> HealthAssessmentResponse
     public var getMeatScanFromBarcode: @Sendable (String) async throws -> MeatScan
-    public var getAlternatives: @Sendable (String) async throws -> [Product]
+    // getAlternatives removed - feature disabled
     public var searchProducts: @Sendable (String) async throws -> SearchResponse
     public var getRecommendations: @Sendable (Int, Int) async throws -> ExploreResponse
     public var getExploreRecommendations: @Sendable (Int, Int) async throws -> ExploreResponse
@@ -41,7 +47,7 @@ extension ProductGateway: DependencyKey {
             print("🔍 Fetching basic product for barcode: \(barcode)")
             print("🌐 URL: \(url)")
             
-            let response = try await AF.request(
+            let response = try await sharedOptimizedSession.request(
                 url,
                 method: .get,
                 headers: headers
@@ -120,7 +126,7 @@ extension ProductGateway: DependencyKey {
                         try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
                     }
                     
-                    let response = try await createOptimizedSession().request(
+                    let response = try await sharedOptimizedSession.request(
                         url,
                         method: .get,
                         headers: headers
@@ -221,7 +227,7 @@ extension ProductGateway: DependencyKey {
         getMeatScanFromBarcode: { barcode in
             let headers = try await createAuthHeaders()
             
-            let healthAssessment = try await createOptimizedSession().request(
+            let healthAssessment = try await sharedOptimizedSession.request(
                 "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)/health-assessment-mcp?format=\(APIConfiguration.ResponseFormat.mobile)",
                 method: .get,
                 headers: headers
@@ -234,55 +240,12 @@ extension ProductGateway: DependencyKey {
             return healthAssessment.toMeatScan(barcode: barcode)
         },
         
-        getAlternatives: { barcode in
-            let headers = try await createAuthHeaders()
-            
-            let products = try await AF.request(
-                "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)/alternatives",
-                method: .get,
-                headers: headers
-            )
-            .validate()
-            .serializingDecodable([Product].self)
-            .value
-            
-            // Strip image_data from all products to prevent massive memory usage
-            return products.map { product in
-                Product(
-                    code: product.code,
-                    name: product.name,
-                    brand: product.brand,
-                    categories: product.categories,
-                    ingredients: product.ingredients,
-                    nutritionFacts: product.nutritionFacts,
-                    image_url: product.image_url,
-                    image_data: nil,  // Remove massive base64 data
-                    risk_rating: product.risk_rating,
-                    description: product.description,
-                    ingredients_text: product.ingredients_text,
-                    calories: product.calories,
-                    protein: product.protein,
-                    fat: product.fat,
-                    carbohydrates: product.carbohydrates,
-                    salt: product.salt,
-                    meat_type: product.meat_type,
-                    contains_nitrites: product.contains_nitrites,
-                    contains_phosphates: product.contains_phosphates,
-                    contains_preservatives: product.contains_preservatives,
-                    antibiotic_free: product.antibiotic_free,
-                    hormone_free: product.hormone_free,
-                    pasture_raised: product.pasture_raised,
-                    last_updated: product.last_updated,
-                    created_at: product.created_at,
-                    _relevance_score: product._relevance_score
-                )
-            }
-        },
+        // getAlternatives implementation removed to fix 404 errors
         
         searchProducts: { query in
             let headers = try await createAuthHeaders()
             
-            let searchResponse = try await AF.request(
+            let searchResponse = try await sharedOptimizedSession.request(
                 "\(APIConfiguration.baseURL)/api/v1/products/nlp-search",
                 method: .get,
                 parameters: ["q": query],
@@ -338,7 +301,7 @@ extension ProductGateway: DependencyKey {
         getRecommendations: { offset, pageSize in
             let headers = try await createAuthHeaders()
             
-            let exploreResponse = try await AF.request(
+            let exploreResponse = try await sharedOptimizedSession.request(
                 "\(APIConfiguration.baseURL)/api/v1/products/recommendations",
                 method: .get,
                 parameters: ["offset": offset, "page_size": pageSize],
@@ -395,7 +358,7 @@ extension ProductGateway: DependencyKey {
         getExploreRecommendations: { offset, limit in
             let headers = try await createAuthHeaders()
             
-            let exploreResponse = try await AF.request(
+            let exploreResponse = try await sharedOptimizedSession.request(
                 "\(APIConfiguration.baseURL)/api/v1/users/explore",
                 method: .get,
                 parameters: ["offset": offset, "limit": limit],
@@ -456,7 +419,7 @@ extension ProductGateway: DependencyKey {
         getProduct: { _ in .mock },
         getHealthAssessment: { _ in .mockHealthAssessment },
         getMeatScanFromBarcode: { barcode in .mockMeatScan(barcode: barcode) },
-        getAlternatives: { _ in [.mock] },
+        // getAlternatives removed
         searchProducts: { _ in .mockSearchResponse },
         getRecommendations: { _, _ in .mockExploreResponse },
         getExploreRecommendations: { _, _ in .mockExploreResponse }

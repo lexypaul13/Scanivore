@@ -20,7 +20,7 @@ struct ProductDetailFeatureDomain {
         let originalRiskRating: String? // Add original OpenFoodFacts risk rating
         
         var healthAssessment: HealthAssessmentResponse?
-        var recommendedSwaps: [ProductRecommendation] = []
+        // Recommended swaps feature removed to fix 404 errors
         var isLoading = false
         var error: String?
         var showingIngredientSheet = false
@@ -137,8 +137,7 @@ struct ProductDetailFeatureDomain {
         case healthAssessmentResponse(TaskResult<HealthAssessmentResponse>)
         case loadBasicProduct
         case basicProductResponse(TaskResult<Product>)
-        case loadRecommendedSwaps
-        case recommendedSwapsResponse(TaskResult<[Product]>)
+        // Recommended swaps actions removed
         case ingredientTapped(IngredientRisk)
         case dismissIngredientSheet
         case retryTapped
@@ -190,9 +189,7 @@ struct ProductDetailFeatureDomain {
                 state.isLoading = false
                 state.healthAssessment = assessment
                 
-                return .run { send in
-                    await send(.loadRecommendedSwaps)
-                }
+                return .none
                 
             case let .healthAssessmentResponse(.failure(error)):
                 print("❌ Health assessment failed for \(state.productCode): \(error)")
@@ -205,10 +202,8 @@ struct ProductDetailFeatureDomain {
                     state.error = "Health assessment currently unavailable. Basic product info available."
                 }
                 
-                // Load recommended swaps even when health assessment fails
-                return .run { send in
-                    await send(.loadRecommendedSwaps)
-                }
+                // Health assessment failed, but continue without recommended swaps
+                return .none
                 
             case .loadBasicProduct:
                 // This action is deprecated - we now handle failures with graceful fallback UI
@@ -222,26 +217,7 @@ struct ProductDetailFeatureDomain {
                 // This action is deprecated - we now handle failures with graceful fallback UI
                 return .none
                 
-            case .loadRecommendedSwaps:
-                return .run { [productCode = state.productCode] send in
-                    await send(.recommendedSwapsResponse(
-                        TaskResult {
-                            @Dependency(\.productGateway) var productGateway
-                            return try await productGateway.getAlternatives(productCode)
-                        }
-                    ))
-                }
-                
-            case let .recommendedSwapsResponse(.success(products)):
-                let swaps = products.prefix(5).map { product in
-                    ProductRecommendation.fromProduct(product)
-                }
-                state.recommendedSwaps = Array(swaps)
-                return .none
-                
-            case .recommendedSwapsResponse(.failure):
-                // Silently handle alternatives failure
-                return .none
+            // Recommended swaps functionality removed
                 
             case let .ingredientTapped(ingredient):
                 state.selectedIngredient = ingredient
@@ -363,10 +339,6 @@ struct ProductDetailContentView: View {
                     // Horizontal Nutrition Scroll
                     NutritionScrollView(assessment: assessment)
                     
-                    // Recommended Swaps Carousel
-                    if !store.recommendedSwaps.isEmpty {
-                        RecommendedSwapsCarousel(swaps: store.recommendedSwaps)
-                    }
                 }
                 .background(DesignSystem.Colors.background)
                 .padding(.top, DesignSystem.Spacing.xxl)
@@ -398,10 +370,7 @@ struct GracefulFallbackView: View {
                     // Show basic product info if available
                     BasicProductInfoSection(store: store)
                     
-                    // Recommended Swaps Carousel (if available)
-                    if !store.recommendedSwaps.isEmpty {
-                        RecommendedSwapsCarousel(swaps: store.recommendedSwaps)
-                    }
+                   
                 }
                 .background(DesignSystem.Colors.background)
                 .padding(.top, DesignSystem.Spacing.xxl)
@@ -532,7 +501,7 @@ struct LoadingView: View {
                 .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
             
-            Text("Health assessment in ~5 seconds")
+            Text("Generating health analysis...")
                 .font(DesignSystem.Typography.caption)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
         }
@@ -591,32 +560,7 @@ struct ErrorView: View {
         )
         
         previewState.healthAssessment = .mockHealthAssessment
-        previewState.recommendedSwaps = [
-            ProductRecommendation(
-                id: "mock1",
-                name: "Organic Ground Turkey",
-                brand: "Bell & Evans",
-                imageUrl: nil,
-                imageData: nil,
-                meatType: .turkey,
-                qualityRating: .excellent, originalRiskRating: "A",
-                isRecommended: true,
-                matchReasons: ["Organic", "No preservatives"],
-                concerns: []
-            ),
-            ProductRecommendation(
-                id: "mock2",
-                name: "Free Range Ground Turkey",
-                brand: "Perdue",
-                imageUrl: nil,
-                imageData: nil,
-                meatType: .turkey,
-                qualityRating: .good, originalRiskRating: "A",
-                isRecommended: true,
-                matchReasons: ["Free range"],
-                concerns: []
-            )
-        ]
+
         
         return previewState
     }
