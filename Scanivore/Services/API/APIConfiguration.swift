@@ -16,7 +16,7 @@ public struct APIConfiguration {
     // Backend optimized: 94% faster health assessments (5s vs 83s baseline)
     // Mobile format: 65% bandwidth reduction + parallel citation processing
     public static let timeout: TimeInterval = 15.0  // Reduced from 30s for 94% faster backend
-    public static let healthAssessmentTimeout: TimeInterval = 30.0  // Increased to handle MCP generation time
+    public static let healthAssessmentTimeout: TimeInterval = 45.0  // Increased for OpenFoodFacts + AI generation
     
     // API Endpoints
     public enum Endpoints {
