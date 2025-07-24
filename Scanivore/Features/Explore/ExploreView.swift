@@ -22,8 +22,6 @@ struct ExploreFeatureDomain {
         var searchResults: IdentifiedArrayOf<ProductRecommendation> = []
         var isSearching = false
         var searchError: String?
-        var searchParsedIntent: ParsedIntent?
-        var isUsingFallbackSearch = false
         var isSearchActive: Bool {
             !searchText.isEmpty
         }
@@ -38,8 +36,8 @@ struct ExploreFeatureDomain {
         // Auto-refresh timer state
         var timerActive = false
         
-        // Navigation state
-        @Presents var productDetail: ProductDetailFeatureDomain.State?
+        // TCA Navigation state
+        @Presents var destination: Destination?
         
         // Computed properties
         var canLoadMore: Bool {
@@ -61,6 +59,11 @@ struct ExploreFeatureDomain {
             
             return recommendations
         }
+    }
+    
+    @CasePathable
+    enum Destination: Equatable {
+        case productDetail(ProductDetailFeatureDomain.State)
     }
     
     enum Action {
@@ -93,7 +96,7 @@ struct ExploreFeatureDomain {
         
         // Navigation actions
         case productTapped(ProductRecommendation)
-        case productDetail(PresentationAction<ProductDetailFeatureDomain.Action>)
+        case destination(PresentationAction<Destination>)
     }
     
     var body: some ReducerOf<Self> {
@@ -249,10 +252,6 @@ struct ExploreFeatureDomain {
             case let .searchResponse(.success(searchResponse)):
                 state.isSearching = false
                 
-                // Store AI insights from the search response
-                state.searchParsedIntent = searchResponse.parsedIntent
-                state.isUsingFallbackSearch = searchResponse.fallbackMode ?? false
-                
                 // Convert Product array to ProductRecommendation array
                 let searchRecommendations = searchResponse.products.map { product in
                     ProductRecommendation.fromProduct(product)
@@ -272,23 +271,24 @@ struct ExploreFeatureDomain {
                 state.searchText = ""
                 state.searchResults = []
                 state.searchError = nil
-                state.searchParsedIntent = nil
-                state.isUsingFallbackSearch = false
                 return .cancel(id: "search-debounce")
                     .merge(with: .cancel(id: "search-request"))
                     
             case let .productTapped(recommendation):
-                state.productDetail = ProductDetailFeatureDomain.State(
-                    productCode: recommendation.id,
-                    productName: recommendation.name,
-                    productBrand: recommendation.brand,
-                    productImageUrl: recommendation.imageUrl,
-                    originalRiskRating: recommendation.originalRiskRating
+                state.destination = .productDetail(
+                    ProductDetailFeatureDomain.State(
+                        productCode: recommendation.id,
+                        productName: recommendation.name,
+                        productBrand: recommendation.brand,
+                        productImageUrl: recommendation.imageUrl,
+                        originalRiskRating: recommendation.originalRiskRating
+                    )
                 )
                 return .none
                 
-            case .productDetail:
+            case .destination:
                 return .none
+                    
             case .loadMoreRecommendations:
                 guard state.canLoadMore else { return .none }
                 state.isLoadingNextPage = true
@@ -309,12 +309,15 @@ struct ExploreFeatureDomain {
             }
         }
         ._printChanges()
-        .ifLet(\.$productDetail, action: \.productDetail) {
-            ProductDetailFeatureDomain()
+        .ifLet(\.$destination, action: \.destination) {
+            EmptyReducer()
+                .ifCaseLet(\.productDetail, action: \.productDetail) {
+                    ProductDetailFeatureDomain()
+                }
         }
     }
-         
 }
+
 
 struct ExploreView: View {
     let store: StoreOf<ExploreFeatureDomain>
@@ -422,7 +425,7 @@ struct ExploreView: View {
                                         ForEach(Array(store.displayedProducts.enumerated()), id: \.element.id) { index, recommendation in
                                             ProductRecommendationCard(
                                                 recommendation: recommendation,
-                                                onTap: {
+                                                onTap: { 
                                                     store.send(.productTapped(recommendation))
                                                 }
                                             )
@@ -517,8 +520,11 @@ struct ExploreView: View {
                 .onDisappear {
                     store.send(.stopAutoRefreshTimer)
                 }
-                .sheet(
-                    store: store.scope(state: \.$productDetail, action: \.productDetail)
+                .navigationDestination(
+                    item: $store.scope(
+                        state: \.destination?.productDetail,
+                        action: \.destination.productDetail
+                    )
                 ) { productDetailStore in
                     ProductDetailView(store: productDetailStore)
                 }
@@ -870,14 +876,8 @@ struct ProductRecommendation: Identifiable, Equatable {
         // Generate match reasons based on available data
         var matchReasons: [String] = []
         
-        // Add relevance-based reasons if we have a score from NLP search
-        if let relevanceScore = product._relevance_score, relevanceScore > 0.7 {
-            matchReasons.append("High relevance match")
-        } else if let relevanceScore = product._relevance_score, relevanceScore > 0.5 {
-            matchReasons.append("Good match")
-        } else {
-            matchReasons.append("Search result")
-        }
+        // Simple search result
+        matchReasons.append("Search result")
         
         // Add nutrition-based reasons
         if let protein = product.protein, protein > 20 {

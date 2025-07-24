@@ -519,6 +519,114 @@ struct ItemListView: View {
 }
 ```
 
+### List-to-Detail Navigation Pattern
+For navigating from a list view to a detail view using TCA destinations and NavigationStack:
+
+```swift
+@Reducer
+struct ExploreFeature {
+    @ObservableState
+    struct State: Equatable {
+        var items: IdentifiedArrayOf<Item> = []
+        var isLoading = false
+        @Presents var destination: Destination?
+    }
+
+    @CasePathable
+    enum Destination {
+        case itemDetail(ItemDetailFeature)
+    }
+
+    enum Action {
+        case itemTapped(Item)
+        case loadItems
+        case destination(PresentationAction<Destination.Action>)
+    }
+
+    var body: some ReducerOf<Self> {
+        Reduce { state, action in
+            switch action {
+            case let .itemTapped(item):
+                state.destination = .itemDetail(
+                    ItemDetailFeature.State(
+                        itemId: item.id,
+                        itemName: item.name
+                    )
+                )
+                return .none
+
+            case .destination:
+                return .none
+
+            case .loadItems:
+                // Load items logic
+                return .none
+            }
+        }
+        .ifLet(\.$destination, action: \.destination) {
+            Destination.body
+        }
+    }
+}
+
+extension ExploreFeature.Destination {
+    @ReducerBuilder<State, Action>
+    static var body: some ReducerOf<ExploreFeature.Destination> {
+        Scope(state: \.itemDetail, action: \.itemDetail) {
+            ItemDetailFeature()
+        }
+    }
+}
+```
+
+SwiftUI List-to-Detail View:
+```swift
+struct ExploreView: View {
+    @Bindable var store: StoreOf<ExploreFeature>
+
+    var body: some View {
+        NavigationStack {
+            List(store.items) { item in
+                ItemRowView(
+                    item: item,
+                    onTap: { store.send(.itemTapped(item)) }
+                )
+            }
+            .navigationDestination(
+                item: $store.scope(
+                    state: \.destination?.itemDetail,
+                    action: \.destination.itemDetail
+                )
+            ) { itemDetailStore in
+                ItemDetailView(store: itemDetailStore)
+            }
+        }
+    }
+}
+
+struct ItemRowView: View {
+    let item: Item
+    let onTap: () -> Void
+
+    var body: some View {
+        HStack {
+            Text(item.name)
+            Spacer()
+            Image(systemName: "chevron.right")
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
+    }
+}
+```
+
+**Key Benefits of This Pattern:**
+- ✅ Navigation state managed through TCA
+- ✅ Testable navigation logic
+- ✅ Proper separation of concerns
+- ✅ Automatic store lifecycle management
+- ✅ Compatible with NavigationStack push animations
+
 ## File Organization
 ```
 Sources/

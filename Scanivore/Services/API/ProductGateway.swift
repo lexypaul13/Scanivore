@@ -292,10 +292,8 @@ extension ProductGateway: DependencyKey {
                 totalResults: searchResponse.totalResults,
                 limit: searchResponse.limit,
                 skip: searchResponse.skip,
-                products: optimizedProducts,
-                parsedIntent: searchResponse.parsedIntent,
-                fallbackMode: searchResponse.fallbackMode
-            )
+                products: optimizedProducts
+             )
         },
         
         getRecommendations: { offset, pageSize in
@@ -620,14 +618,6 @@ extension SearchResponse {
         totalResults: 1,
         limit: 20,
         skip: 0,
-        products: [.mock],
-        parsedIntent: ParsedIntent(
-            meatTypes: ["chicken"],
-            nutritionFilters: [:],
-            qualityPreferences: [],
-            healthIntent: "healthy",
-            confidence: 0.9
-        ),
-        fallbackMode: false
+        products: [.mock]
     )
 }

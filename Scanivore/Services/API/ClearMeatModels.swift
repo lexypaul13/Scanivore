@@ -105,33 +105,14 @@ public struct SearchResponse: Codable, Equatable {
     let limit: Int
     let skip: Int
     let products: [Product]
-    let parsedIntent: ParsedIntent?
-    let fallbackMode: Bool?
     
     enum CodingKeys: String, CodingKey {
         case query
         case totalResults = "total_results"
         case limit, skip, products
-        case parsedIntent = "parsed_intent"
-        case fallbackMode = "fallback_mode"
     }
 }
 
-public struct ParsedIntent: Codable, Equatable {
-    let meatTypes: [String]
-    let nutritionFilters: [String: Double]
-    let qualityPreferences: [String]
-    let healthIntent: String
-    let confidence: Double
-    
-    enum CodingKeys: String, CodingKey {
-        case meatTypes = "meat_types"
-        case nutritionFilters = "nutrition_filters"
-        case qualityPreferences = "quality_preferences"
-        case healthIntent = "health_intent"
-        case confidence
-    }
-}
 
 // MARK: - Health Assessment Models  
 public struct HealthAssessmentResponse: Codable, Equatable {

@@ -27,7 +27,7 @@ public struct APIConfiguration {
         public static let healthAssessment = "/api/v1/products/{barcode}/health-assessment-mcp"
         public static let alternatives = "/api/v1/products/{barcode}/alternatives"
         public static let recommendations = "/api/v1/products/recommendations"
-        public static let search = "/api/v1/products/nlp-search"
+        public static let search = "/api/v1/products/search"
         public static let favorites = "/api/v1/users/favorites"
         public static let history = "/api/v1/users/history"
         public static let explore = "/api/v1/users/explore"

@@ -497,13 +497,9 @@ struct LoadingView: View {
                 .progressViewStyle(CircularProgressViewStyle())
                 .scaleEffect(1.5)
             
-            Text("Analyzing product...")
+               Text("Generating health analysis...")
                 .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-            
-            Text("Generating health analysis...")
-                .font(DesignSystem.Typography.caption)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
+
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

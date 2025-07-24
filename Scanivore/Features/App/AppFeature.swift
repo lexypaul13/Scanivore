@@ -13,6 +13,7 @@ struct AppFeature {
     @ObservableState
     struct State: Equatable {
         var authState = AuthState.initial
+        var isShowingLaunchScreen = true
         var hasCompletedOnboarding: Bool {
             authState.hasCompletedOnboarding
         }
@@ -68,6 +69,7 @@ struct AppFeature {
     
     enum Action {
         case appDidLaunch
+        case launchScreenFinished
         case authStateLoaded(AuthState)
         case resetOnboarding
         case tabSelected(Int)
@@ -121,7 +123,15 @@ struct AppFeature {
                     @Dependency(\.authState) var authState
                     let loadedState = await authState.load()
                     await send(.authStateLoaded(loadedState))
+                    
+                    // Show launch screen for 1.5 seconds
+                    try await Task.sleep(for: .seconds(1.5))
+                    await send(.launchScreenFinished)
                 }
+                
+            case .launchScreenFinished:
+                state.isShowingLaunchScreen = false
+                return .none
                 
             case let .authStateLoaded(authState):
                 state.authState = authState

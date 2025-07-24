@@ -17,7 +17,10 @@ struct ContentView: View {
                 DesignSystem.Colors.background
                     .ignoresSafeArea()
                 
-                if store.showOnboardingIntro {
+                if store.isShowingLaunchScreen {
+                    LaunchScreenView()
+                        .transition(.opacity)
+                } else if store.showOnboardingIntro {
                     OnboardingIntroView(
                         store: store.scope(state: \.onboardingIntro, action: \.onboardingIntro)
                     )
