@@ -75,8 +75,8 @@ struct ExploreFeatureDomain {
         
         // Pagination actions
         case loadMoreRecommendations
-        case recommendationsResponse(TaskResult<RecommendationsResponse>)
-        case recommendationsResponseOptimized(RecommendationsResponse)
+        case recommendationsResponse(TaskResult<ExploreResponse>)
+        case recommendationsResponseOptimized(ExploreResponse)
         
         // Product actions  
         case refreshRecommendations
@@ -208,8 +208,8 @@ struct ExploreFeatureDomain {
                 }
                 
                 // Update pagination state
-                state.totalItems = response.totalResults
-                state.hasMorePages = response.offset + response.limit < response.totalResults
+                state.totalItems = response.totalMatches
+                state.hasMorePages = state.recommendations.count < response.totalMatches
                 
                 return .none
                 
@@ -525,3 +525,4 @@ struct ExploreView: View {
         }
     )
 }
+

@@ -57,7 +57,7 @@ struct ProductRecommendationCard: View {
                 // Name and Brand
                 VStack(alignment: .leading, spacing: 2) {
                     Text(recommendation.name)
-                        .font(DesignSystem.Typography.subheadingMedium)
+                        .font(DesignSystem.Typography.buttonText)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
@@ -197,3 +197,4 @@ struct PlaceholderImage: View {
         .frame(width: 120, height: 120)
     }
 }
+
