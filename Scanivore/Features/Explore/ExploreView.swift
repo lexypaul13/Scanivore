@@ -36,8 +36,8 @@ struct ExploreFeatureDomain {
         // Auto-refresh timer state
         var timerActive = false
         
-        // TCA Navigation state
-        @Presents var destination: Destination?
+        // Navigation state
+        @Presents var productDetail: ProductDetailFeatureDomain.State?
         
         // Computed properties
         var canLoadMore: Bool {
@@ -61,10 +61,6 @@ struct ExploreFeatureDomain {
         }
     }
     
-    @CasePathable
-    enum Destination: Equatable {
-        case productDetail(ProductDetailFeatureDomain.State)
-    }
     
     enum Action {
         case searchTextChanged(String)
@@ -96,7 +92,7 @@ struct ExploreFeatureDomain {
         
         // Navigation actions
         case productTapped(ProductRecommendation)
-        case destination(PresentationAction<Destination>)
+        case productDetail(PresentationAction<ProductDetailFeatureDomain.Action>)
     }
     
     var body: some ReducerOf<Self> {
@@ -275,18 +271,16 @@ struct ExploreFeatureDomain {
                     .merge(with: .cancel(id: "search-request"))
                     
             case let .productTapped(recommendation):
-                state.destination = .productDetail(
-                    ProductDetailFeatureDomain.State(
-                        productCode: recommendation.id,
-                        productName: recommendation.name,
-                        productBrand: recommendation.brand,
-                        productImageUrl: recommendation.imageUrl,
-                        originalRiskRating: recommendation.originalRiskRating
-                    )
+                state.productDetail = ProductDetailFeatureDomain.State(
+                    productCode: recommendation.id,
+                    productName: recommendation.name,
+                    productBrand: recommendation.brand,
+                    productImageUrl: recommendation.imageUrl,
+                    originalRiskRating: recommendation.originalRiskRating
                 )
                 return .none
                 
-            case .destination:
+            case .productDetail:
                 return .none
                     
             case .loadMoreRecommendations:
@@ -309,11 +303,8 @@ struct ExploreFeatureDomain {
             }
         }
         ._printChanges()
-        .ifLet(\.$destination, action: \.destination) {
-            EmptyReducer()
-                .ifCaseLet(\.productDetail, action: \.productDetail) {
-                    ProductDetailFeatureDomain()
-                }
+        .ifLet(\.$productDetail, action: \.productDetail) {
+            ProductDetailFeatureDomain()
         }
     }
 }
@@ -522,8 +513,8 @@ struct ExploreView: View {
                 }
                 .navigationDestination(
                     item: $store.scope(
-                        state: \.destination?.productDetail,
-                        action: \.destination.productDetail
+                        state: \.$productDetail,
+                        action: \.productDetail
                     )
                 ) { productDetailStore in
                     ProductDetailView(store: productDetailStore)
