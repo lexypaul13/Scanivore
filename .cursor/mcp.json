@@ -11,6 +11,10 @@
       "env": {
         "SUPABASE_ACCESS_TOKEN": "sbp_0ffff9d6bc824e6b40e708bb31cd9a6e1bdc9c0e"
       }
+    },
+    "tca-docs": {
+      "command": "node",
+      "args": ["tca-docs-server.js"]
     }
   }
 } 

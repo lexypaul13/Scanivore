@@ -89,34 +89,6 @@ struct ProductRecommendationCard: View {
                 
                 Spacer()
                 
-                // Match reasons or concerns
-                if recommendation.isRecommended {
-                    if !recommendation.matchReasons.isEmpty {
-                        HStack(spacing: 4) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(DesignSystem.Colors.success)
-                            
-                            Text(recommendation.matchReasons.first ?? "")
-                                .font(DesignSystem.Typography.caption)
-                                .foregroundColor(DesignSystem.Colors.textSecondary)
-                                .lineLimit(1)
-                        }
-                    }
-                } else {
-                    if !recommendation.concerns.isEmpty {
-                        HStack(spacing: 4) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(DesignSystem.Colors.warning)
-                            
-                            Text(recommendation.concerns.first ?? "")
-                                .font(DesignSystem.Typography.caption)
-                                .foregroundColor(DesignSystem.Colors.textSecondary)
-                                .lineLimit(1)
-                        }
-                    }
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             

@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 
 public struct MeatScan: Identifiable, Equatable, Codable {
-    public let id = UUID()
+    public var id = UUID()
     let date: Date
     let image: String
     let meatType: MeatType

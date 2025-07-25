@@ -13,7 +13,7 @@ struct LaunchScreenView: View {
             Color.white
                 .ignoresSafeArea()
             
-            Image("Scanivore@2x")
+            Image("Scanivore_Logo")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(maxWidth: 200)

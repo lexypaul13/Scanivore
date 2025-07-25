@@ -32,6 +32,7 @@ struct ExploreFeatureDomain {
         var error: String?
         var hasMorePages = true
         var totalItems = 0
+        var currentPage = 0
         
         // Auto-refresh timer state
         var timerActive = false
@@ -161,6 +162,7 @@ struct ExploreFeatureDomain {
                 state.recommendations = []
                 state.hasMorePages = true
                 state.totalItems = 0
+                state.currentPage = 0
                 return .send(.loadRecommendations)
                 
             case .loadRecommendations:
@@ -173,7 +175,7 @@ struct ExploreFeatureDomain {
                     @Dependency(\.productGateway) var gateway
                     
                     let result = await TaskResult {
-                        try await gateway.getRecommendations(offset, 20)
+                        try await gateway.getRecommendations(offset, 10)
                     }
                     
                     await send(.recommendationsResponse(result))
@@ -210,6 +212,7 @@ struct ExploreFeatureDomain {
                 // Update pagination state
                 state.totalItems = response.totalMatches
                 state.hasMorePages = state.recommendations.count < response.totalMatches
+                state.isLoadingNextPage = false
                 
                 return .none
                 
@@ -270,13 +273,14 @@ struct ExploreFeatureDomain {
             case .loadMoreRecommendations:
                 guard state.canLoadMore else { return .none }
                 state.isLoadingNextPage = true
+                state.currentPage += 1
                 let offset = state.recommendations.count
                 
                 return .run { send in
                     @Dependency(\.productGateway) var gateway
                     
                     let result = await TaskResult {
-                        try await gateway.getRecommendations(offset, 20)
+                        try await gateway.getRecommendations(offset, 10)
                     }
                     
                     await send(.recommendationsResponse(result))
@@ -299,219 +303,252 @@ struct ExploreView: View {
     var body: some View {
         WithPerceptionTracking {
             NavigationStack {
-                ZStack {
-                    DesignSystem.Colors.background
-                        .ignoresSafeArea()
-                    
-                    VStack(spacing: 0) {
-                        // Search Bar
-                        SearchBar(text: $store.searchText.sending(\.searchTextChanged))
-                            .padding(.horizontal, DesignSystem.Spacing.screenPadding)
-                            .padding(.vertical, DesignSystem.Spacing.sm)
+                mainContent
+                    .navigationTitle("Explore")
+                    .navigationBarTitleDisplayMode(.large)
+                    .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
+                    .toolbarBackground(.visible, for: .navigationBar)
+                    .sheet(
+                        isPresented: Binding(
+                            get: { store.showingFilters },
+                            set: { _ in store.send(.filtersDismissed) }
+                        )
+                    ) {
+                        MeatTypeFilterView(store: store)
+                    }
+                    .onAppear {
+                        store.send(.startAutoRefreshTimer)
+                    }
+                    .onDisappear {
+                        store.send(.stopAutoRefreshTimer)
+                    }
+                    .navigationDestination(
+                        item: $store.scope(
+                            state: \.productDetail,
+                            action: \.productDetail
+                        )
+                    ) { productDetailStore in
+                        ProductDetailView(store: productDetailStore)
+                    }
+            }
+        }
+    }
+    
+    private var mainContent: some View {
+        ZStack {
+            DesignSystem.Colors.background
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                searchSection
+                filtersSection
+                contentSection
+            }
+        }
+    }
+    
+    private var searchSection: some View {
+        SearchBar(text: $store.searchText.sending(\.searchTextChanged))
+            .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+            .padding(.vertical, DesignSystem.Spacing.sm)
+    }
+    
+    private var filtersSection: some View {
+        Group {
+            if !store.isSearchActive {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: DesignSystem.Spacing.sm) {
+                        FilterButton(
+                            hasActiveFilters: !store.selectedMeatTypes.isEmpty,
+                            action: { store.send(.filterButtonTapped) }
+                        )
                         
-                        // Filters
-                        if !store.isSearchActive {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: DesignSystem.Spacing.sm) {
-                                    // Filter Button
-                                    FilterButton(
-                                        hasActiveFilters: !store.selectedMeatTypes.isEmpty,
-                                        action: { store.send(.filterButtonTapped) }
-                                    )
-                                    
-                                    // Selected meat type filters
-                                    ForEach(Array(store.selectedMeatTypes), id: \.self) { meatType in
-                                        HStack(spacing: DesignSystem.Spacing.xs) {
-                                            Text("\(meatType.icon) \(meatType.rawValue)")
-                                                .font(DesignSystem.Typography.captionMedium)
-                                                .foregroundColor(DesignSystem.Colors.textPrimary)
-                                            
-                                            Button {
-                                                store.send(.meatTypeToggled(meatType))
-                                            } label: {
-                                                Image(systemName: "xmark")
-                                                    .font(.system(size: 12))
-                                                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                                            }
-                                        }
-                                        .padding(.horizontal, DesignSystem.Spacing.sm)
-                                        .padding(.vertical, DesignSystem.Spacing.xs)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
-                                                .fill(DesignSystem.Colors.backgroundSecondary)
-                                        )
-                                    }
-                                }
-                                .padding(.horizontal, DesignSystem.Spacing.screenPadding)
-                            }
-                            .frame(height: 44)
+                        ForEach(Array(store.selectedMeatTypes), id: \.self) { meatType in
+                            meatTypeFilterChip(meatType)
                         }
-                        
-                        // Content
-                        ScrollView {
-                            if store.isLoading && store.recommendations.isEmpty {
-                                // Initial loading state
-                                VStack(spacing: DesignSystem.Spacing.lg) {
-                                    ForEach(0..<3, id: \.self) { _ in
-                                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                                            .fill(DesignSystem.Colors.backgroundSecondary)
-                                            .frame(height: 140)
-                                            .padding(.horizontal, DesignSystem.Spacing.screenPadding)
-                                            .shimmer()
-                                    }
-                                }
-                                .padding(.top, DesignSystem.Spacing.md)
-                            } else if let error = store.error {
-                                // Error state
-                                VStack(spacing: DesignSystem.Spacing.md) {
-                                    Image(systemName: "exclamationmark.triangle")
-                                        .font(.system(size: 48))
-                                        .foregroundColor(DesignSystem.Colors.error)
-                                    
-                                    Text("Something went wrong")
-                                        .font(DesignSystem.Typography.heading3)
-                                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                                    
-                                    Text(error)
-                                        .font(DesignSystem.Typography.body)
-                                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                                        .multilineTextAlignment(.center)
-                                    
-                                    Button {
-                                        store.send(.refreshRecommendations)
-                                    } label: {
-                                        Text("Try Again")
-                                            .font(DesignSystem.Typography.bodyMedium)
-                                            .foregroundColor(.white)
-                                            .padding(.horizontal, DesignSystem.Spacing.lg)
-                                            .padding(.vertical, DesignSystem.Spacing.sm)
-                                            .background(DesignSystem.Colors.primaryRed)
-                                            .cornerRadius(DesignSystem.CornerRadius.sm)
-                                    }
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .padding(.top, 100)
-                            } else if store.displayedProducts.isEmpty {
-                                // Empty state
-                                VStack(spacing: DesignSystem.Spacing.md) {
-                                    if store.isSearchActive && !store.isSearching {
-                                        // No search results
-                                        Image(systemName: "magnifyingglass")
-                                            .font(.system(size: 48))
-                                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                                        
-                                        Text("No products found")
-                                            .font(DesignSystem.Typography.heading3)
-                                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                                        
-                                        Text("Try searching for something else")
-                                            .font(DesignSystem.Typography.body)
-                                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                                    } else {
-                                        // No recommendations
-                                        Image(systemName: "star.slash")
-                                            .font(.system(size: 48))
-                                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                                        
-                                        Text("No recommendations yet")
-                                            .font(DesignSystem.Typography.heading3)
-                                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                                        
-                                        Text("Scan some products to get personalized recommendations")
-                                            .font(DesignSystem.Typography.body)
-                                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                                            .multilineTextAlignment(.center)
-                                            .padding(.horizontal, DesignSystem.Spacing.xl)
-                                    }
-                                }
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .padding(.top, 100)
-                            } else {
-                                // Product List
-                                LazyVStack(spacing: DesignSystem.Spacing.sm) {
-                                    if store.isSearchActive && store.isSearching {
-                                        // Search loading state
-                                        HStack {
-                                            ProgressView()
-                                                .tint(DesignSystem.Colors.textSecondary)
-                                            Text("Searching...")
-                                                .font(DesignSystem.Typography.body)
-                                                .foregroundColor(DesignSystem.Colors.textSecondary)
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, DesignSystem.Spacing.lg)
-                                    }
-                                    
-                                    ForEach(Array(store.displayedProducts.enumerated()), id: \.element.id) { index, recommendation in
-                                        ProductRecommendationCard(
-                                            recommendation: recommendation,
-                                            onTap: { 
-                                                store.send(.productTapped(recommendation))
-                                            }
-                                        )
-                                        .padding(.horizontal, DesignSystem.Spacing.screenPadding)
-                                        .onAppear {
-                                            // Only load more for recommendations, not search results
-                                            if !store.isSearchActive && store.canLoadMore {
-                                                // Efficient pagination using enumerated index (O(1) instead of O(n))
-                                                let totalItems = store.displayedProducts.count
-                                                let itemsFromEnd = totalItems - index
-                                                // Trigger when we're 5 items from the end
-                                                if itemsFromEnd <= 5 {
-                                                    store.send(.loadMoreRecommendations)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    
-                                    // Loading more indicator
-                                    if store.isLoadingNextPage {
-                                        HStack {
-                                            ProgressView()
-                                                .tint(DesignSystem.Colors.textSecondary)
-                                            Text("Loading more...")
-                                                .font(DesignSystem.Typography.caption)
-                                                .foregroundColor(DesignSystem.Colors.textSecondary)
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, DesignSystem.Spacing.md)
-                                    }
-                                }
-                                .padding(.vertical, DesignSystem.Spacing.sm)
-                            }
-                        }
-                        .refreshable {
-                            if !store.isSearchActive {
-                                store.send(.refreshRecommendations)
-                                // Wait for refresh to complete
-                                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                            }
+                    }
+                    .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+                }
+                .frame(height: 44)
+            }
+        }
+    }
+    
+    private func meatTypeFilterChip(_ meatType: MeatType) -> some View {
+        HStack(spacing: DesignSystem.Spacing.xs) {
+            Text("\(meatType.icon) \(meatType.rawValue)")
+                .font(DesignSystem.Typography.captionMedium)
+                .foregroundColor(DesignSystem.Colors.textPrimary)
+            
+            Button {
+                store.send(.meatTypeToggled(meatType))
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12))
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+            }
+        }
+        .padding(.horizontal, DesignSystem.Spacing.sm)
+        .padding(.vertical, DesignSystem.Spacing.xs)
+        .background(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.sm)
+                .fill(DesignSystem.Colors.backgroundSecondary)
+        )
+    }
+    
+    private var contentSection: some View {
+        ScrollView {
+            if store.isLoading && store.recommendations.isEmpty {
+                loadingView
+            } else if let error = store.error {
+                errorView(error)
+            } else if store.displayedProducts.isEmpty {
+                emptyStateView
+            } else {
+                productListView
+            }
+        }
+        .refreshable {
+            if !store.isSearchActive {
+                store.send(.refreshRecommendations)
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
+    }
+    
+    private var loadingView: some View {
+        VStack(spacing: DesignSystem.Spacing.lg) {
+            ForEach(0..<3, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                    .fill(DesignSystem.Colors.backgroundSecondary)
+                    .frame(height: 140)
+                    .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+            }
+        }
+        .padding(.top, DesignSystem.Spacing.md)
+    }
+    
+    private func errorView(_ error: String) -> some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundColor(DesignSystem.Colors.error)
+            
+            Text("Something went wrong")
+                .font(DesignSystem.Typography.heading3)
+                .foregroundColor(DesignSystem.Colors.textPrimary)
+            
+            Text(error)
+                .font(DesignSystem.Typography.body)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+            
+            Button {
+                store.send(.refreshRecommendations)
+            } label: {
+                Text("Try Again")
+                    .font(DesignSystem.Typography.bodyMedium)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .padding(.vertical, DesignSystem.Spacing.sm)
+                    .background(DesignSystem.Colors.primaryRed)
+                    .cornerRadius(DesignSystem.CornerRadius.sm)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.top, 100)
+    }
+    
+    private var emptyStateView: some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            if store.isSearchActive && !store.isSearching {
+                // No search results
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 48))
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                
+                Text("No products found")
+                    .font(DesignSystem.Typography.heading3)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                
+                Text("Try searching for something else")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+            } else {
+                // No recommendations
+                Image(systemName: "star.slash")
+                    .font(.system(size: 48))
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                
+                Text("No recommendations yet")
+                    .font(DesignSystem.Typography.heading3)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                
+                Text("Scan some products to get personalized recommendations")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, DesignSystem.Spacing.xl)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.top, 100)
+    }
+    
+    private var productListView: some View {
+        LazyVStack(spacing: DesignSystem.Spacing.sm) {
+            if store.isSearchActive && store.isSearching {
+                searchLoadingView
+            }
+            
+            ForEach(Array(store.displayedProducts.enumerated()), id: \.element.id) { index, recommendation in
+                ProductRecommendationCard(
+                    recommendation: recommendation,
+                    onTap: {
+                        store.send(.productTapped(recommendation))
+                    }
+                )
+                .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+                .onAppear {
+                    if !store.isSearchActive && store.canLoadMore {
+                        let totalItems = store.displayedProducts.count
+                        let itemsFromEnd = totalItems - index
+                        if itemsFromEnd <= 3 {
+                            store.send(.loadMoreRecommendations)
                         }
                     }
                 }
-                .navigationTitle("Explore")
-                .navigationBarTitleDisplayMode(.large)
-                .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
-                .toolbarBackground(.visible, for: .navigationBar)
-                .sheet(isPresented: $store.showingFilters.sending(\.filtersDismissed)) {
-                    MeatTypeFilterView(store: store)
-                }
-                .onAppear {
-                    store.send(.startAutoRefreshTimer)
-                }
-                .onDisappear {
-                    store.send(.stopAutoRefreshTimer)
-                }
-                .navigationDestination(
-                    item: $store.scope(
-                        state: \.$productDetail,
-                        action: \.productDetail
-                    )
-                ) { productDetailStore in
-                    ProductDetailView(store: productDetailStore)
-                }
+            }
+            
+            if store.isLoadingNextPage {
+                loadingMoreView
             }
         }
+        .padding(.vertical, DesignSystem.Spacing.sm)
+    }
+    
+    private var searchLoadingView: some View {
+        HStack {
+            ProgressView()
+                .tint(DesignSystem.Colors.textSecondary)
+            Text("Searching...")
+                .font(DesignSystem.Typography.body)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, DesignSystem.Spacing.lg)
+    }
+    
+    private var loadingMoreView: some View {
+        HStack {
+            ProgressView()
+                .tint(DesignSystem.Colors.textSecondary)
+            Text("Loading more...")
+                .font(DesignSystem.Typography.caption)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, DesignSystem.Spacing.md)
     }
 }
 
