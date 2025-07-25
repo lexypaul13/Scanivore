@@ -8,6 +8,13 @@
 import SwiftUI
 import ComposableArchitecture
 
+// MARK: - SafetyGrade Enum
+public enum SafetyGrade: String, CaseIterable {
+    case excellent = "Excellent"
+    case fair = "Fair"
+    case bad = "Bad"
+}
+
 // MARK: - Product Detail Feature Domain
 @Reducer
 struct ProductDetailFeatureDomain {
@@ -31,47 +38,54 @@ struct ProductDetailFeatureDomain {
         var selectedIngredientCitations: [Citation] = []
         
         // Computed properties  
-        var safetyGrade: String {
+        var safetyGrade: SafetyGrade {
             // PRIORITY 1: Use original OpenFoodFacts risk_rating for consistency
             if let riskRating = originalRiskRating {
-                return mapRiskRatingToGrade(riskRating)
+                return mapRiskRatingToSafetyGrade(riskRating)
             }
             
             // PRIORITY 2: Get grade from health assessment API
             if let grade = healthAssessment?.grade, !grade.isEmpty {
-                return grade
+                return mapLetterGradeToSafetyGrade(grade)
             }
             
             // PRIORITY 3: Fallback to deriving from assessment content
             if let assessment = healthAssessment {
                 if let score = assessment.riskSummary?.score {
-                    return scoreToGrade(score)
+                    return scoreToSafetyGrade(score)
                 }
                 
                 // Analyze summary text for grade indicators
                 let summary = assessment.summary.lowercased()
                 if summary.contains("excellent") || summary.contains("high-quality") || summary.contains("great") {
-                    return "A"
+                    return .excellent
                 } else if summary.contains("good") || summary.contains("healthy") {
-                    return "B"
+                    return .excellent
                 } else if summary.contains("moderate") || summary.contains("caution") {
-                    return "C"
+                    return .fair
                 } else if summary.contains("high-risk") || summary.contains("concerning") {
-                    return "D"
+                    return .bad
                 }
             }
             
-            return "B" // Default fallback
+            return .fair // Default fallback
         }
         
-        private func mapRiskRatingToGrade(_ riskRating: String) -> String {
-            // Map OpenFoodFacts risk_rating to letter grades (A, B, C, D, F)
+        private func mapRiskRatingToSafetyGrade(_ riskRating: String) -> SafetyGrade {
             switch riskRating.lowercased() {
-            case "green": return "A"
-            case "yellow": return "C" 
-            case "orange": return "D"
-            case "red": return "F"
-            default: return "C"
+            case "green": return .excellent
+            case "yellow": return .fair
+            case "orange", "red": return .bad
+            default: return .fair
+            }
+        }
+        
+        private func mapLetterGradeToSafetyGrade(_ grade: String) -> SafetyGrade {
+            switch grade.uppercased() {
+            case "A", "B": return .excellent
+            case "C": return .fair
+            case "D", "F": return .bad
+            default: return .fair
             }
         }
         
@@ -88,24 +102,20 @@ struct ProductDetailFeatureDomain {
                 }
             }
             
-            // Second priority: Map grade to color (handle both letter grades and quality names)
+            // Second priority: Map SafetyGrade to color
             let grade = safetyGrade
             switch grade {
-            case "A", "A+", "Excellent": return DesignSystem.Colors.success
-            case "B", "B+", "Good": return Color.blue
-            case "C", "C+", "Poor": return DesignSystem.Colors.warning
-            case "D", "D+", "F", "Bad": return DesignSystem.Colors.error
-            default: return Color.blue
+            case .excellent: return DesignSystem.Colors.success
+            case .fair: return DesignSystem.Colors.warning
+            case .bad: return DesignSystem.Colors.error
             }
         }
         
-        private func scoreToGrade(_ score: Double) -> String {
+        private func scoreToSafetyGrade(_ score: Double) -> SafetyGrade {
             switch score {
-            case 90...100: return "A"
-            case 80..<90: return "B"
-            case 70..<80: return "C"
-            case 60..<70: return "D"
-            default: return "F"
+            case 80...100: return .excellent
+            case 60..<80: return .fair
+            default: return .bad
             }
         }
         

@@ -226,12 +226,12 @@ struct GradeScreenView: View {
     @State private var glowRadius: CGFloat = 0
     @State private var dataPoints: [DataPoint] = []
     
-    private let gradeLetters = ["D", "C", "B", "A"]
+    private let gradeWords = ["Bad", "Fair", "Good", "Excellent"]
     private let gradeColors: [Color] = [
-        DesignSystem.Colors.error,      // D - Red
-        DesignSystem.Colors.warning,    // C - Orange
-        Color.green.opacity(0.8),       // B - Light Green
-        Color.green                     // A - Dark Green
+        DesignSystem.Colors.error,      // Bad - Red
+        DesignSystem.Colors.warning,    // Fair - Orange
+        Color.green.opacity(0.8),       // Good - Light Green
+        Color.green                     // Excellent - Dark Green
     ]
     
     var body: some View {
@@ -348,9 +348,9 @@ struct GradeScreenView: View {
         var scrambleCount = 0
         let timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
             if scrambleCount < 15 {
-                if !gradeLetters.isEmpty {
-                    let randomIndex = Int.random(in: 0..<gradeLetters.count)
-                    gradeText = gradeLetters[randomIndex]
+                if !gradeWords.isEmpty {
+                    let randomIndex = Int.random(in: 0..<gradeWords.count)
+                    gradeText = gradeWords[randomIndex]
                     
                     // Update circle color to match the grade
                     withAnimation(.easeInOut(duration: 0.1)) {
@@ -361,10 +361,10 @@ struct GradeScreenView: View {
                 scrambleCount += 1
             } else {
                 timer.invalidate()
-                // Always end at A (index 3)
+                // Always end at Excellent (index 3)
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                    gradeText = "A"
-                    circleColor = gradeColors[3] // A - Dark Green
+                    gradeText = "Excellent"
+                    circleColor = gradeColors[3] // Excellent - Dark Green
                     gradeRotation = 0
                 }
             }
@@ -806,12 +806,12 @@ struct CustomShoppingCart: View {
             // Cart contents (meat packages)
             VStack(spacing: 2) {
                 HStack(spacing: 2) {
-                    MeatPackage(grade: isGood ? "A" : "D")
-                    MeatPackage(grade: isGood ? "A" : "C")
+                    MeatPackage(grade: isGood ? "Excellent" : "Bad")
+                    MeatPackage(grade: isGood ? "Excellent" : "Fair")
                 }
                 HStack(spacing: 2) {
-                    MeatPackage(grade: isGood ? "B" : "D")
-                    MeatPackage(grade: isGood ? "A" : "C")
+                    MeatPackage(grade: isGood ? "Excellent" : "Bad")
+                    MeatPackage(grade: isGood ? "Excellent" : "Fair")
                 }
             }
             .offset(y: -2)
@@ -824,10 +824,10 @@ struct MeatPackage: View {
     
     private var packageColor: Color {
         switch grade {
-        case "A": return Color.green
-        case "B": return Color.green.opacity(0.8)
-        case "C": return DesignSystem.Colors.warning
-        case "D": return DesignSystem.Colors.error
+        case "Excellent": return Color.green
+        case "Good": return Color.green.opacity(0.8)
+        case "Fair": return DesignSystem.Colors.warning
+        case "Bad": return DesignSystem.Colors.error
         default: return DesignSystem.Colors.border
         }
     }
@@ -852,8 +852,8 @@ struct GradeBadge: View {
                 .fill(isGood ? Color.green : DesignSystem.Colors.error)
                 .frame(width: 20, height: 20)
             
-            Text(isGood ? "A" : "D")
-                .font(.system(size: 10, weight: .bold))
+            Text(isGood ? "Excellent" : "Bad")
+                .font(.system(size: 6, weight: .bold))
                 .foregroundColor(.white)
         }
     }

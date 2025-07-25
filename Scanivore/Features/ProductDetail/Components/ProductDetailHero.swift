@@ -71,20 +71,21 @@ struct HeroSection: View {
 }
 
 // MARK: - Safety Grade Badge
-struct SafetyGradeBadge: View {
-    let grade: String
+public struct SafetyGradeBadge: View {
+    let grade: SafetyGrade
     let color: Color
     
-    var body: some View {
+    public var body: some View {
         ZStack {
             Circle()
                 .fill(color)
                 .frame(width: 60, height: 60)
             
-            Text(grade)
-                .font(DesignSystem.Typography.heading2)
+            Text(grade.rawValue)
+                .font(DesignSystem.Typography.caption)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
+                .multilineTextAlignment(.center)
         }
         .shadow(
             color: .black.opacity(0.2),
@@ -239,7 +240,7 @@ struct FallbackHeroSection: View {
                     
                     // Safety Grade Badge
                     VStack(spacing: DesignSystem.Spacing.xs) {
-                        Text(store.safetyGrade)
+                        Text(store.safetyGrade.rawValue)
                             .font(DesignSystem.Typography.heading1)
                             .fontWeight(.bold)
                             .foregroundColor(.white)
