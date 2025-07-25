@@ -130,10 +130,10 @@ enum QualityLevel: Equatable {
     
     var displayName: String {
         switch self {
-        case .excellent: return "A"
-        case .good: return "C"
-        case .poor: return "D"
-        case .bad: return "F"
+        case .excellent: return "Excellent"
+        case .good: return "Fair"
+        case .poor: return "Fair"
+        case .bad: return "Bad"
         }
     }
     
