@@ -26,7 +26,7 @@ struct FilterButton: View {
                         .frame(width: 8, height: 8)
                 }
             }
-            .foregroundColor(DesignSystem.Colors.textPrimary)
+            .foregroundColor(DesignSystem.Colors.primaryRed)
             .padding(.horizontal, DesignSystem.Spacing.base)
             .padding(.vertical, DesignSystem.Spacing.xs)
             .background(

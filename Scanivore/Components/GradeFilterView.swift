@@ -1,18 +1,18 @@
 //
-//  MeatTypeFilterView.swift
+//  GradeFilterView.swift
 //  Scanivore
 //
-//  Meat type filter component for the Explore feature
+//  Grade filter component for the Explore feature
 //
 
 import SwiftUI
 import ComposableArchitecture
 
-struct MeatTypeFilterView: View {
+struct GradeFilterView: View {
     let store: StoreOf<ExploreFeatureDomain>
     @Environment(\.dismiss) private var dismiss
     
-    private let availableMeatTypes: [MeatType] = [.beef, .pork, .chicken, .lamb, .turkey, .fish]
+    private let availableGrades: [SafetyGrade] = [.excellent, .fair, .bad]
     
     var body: some View {
         WithPerceptionTracking {
@@ -22,22 +22,23 @@ struct MeatTypeFilterView: View {
                         .ignoresSafeArea()
                     
                     Form {
-                        Section("Filter by Meat Type") {
-                            ForEach(availableMeatTypes, id: \.self) { meatType in
+                        Section("Filter by Safety Grade") {
+                            ForEach(availableGrades, id: \.self) { grade in
                                 HStack {
-                                    Text("\(meatType.icon) \(meatType.rawValue)")
+                                    gradeIndicator(for: grade)
+                                    Text(grade.rawValue)
                                         .foregroundColor(DesignSystem.Colors.textPrimary)
                                     
                                     Spacer()
                                     
-                                    if store.selectedMeatTypes.contains(meatType) {
+                                    if store.selectedGrades.contains(grade) {
                                         Image(systemName: "checkmark")
                                             .foregroundColor(DesignSystem.Colors.primaryRed)
                                     }
                                 }
                                 .contentShape(Rectangle())
                                 .onTapGesture {
-                                    store.send(.meatTypeToggled(meatType))
+                                    store.send(.gradeToggled(grade))
                                 }
                                 .listRowBackground(DesignSystem.Colors.background)
                             }
@@ -49,7 +50,7 @@ struct MeatTypeFilterView: View {
                                 
                                 Spacer()
                                 
-                                if store.selectedMeatTypes.isEmpty {
+                                if store.selectedGrades.isEmpty {
                                     Image(systemName: "checkmark")
                                         .foregroundColor(DesignSystem.Colors.primaryRed)
                                 }
@@ -76,6 +77,24 @@ struct MeatTypeFilterView: View {
                     }
                 }
             }
+        }
+    }
+    
+    @ViewBuilder
+    private func gradeIndicator(for grade: SafetyGrade) -> some View {
+        Circle()
+            .fill(gradeColor(for: grade))
+            .frame(width: 20, height: 20)
+    }
+    
+    private func gradeColor(for grade: SafetyGrade) -> Color {
+        switch grade {
+        case .excellent:
+            return Color(red: 0.0, green: 0.8, blue: 0.0) // Green
+        case .fair:
+            return Color(red: 1.0, green: 0.8, blue: 0.0) // Yellow
+        case .bad:
+            return Color(red: 1.0, green: 0.0, blue: 0.0) // Red
         }
     }
 }

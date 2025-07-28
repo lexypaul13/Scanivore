@@ -375,14 +375,14 @@ private struct DataPrivacySection: View {
             SettingsRowView(
                 title: "Manage Scan Data",
                 systemImage: "folder",
-                color: DesignSystem.Colors.textPrimary,
+                color: DesignSystem.Colors.primaryRed,
                 action: { store.send(.dataManagementTapped) }
             )
             
             SettingsRowView(
                 title: "Privacy Policy",
                 systemImage: "hand.raised",
-                color: DesignSystem.Colors.textPrimary,
+                color: DesignSystem.Colors.primaryRed,
                 action: { store.send(.privacyTapped) }
             )
         }
@@ -395,8 +395,12 @@ private struct SupportSection: View {
     var body: some View {
         Section("Support") {
             Link(destination: URL(string: "mailto:support@scanivore.app")!) {
-                Label("Contact Support", systemImage: "envelope")
-                    .foregroundColor(DesignSystem.Colors.primaryRed)
+                HStack {
+                    Image(systemName: "envelope")
+                        .foregroundColor(DesignSystem.Colors.primaryRed)
+                    Text("Contact Support")
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                }
             }
         }
         .listRowBackground(DesignSystem.Colors.background)
@@ -412,7 +416,7 @@ private struct InfoSection: View {
             SettingsRowView(
                 title: "About Scanivore",
                 systemImage: "info.circle",
-                color: DesignSystem.Colors.textPrimary,
+                color: DesignSystem.Colors.primaryRed,
                 action: { store.send(.aboutTapped) }
             )
             

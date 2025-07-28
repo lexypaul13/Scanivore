@@ -89,14 +89,6 @@ struct HistoryView: View {
                     ),
                     prompt: "Search scans..."
                 )
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: { store.send(.filterButtonTapped) }) {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                                .foregroundColor(DesignSystem.Colors.primaryRed)
-                        }
-                    }
-                }
                 .sheet(
                     isPresented: .init(
                         get: { store.showingFilters },
@@ -185,7 +177,7 @@ struct EmptyHistoryView: View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "clock.badge.xmark")
                 .font(DesignSystem.Typography.hero)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .foregroundColor(DesignSystem.Colors.primaryRed)
             
             Text("No Products Yet")
                 .font(DesignSystem.Typography.heading1)

@@ -16,8 +16,10 @@ struct SettingsRowView: View {
     var body: some View {
         Button(action: action) {
             HStack {
-                Label(title, systemImage: systemImage)
+                Image(systemName: systemImage)
                     .foregroundColor(color)
+                Text(title)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption)

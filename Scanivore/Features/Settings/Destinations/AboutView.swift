@@ -27,7 +27,6 @@ struct AboutView: View {
                         
                         AppIcon()
                         AppInfo(store: store)
-                        ExternalLinks()
                         
                         Spacer()
                     }
@@ -52,9 +51,10 @@ struct AboutView: View {
 // MARK: - App Icon
 private struct AppIcon: View {
     var body: some View {
-        Image(systemName: "camera.metering.center.weighted")
-            .font(.system(size: 80))
-            .foregroundColor(DesignSystem.Colors.primaryRed)
+        Image("Scanivore_Logo")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 120, height: 120)
     }
 }
 
@@ -88,39 +88,6 @@ private struct AppInfo: View {
     }
 }
 
-// MARK: - External Links
-private struct ExternalLinks: View {
-    var body: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            ExternalLink(
-                title: "Terms of Service",
-                url: "https://scanivore.app/terms"
-            )
-            
-            ExternalLink(
-                title: "Privacy Policy",
-                url: "https://scanivore.app/privacy"
-            )
-            
-            ExternalLink(
-                title: "Acknowledgments",
-                url: "https://scanivore.app/credits"
-            )
-        }
-        .font(DesignSystem.Typography.body)
-    }
-}
-
-// MARK: - External Link
-private struct ExternalLink: View {
-    let title: String
-    let url: String
-    
-    var body: some View {
-        Link(title, destination: URL(string: url)!)
-            .foregroundColor(DesignSystem.Colors.primaryRed)
-    }
-}
 
 // MARK: - Dismiss Button
 private struct DismissButton: View {

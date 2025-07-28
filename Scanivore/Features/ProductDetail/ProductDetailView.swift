@@ -8,12 +8,6 @@
 import SwiftUI
 import ComposableArchitecture
 
-// MARK: - SafetyGrade Enum
-public enum SafetyGrade: String, CaseIterable {
-    case excellent = "Excellent"
-    case fair = "Fair"
-    case bad = "Bad"
-}
 
 // MARK: - Product Detail Feature Domain
 @Reducer

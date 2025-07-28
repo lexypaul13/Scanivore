@@ -15,7 +15,7 @@ struct ExploreFeatureDomain {
     struct State: Equatable {
         var searchText = ""
         var showingFilters = false
-        var selectedMeatTypes: Set<MeatType> = []
+        var selectedGrades: Set<SafetyGrade> = []
         var recommendations: IdentifiedArrayOf<ProductRecommendation> = []
         
         // Search state
@@ -51,10 +51,11 @@ struct ExploreFeatureDomain {
                 return searchResults
             }
             
-            // Otherwise show recommendations with meat type filter
-            if !selectedMeatTypes.isEmpty {
+            // Otherwise show recommendations with grade filter
+            if !selectedGrades.isEmpty {
                 return IdentifiedArrayOf(uniqueElements: recommendations.filter { recommendation in
-                    selectedMeatTypes.contains(recommendation.meatType)
+                    let mappedGrade = ExploreFeatureDomain.mapQualityToSafetyGrade(recommendation.qualityRating)
+                    return selectedGrades.contains(mappedGrade)
                 })
             }
             
@@ -66,7 +67,7 @@ struct ExploreFeatureDomain {
         case searchTextChanged(String)
         case filterButtonTapped
         case filtersDismissed
-        case meatTypeToggled(MeatType)
+        case gradeToggled(SafetyGrade)
         case clearAllFilters
         
         // Timer actions
@@ -125,16 +126,16 @@ struct ExploreFeatureDomain {
                 state.showingFilters = false
                 return .none
                 
-            case let .meatTypeToggled(meatType):
-                if state.selectedMeatTypes.contains(meatType) {
-                    state.selectedMeatTypes.remove(meatType)
+            case let .gradeToggled(grade):
+                if state.selectedGrades.contains(grade) {
+                    state.selectedGrades.remove(grade)
                 } else {
-                    state.selectedMeatTypes.insert(meatType)
+                    state.selectedGrades.insert(grade)
                 }
                 return .none
                 
             case .clearAllFilters:
-                state.selectedMeatTypes = []
+                state.selectedGrades = []
                 return .none
                 
             case .startAutoRefreshTimer:
@@ -294,6 +295,17 @@ struct ExploreFeatureDomain {
             ProductDetailFeatureDomain()
         }
     }
+    
+    static func mapQualityToSafetyGrade(_ qualityLevel: QualityLevel) -> SafetyGrade {
+        switch qualityLevel {
+        case .excellent:
+            return .excellent
+        case .good, .poor:
+            return .fair
+        case .bad:
+            return .bad
+        }
+    }
 }
 
 
@@ -314,7 +326,7 @@ struct ExploreView: View {
                             set: { _ in store.send(.filtersDismissed) }
                         )
                     ) {
-                        MeatTypeFilterView(store: store)
+                        GradeFilterView(store: store)
                     }
                     .onAppear {
                         store.send(.startAutoRefreshTimer)
@@ -359,12 +371,12 @@ struct ExploreView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: DesignSystem.Spacing.sm) {
                         FilterButton(
-                            hasActiveFilters: !store.selectedMeatTypes.isEmpty,
+                            hasActiveFilters: !store.selectedGrades.isEmpty,
                             action: { store.send(.filterButtonTapped) }
                         )
                         
-                        ForEach(Array(store.selectedMeatTypes), id: \.self) { meatType in
-                            meatTypeFilterChip(meatType)
+                        ForEach(Array(store.selectedGrades), id: \.self) { grade in
+                            gradeFilterChip(grade)
                         }
                     }
                     .padding(.horizontal, DesignSystem.Spacing.screenPadding)
@@ -374,14 +386,18 @@ struct ExploreView: View {
         }
     }
     
-    private func meatTypeFilterChip(_ meatType: MeatType) -> some View {
+    private func gradeFilterChip(_ grade: SafetyGrade) -> some View {
         HStack(spacing: DesignSystem.Spacing.xs) {
-            Text("\(meatType.icon) \(meatType.rawValue)")
+            Circle()
+                .fill(gradeColor(for: grade))
+                .frame(width: 12, height: 12)
+            
+            Text(grade.rawValue)
                 .font(DesignSystem.Typography.captionMedium)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
             
             Button {
-                store.send(.meatTypeToggled(meatType))
+                store.send(.gradeToggled(grade))
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 12))
@@ -395,6 +411,18 @@ struct ExploreView: View {
                 .fill(DesignSystem.Colors.backgroundSecondary)
         )
     }
+    
+    private func gradeColor(for grade: SafetyGrade) -> Color {
+        switch grade {
+        case .excellent:
+            return Color(red: 0.0, green: 0.8, blue: 0.0) // Green
+        case .fair:
+            return Color(red: 1.0, green: 0.8, blue: 0.0) // Yellow
+        case .bad:
+            return Color(red: 1.0, green: 0.0, blue: 0.0) // Red
+        }
+    }
+    
     
     private var contentSection: some View {
         ScrollView {
