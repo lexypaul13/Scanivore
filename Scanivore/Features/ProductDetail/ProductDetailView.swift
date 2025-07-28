@@ -151,14 +151,10 @@ struct ProductDetailFeatureDomain {
         case ingredientTapped(IngredientRisk)
         case dismissIngredientSheet
         case retryTapped
-        case dismissTapped
-        
         // New actions for collapsible sections
         case toggleIngredientSection(String)
         case ingredientTappedWithCitations(IngredientRisk, [Citation])
     }
-    
-    @Dependency(\.dismiss) var dismiss
     
     var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -259,11 +255,6 @@ struct ProductDetailFeatureDomain {
                 return .run { send in
                     await send(.loadHealthAssessment)
                 }
-                
-            case .dismissTapped:
-                return .run { _ in
-                    await dismiss()
-                }
             }
         }
     }
@@ -295,14 +286,6 @@ struct ProductDetailView: View {
                 .customNavigationTitle("Product Details")
                 .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
                 .toolbarBackground(.visible, for: .navigationBar)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Done") {
-                            store.send(.dismissTapped)
-                        }
-                        .foregroundColor(DesignSystem.Colors.primaryRed)
-                    }
-                }
                 .sheet(isPresented: .init(
                     get: { store.showingIngredientSheet },
                     set: { _ in store.send(.dismissIngredientSheet) }

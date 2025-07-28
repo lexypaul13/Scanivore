@@ -28,7 +28,7 @@ struct CollapsibleIngredientSections: View {
                         sectionId: "high-risk",
                         title: "High Risk",
                         ingredients: highRisk,
-                        color: DesignSystem.Colors.error,
+                        color: DesignSystem.Colors.primaryRed,
                         isExpanded: store.expandedSections.contains("high-risk"),
                         onToggle: { store.send(.toggleIngredientSection("high-risk")) },
                         onIngredientTap: { ingredient in
@@ -223,7 +223,7 @@ struct EnhancedIngredientDetailSheet: View {
     
     private var riskColor: Color {
         switch ingredient.riskLevel?.lowercased() {
-        case "high": return DesignSystem.Colors.error
+        case "high": return DesignSystem.Colors.primaryRed
         case "moderate": return DesignSystem.Colors.warning
         case "low": return DesignSystem.Colors.success
         default: return DesignSystem.Colors.textSecondary

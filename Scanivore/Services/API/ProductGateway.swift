@@ -246,7 +246,7 @@ extension ProductGateway: DependencyKey {
             let headers = try await createAuthHeaders()
             
             let searchResponse = try await sharedOptimizedSession.request(
-                "\(APIConfiguration.baseURL)/api/v1/products/nlp-search",
+                "\(APIConfiguration.baseURL)/api/v1/products/search",
                 method: .get,
                 parameters: ["q": query],
                 headers: headers

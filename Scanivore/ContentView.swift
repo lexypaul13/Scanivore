@@ -86,7 +86,9 @@ struct MainTabView: View {
                     }
                     .tag(2)
                 
-                SettingsView()
+                SettingsView(
+                    store: store.scope(state: \.settings, action: \.settings)
+                )
                     .tabItem {
                         Label("Settings", systemImage: "gearshape.fill")
                     }

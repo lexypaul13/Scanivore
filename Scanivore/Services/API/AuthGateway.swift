@@ -15,6 +15,7 @@ public struct AuthGateway: Sendable {
     public var register: @Sendable (String, String, String?) async throws -> AuthResponse
     public var login: @Sendable (String, String) async throws -> AuthResponse
     public var logout: @Sendable () async throws -> Void = { }
+    public var deleteAccount: @Sendable () async throws -> Void = { }
     public var getCurrentUser: @Sendable () async throws -> User?
     public var isLoggedIn: @Sendable () async -> Bool = { false }
 }
@@ -68,6 +69,53 @@ extension AuthGateway: DependencyKey {
         },
         
         logout: {
+            // Call backend logout endpoint first to invalidate server-side session
+            do {
+                guard let token = try await TokenManager.shared.getToken() else {
+                    // No token, just clear local storage
+                    try await TokenManager.shared.clearToken()
+                    return
+                }
+                
+                _ = try await AF.request(
+                    "\(APIConfiguration.baseURL)/api/v1/auth/logout",
+                    method: .post,
+                    headers: [
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer \(token)"
+                    ]
+                )
+                .validate()
+                .serializingString()
+                .value
+                
+            } catch {
+                // Continue with local logout even if server logout fails
+                print("Server logout failed: \(error)")
+            }
+            
+            // Always clear local token
+            try await TokenManager.shared.clearToken()
+        },
+        
+        deleteAccount: {
+            guard let token = try await TokenManager.shared.getToken() else {
+                throw URLError(.userAuthenticationRequired)
+            }
+            
+            _ = try await AF.request(
+                "\(APIConfiguration.baseURL)/api/v1/auth/account",
+                method: .delete,
+                headers: [
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer \(token)"
+                ]
+            )
+            .validate()
+            .serializingString()
+            .value
+            
+            // Clear local token after successful account deletion
             try await TokenManager.shared.clearToken()
         },
         
@@ -108,6 +156,7 @@ extension AuthGateway: DependencyKey {
         register: { _, _, _ in .mockSuccess },
         login: { _, _ in .mockSuccess },
         logout: { },
+        deleteAccount: { },
         getCurrentUser: { .mock },
         isLoggedIn: { true }
     )

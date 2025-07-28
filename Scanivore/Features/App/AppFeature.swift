@@ -32,6 +32,7 @@ struct AppFeature {
         var scanner = ScannerFeatureDomain.State()
         var explore = ExploreFeatureDomain.State()
         var history = HistoryFeatureDomain.State()
+        var settings = SettingsFeature.State()
         
         // Auth flow state
         var authFlow: AuthFlow = .login
@@ -81,6 +82,7 @@ struct AppFeature {
         case scanner(ScannerFeatureDomain.Action)
         case explore(ExploreFeatureDomain.Action)
         case history(HistoryFeatureDomain.Action)
+        case settings(SettingsFeature.Action)
     }
     
     var body: some ReducerOf<Self> {
@@ -114,6 +116,10 @@ struct AppFeature {
         
         Scope(state: \.history, action: \.history) {
             HistoryFeatureDomain()
+        }
+        
+        Scope(state: \.settings, action: \.settings) {
+            SettingsFeature()
         }
         
         Reduce { state, action in
@@ -226,6 +232,18 @@ struct AppFeature {
                 return .none
                 
             case .history:
+                return .none
+                
+            case .settings(.delegate(.signOutRequested)):
+                // Handle sign out request from settings
+                state.authState.isLoggedIn = false
+                state.authFlow = .login
+                return .run { _ in
+                    @Dependency(\.authState) var authState
+                    await authState.markLoggedIn(false)
+                }
+                
+            case .settings:
                 return .none
             }
         }
