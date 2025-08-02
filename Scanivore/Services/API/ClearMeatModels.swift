@@ -114,6 +114,14 @@ public struct SearchResponse: Codable, Equatable {
 }
 
 
+// MARK: - Product Info Model
+public struct ProductInfo: Codable, Equatable {
+    let name: String?
+    let brand: String?
+    let image_url: String?
+    let code: String?
+}
+
 // MARK: - Health Assessment Models  
 public struct HealthAssessmentResponse: Codable, Equatable {
     let summary: String
@@ -123,6 +131,7 @@ public struct HealthAssessmentResponse: Codable, Equatable {
     let nutrition: [NutritionInsight]?
     let citations: [Citation]?
     let meta: ResponseMetadata?
+    let product_info: ProductInfo?
     
     // Direct API fields to match actual response structure
     let high_risk: [IngredientRisk]?
@@ -162,6 +171,7 @@ public struct HealthAssessmentResponse: Codable, Equatable {
         case nutrition = "nutrition"
         case citations
         case meta = "metadata"
+        case product_info = "product_info"
         
         // Direct API fields
         case high_risk = "high_risk"
@@ -332,13 +342,38 @@ public struct APIError: Codable, Equatable, Error {
 }
 
 // MARK: - Explore/Recommendations Models
-public struct ExploreResponse: Codable, Equatable {
-    let recommendations: [RecommendationItem]
+
+// Backend response format (products directly)
+public struct UserExploreResponse: Codable, Equatable {
+    let recommendations: [Product]
     let totalMatches: Int
+    let hasMore: Bool?
+    let offset: Int?
+    let limit: Int?
     
     enum CodingKeys: String, CodingKey {
         case recommendations
-        case totalMatches = "total_matches"
+        case totalMatches = "totalMatches"
+        case hasMore
+        case offset
+        case limit
+    }
+}
+
+// App internal format (with RecommendationItems)
+public struct ExploreResponse: Codable, Equatable {
+    let recommendations: [RecommendationItem]
+    let totalMatches: Int
+    let hasMore: Bool?
+    let offset: Int?
+    let limit: Int?
+    
+    enum CodingKeys: String, CodingKey {
+        case recommendations
+        case totalMatches = "totalMatches"
+        case hasMore
+        case offset
+        case limit
     }
 }
 

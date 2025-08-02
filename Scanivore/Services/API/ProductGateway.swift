@@ -162,13 +162,15 @@ extension ProductGateway: DependencyKey {
                 } catch {
                     lastError = error
                     
-                    // Check if it's a timeout error
-                    if let urlError = error as? URLError, urlError.code == .timedOut {
-                        print("⏱️ Request timed out for \(barcode) (attempt \(attempt + 1)/\(maxRetries + 1))")
-                        if attempt < maxRetries {
-                            continue // Try again
-                        }
+                                    // Check if it's a timeout error
+                if let urlError = error as? URLError, urlError.code == .timedOut {
+                    print("⏱️ Request timed out for \(barcode) (attempt \(attempt + 1)/\(maxRetries + 1)) - Network or server delay")
+                    if attempt < maxRetries {
+                        // Wait longer between retries for timeout issues
+                        try await Task.sleep(nanoseconds: UInt64((attempt + 1) * 2) * 1_000_000_000) // 2s, 4s
+                        continue // Try again
                     }
+                }
                     
                     // For non-timeout errors, don't retry
                     print("❌ Health assessment failed for \(barcode): \(error)")
@@ -183,7 +185,7 @@ extension ProductGateway: DependencyKey {
                 if let urlError = error as? URLError, urlError.code == .timedOut {
                     print("⏱️ All retry attempts failed - request timed out for \(barcode)")
                     throw APIError(
-                        detail: "Request timed out after \(maxRetries + 1) attempts. Please check your network connection.",
+                        detail: "Health assessment is taking longer than usual. Please try again or check your network connection.",
                         statusCode: -1001
                     )
                 }
@@ -197,17 +199,17 @@ extension ProductGateway: DependencyKey {
                         // For API failures, throw a descriptive error
                         if statusCode >= 500 {
                             throw APIError(
-                                detail: "Health assessment service temporarily unavailable. Grade available from product data.",
+                                detail: "Health assessment service temporarily unavailable. Basic product grade available from barcode scan.",
                                 statusCode: statusCode
                             )
                         } else if statusCode == 404 {
                             throw APIError(
-                                detail: "Product not found in health assessment database.",
+                                detail: "Detailed health assessment not available for this product. Basic safety grade shown.",
                                 statusCode: statusCode
                             )
                         } else {
                             throw APIError(
-                                detail: "Health assessment currently unavailable. Basic product info available.",
+                                detail: "Health assessment temporarily unavailable. Basic product safety information shown.",
                                 statusCode: statusCode
                             )
                         }
@@ -346,68 +348,89 @@ extension ProductGateway: DependencyKey {
                     matchScore: item.matchScore
                 )
             }
-            
             return ExploreResponse(
                 recommendations: optimizedRecommendations,
-                totalMatches: exploreResponse.totalMatches
+                totalMatches: exploreResponse.totalMatches,
+                hasMore: nil,
+                offset: nil,
+                limit: nil
             )
         },
         
         getExploreRecommendations: { offset, limit in
             let headers = try await createAuthHeaders()
             
-            let exploreResponse = try await sharedOptimizedSession.request(
-                "\(APIConfiguration.baseURL)/api/v1/users/explore",
-                method: .get,
-                parameters: ["offset": offset, "limit": limit],
-                headers: headers
-            )
-            .validate()
-            .serializingDecodable(ExploreResponse.self)
-            .value
+            print("🔍 Requesting user explore: offset=\(offset), limit=\(limit)")
             
-            // Strip image_data from user explore results to prevent massive memory usage
-            let optimizedRecommendations = exploreResponse.recommendations.map { item in
-                let optimizedProduct = Product(
-                    code: item.product.code,
-                    name: item.product.name,
-                    brand: item.product.brand,
-                    categories: item.product.categories,
-                    ingredients: item.product.ingredients,
-                    nutritionFacts: item.product.nutritionFacts,
-                    image_url: item.product.image_url,
-                    image_data: nil,  // Remove massive base64 data
-                    risk_rating: item.product.risk_rating,
-                    description: item.product.description,
-                    ingredients_text: item.product.ingredients_text,
-                    calories: item.product.calories,
-                    protein: item.product.protein,
-                    fat: item.product.fat,
-                    carbohydrates: item.product.carbohydrates,
-                    salt: item.product.salt,
-                    meat_type: item.product.meat_type,
-                    contains_nitrites: item.product.contains_nitrites,
-                    contains_phosphates: item.product.contains_phosphates,
-                    contains_preservatives: item.product.contains_preservatives,
-                    antibiotic_free: item.product.antibiotic_free,
-                    hormone_free: item.product.hormone_free,
-                    pasture_raised: item.product.pasture_raised,
-                    last_updated: item.product.last_updated,
-                    created_at: item.product.created_at,
-                    _relevance_score: item.product._relevance_score
+            do {
+                let userExploreResponse = try await sharedOptimizedSession.request(
+                    "\(APIConfiguration.baseURL)/api/v1/users/explore",
+                    method: .get,
+                    parameters: ["offset": offset, "limit": limit],
+                    headers: headers
                 )
+                .validate()
+                .serializingDecodable(UserExploreResponse.self)
+                .value
                 
-                return RecommendationItem(
-                    product: optimizedProduct,
-                    matchDetails: item.matchDetails,
-                    matchScore: item.matchScore
+                print("✅ User explore success: got \(userExploreResponse.recommendations.count) items")
+                
+                // Strip image_data from user explore results to prevent massive memory usage
+                let optimizedProducts = userExploreResponse.recommendations.map { product in
+                Product(
+                    code: product.code,
+                    name: product.name,
+                    brand: product.brand,
+                    categories: product.categories,
+                    ingredients: product.ingredients,
+                    nutritionFacts: product.nutritionFacts,
+                    image_url: product.image_url,
+                    image_data: nil,  // Remove massive base64 data
+                    risk_rating: product.risk_rating,
+                    description: product.description,
+                    ingredients_text: product.ingredients_text,
+                    calories: product.calories,
+                    protein: product.protein,
+                    fat: product.fat,
+                    carbohydrates: product.carbohydrates,
+                    salt: product.salt,
+                    meat_type: product.meat_type,
+                    contains_nitrites: product.contains_nitrites,
+                    contains_phosphates: product.contains_phosphates,
+                    contains_preservatives: product.contains_preservatives,
+                    antibiotic_free: product.antibiotic_free,
+                    hormone_free: product.hormone_free,
+                    pasture_raised: product.pasture_raised,
+                    last_updated: product.last_updated,
+                    created_at: product.created_at,
+                    _relevance_score: product._relevance_score
                 )
             }
             
-            return ExploreResponse(
-                recommendations: optimizedRecommendations,
-                totalMatches: exploreResponse.totalMatches
-            )
+            // Convert Products to RecommendationItems for UI compatibility
+            let recommendationItems = optimizedProducts.map { product in
+                RecommendationItem(
+                    product: product,
+                    matchDetails: MatchDetails(matches: [], concerns: []),
+                    matchScore: nil
+                )
+            }
+            
+                return ExploreResponse(
+                    recommendations: recommendationItems,
+                    totalMatches: userExploreResponse.totalMatches,
+                    hasMore: userExploreResponse.hasMore,
+                    offset: userExploreResponse.offset,
+                    limit: userExploreResponse.limit
+                )
+            } catch {
+                print("❌ User explore failed: \(error)")
+                if let urlError = error as? URLError {
+                    print("   URLError code: \(urlError.code.rawValue)")
+                    print("   URLError description: \(urlError.localizedDescription)")
+                }
+                throw error
+            }
         }
     )
     
@@ -608,7 +631,10 @@ extension ExploreResponse {
                 matchScore: 0.95
             )
         ],
-        totalMatches: 25
+        totalMatches: 25,
+        hasMore: true,
+        offset: 0,
+        limit: 10
     )
 }
 

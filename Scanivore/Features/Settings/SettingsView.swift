@@ -61,6 +61,7 @@ public struct SettingsFeature {
         case dataManagementTapped
         case aboutTapped
         case privacyTapped
+        case preferencesTapped
         case contactSupportTapped
         
         // Profile actions
@@ -87,6 +88,7 @@ public struct SettingsFeature {
         
         public enum Delegate: Equatable {
             case signOutRequested
+            case preferencesUpdated
         }
     }
     
@@ -95,6 +97,7 @@ public struct SettingsFeature {
         case dataManagement(DataManagementFeature)
         case about(AboutFeature)
         case privacy(PrivacyFeature)
+        case preferences(PreferencesFeature)
     }
     
     @Dependency(\.authGateway) var authGateway
@@ -172,6 +175,10 @@ public struct SettingsFeature {
                 state.destination = .privacy(PrivacyFeature.State())
                 return .none
                 
+            case .preferencesTapped:
+                state.destination = .preferences(PreferencesFeature.State())
+                return .none
+                
             case .contactSupportTapped:
                 // External link - no navigation state needed
                 return .none
@@ -244,6 +251,10 @@ public struct SettingsFeature {
                 state.errorMessage = nil
                 return .none
                 
+            case .destination(.presented(.preferences(.delegate(.preferencesUpdated)))):
+                // Bubble up the preferences update to parent
+                return .send(.delegate(.preferencesUpdated))
+                
             case .destination:
                 return .none
                 
@@ -296,6 +307,9 @@ struct SettingsView: View {
             }
             .sheet(item: $store.scope(state: \.destination?.privacy, action: \.destination.privacy)) { privacyStore in
                 PrivacyPolicyView(store: privacyStore)
+            }
+            .sheet(item: $store.scope(state: \.destination?.preferences, action: \.destination.preferences)) { preferencesStore in
+                PreferencesView(store: preferencesStore)
             }
             .alert("Sign Out", isPresented: $store.showingSignOutConfirmation.sending(\.setSignOutConfirmation)) {
                 Button("Cancel", role: .cancel) {
@@ -377,6 +391,13 @@ private struct DataPrivacySection: View {
                 systemImage: "folder",
                 color: DesignSystem.Colors.primaryRed,
                 action: { store.send(.dataManagementTapped) }
+            )
+            
+            SettingsRowView(
+                title: "Dietary Preferences",
+                systemImage: "fork.knife",
+                color: DesignSystem.Colors.primaryRed,
+                action: { store.send(.preferencesTapped) }
             )
             
             SettingsRowView(

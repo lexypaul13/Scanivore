@@ -243,6 +243,14 @@ struct AppFeature {
                     await authState.markLoggedIn(false)
                 }
                 
+            case .settings(.delegate(.preferencesUpdated)):
+                // Handle preferences update - add delay to ensure backend processes the update
+                return .run { send in
+                    // Wait 1.5 seconds to ensure backend cache is updated
+                    try await Task.sleep(nanoseconds: 1_500_000_000)
+                    await send(.explore(.refreshRecommendations))
+                }
+                
             case .settings:
                 return .none
             }

@@ -63,7 +63,7 @@ struct ExploreFeatureDomain {
         }
     }
     
-    enum Action {
+    enum Action: Equatable {
         case searchTextChanged(String)
         case filterButtonTapped
         case filtersDismissed
@@ -164,6 +164,7 @@ struct ExploreFeatureDomain {
                 state.hasMorePages = true
                 state.totalItems = 0
                 state.currentPage = 0
+                state.isLoading = false  // Reset loading state before calling loadRecommendations
                 return .send(.loadRecommendations)
                 
             case .loadRecommendations:
@@ -176,7 +177,7 @@ struct ExploreFeatureDomain {
                     @Dependency(\.productGateway) var gateway
                     
                     let result = await TaskResult {
-                        try await gateway.getRecommendations(offset, 10)
+                        try await gateway.getExploreRecommendations(offset, 10)
                     }
                     
                     await send(.recommendationsResponse(result))
@@ -212,7 +213,7 @@ struct ExploreFeatureDomain {
                 
                 // Update pagination state
                 state.totalItems = response.totalMatches
-                state.hasMorePages = state.recommendations.count < response.totalMatches
+                state.hasMorePages = response.hasMore ?? (state.recommendations.count < response.totalMatches)
                 state.isLoadingNextPage = false
                 
                 return .none
@@ -281,7 +282,7 @@ struct ExploreFeatureDomain {
                     @Dependency(\.productGateway) var gateway
                     
                     let result = await TaskResult {
-                        try await gateway.getRecommendations(offset, 10)
+                        try await gateway.getExploreRecommendations(offset, 10)
                     }
                     
                     await send(.recommendationsResponse(result))
@@ -570,10 +571,10 @@ struct ExploreView: View {
     private var loadingMoreView: some View {
         HStack {
             ProgressView()
-                .tint(DesignSystem.Colors.textSecondary)
+                .tint(DesignSystem.Colors.primaryRed)
             Text("Loading more...")
                 .font(DesignSystem.Typography.caption)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .foregroundColor(DesignSystem.Colors.primaryRed)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, DesignSystem.Spacing.md)

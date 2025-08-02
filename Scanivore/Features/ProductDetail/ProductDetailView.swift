@@ -15,9 +15,9 @@ struct ProductDetailFeatureDomain {
     @ObservableState
     struct State: Equatable {
         let productCode: String
-        let productName: String?
-        let productBrand: String?
-        let productImageUrl: String?
+        var productName: String?
+        var productBrand: String?
+        var productImageUrl: String?
         let originalRiskRating: String? // Add original OpenFoodFacts risk rating
         
         var healthAssessment: HealthAssessmentResponse?
@@ -135,12 +135,10 @@ struct ProductDetailFeatureDomain {
         }
     }
     
-    enum Action {
+    enum Action: Equatable {
         case onAppear
         case loadHealthAssessment
         case healthAssessmentResponse(TaskResult<HealthAssessmentResponse>)
-        case loadBasicProduct
-        case basicProductResponse(TaskResult<Product>)
         // Recommended swaps actions removed
         case ingredientTapped(IngredientRisk)
         case dismissIngredientSheet
@@ -189,6 +187,19 @@ struct ProductDetailFeatureDomain {
                 state.isLoading = false
                 state.healthAssessment = assessment
                 
+                // Update product info from health assessment response if available
+                if let productInfo = assessment.product_info {
+                    if state.productName == nil && productInfo.name != nil {
+                        state.productName = productInfo.name
+                    }
+                    if state.productBrand == nil && productInfo.brand != nil {
+                        state.productBrand = productInfo.brand
+                    }
+                    if state.productImageUrl == nil && productInfo.image_url != nil {
+                        state.productImageUrl = productInfo.image_url
+                    }
+                }
+                
                 return .none
                 
             case let .healthAssessmentResponse(.failure(error)):
@@ -203,18 +214,6 @@ struct ProductDetailFeatureDomain {
                 }
                 
                 // Health assessment failed, but continue without recommended swaps
-                return .none
-                
-            case .loadBasicProduct:
-                // This action is deprecated - we now handle failures with graceful fallback UI
-                return .none
-                
-            case let .basicProductResponse(.success(product)):
-                // This action is deprecated - we now handle failures with graceful fallback UI
-                return .none
-                
-            case let .basicProductResponse(.failure(error)):
-                // This action is deprecated - we now handle failures with graceful fallback UI
                 return .none
                 
             // Recommended swaps functionality removed

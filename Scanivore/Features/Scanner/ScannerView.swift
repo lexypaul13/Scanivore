@@ -21,12 +21,10 @@ struct ScannerFeatureDomain {
     @ObservableState
     struct State: Equatable {
         var scanState: ScanState = .idle
-        var scannedProductCode: String?
-        var productName: String?
-        var productBrand: String?
         var cameraPermissionStatus: CameraPermissionStatus = .notRequested
         var errorMessage: String?
         var isSessionActive: Bool = false
+        @Presents var destination: Destination.State?
         
         enum ScanState: Equatable {
             case idle
@@ -34,7 +32,6 @@ struct ScannerFeatureDomain {
             case preparing
             case scanning
             case processing(barcode: String)
-            case presentingDetail(productCode: String)
             case error(String)
         }
         
@@ -45,11 +42,6 @@ struct ScannerFeatureDomain {
             default:
                 return false
             }
-        }
-        
-        var showingResults: Bool {
-            if case .presentingDetail = scanState { return true }
-            return false
         }
         
         var showingError: Bool {
@@ -67,16 +59,19 @@ struct ScannerFeatureDomain {
         }
     }
     
-    enum Action {
+    @Reducer(state: .equatable, action: .equatable)
+    enum Destination {
+        case productDetail(ProductDetailFeatureDomain)
+    }
+    
+    enum Action: Equatable {
         case onAppear
         case onDisappear
         case permissionResponse(CameraPermissionStatus)
         case sessionStarted
         case barcodeDetected(String)
-        case checkProductAvailability(String)
-        case productAvailabilityResponse(String, TaskResult<Void>)
         case scanFailed(ScannerError)
-        case resultsDismissed
+        case destination(PresentationAction<Destination.Action>)
         case errorDismissed
         case retryTapped
         case pauseDetection
@@ -172,41 +167,18 @@ struct ScannerFeatureDomain {
                 state.scanState = .processing(barcode: barcode)
                 print("🔍 Scanner: Processing barcode: \(barcode)")
                 
-                return .run { send in
-                    // Brief delay for visual feedback
-                    try await Task.sleep(for: .milliseconds(500))
-                    
-                    // Check if product exists before showing detail view
-                    await send(.checkProductAvailability(barcode))
-                }
-                
-            case .checkProductAvailability(let barcode):
-                return .run { send in
-                    await send(.productAvailabilityResponse(barcode, TaskResult {
-                        // Try to get health assessment to check if product exists
-                        _ = try await productGateway.getHealthAssessment(barcode)
-                    }))
-                }
-                
-            case .productAvailabilityResponse(let barcode, let result):
-                switch result {
-                case .success:
-                    // Product exists, show detail view
-                    state.scannedProductCode = barcode
-                    state.scanState = .presentingDetail(productCode: barcode)
-                    print("🔍 Scanner: Product found, presenting detail for: \(barcode)")
-                    
-                case .failure(let error):
-                    // Show error but keep scanning session active
-                    state.scanState = .error("Product not found in database. Try scanning again.")
-                    print("🔍 Scanner: Product not found for: \(barcode)")
-                    
-                    // Auto-dismiss error after 3 seconds and return to scanning
-                    return .run { send in
-                        try await Task.sleep(for: .seconds(3))
-                        await send(.errorDismissed)
-                    }
-                }
+                // Show product detail directly with barcode - let health assessment handle everything
+                state.destination = .productDetail(
+                    ProductDetailFeatureDomain.State(
+                        productCode: barcode,
+                        productName: nil,
+                        productBrand: nil,
+                        productImageUrl: nil,
+                        originalRiskRating: nil
+                    )
+                )
+                state.scanState = .scanning
+                print("🔍 Scanner: Barcode detected, presenting detail for: \(barcode)")
                 return .none
                 
             case .scanFailed(let error):
@@ -218,12 +190,7 @@ struct ScannerFeatureDomain {
                     await send(.retryTapped)
                 }
                 
-            case .resultsDismissed:
-                // Return to scanning state, keep session active
-                state.scanState = .scanning
-                state.scannedProductCode = nil
-                state.productName = nil
-                state.productBrand = nil
+            case .destination:
                 return .none
                 
             case .errorDismissed:
@@ -251,20 +218,14 @@ struct ScannerFeatureDomain {
                 return .none
             }
         }
+        .ifLet(\.$destination, action: \.destination)
+        ._printChanges()
     }
 }
 
+
 struct ScannerView: View {
     let store: StoreOf<ScannerFeatureDomain>
-    
-    // MARK: - Computed Properties
-    
-    private var isShowingResults: Binding<Bool> {
-        Binding(
-            get: { store.showingResults },
-            set: { _ in store.send(.resultsDismissed) }
-        )
-    }
     
     private var cameraPreviewView: some View {
         CameraPreviewView()
@@ -321,30 +282,7 @@ struct ScannerView: View {
         }
     }
     
-    @ViewBuilder
-    private func productDetailSheet() -> some View {
-        if let productCode = store.scannedProductCode {
-            ProductDetailView(
-                store: Store(
-                    initialState: ProductDetailFeatureDomain.State(
-                        productCode: productCode,
-                        productName: store.productName,
-                        productBrand: store.productBrand
-                    )
-                ) {
-                    ProductDetailFeatureDomain()
-                }
-            )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-            .onAppear {
-                store.send(.pauseDetection)
-            }
-            .onDisappear {
-                store.send(.resumeDetection)
-            }
-        }
-    }
+
     
     // MARK: - Body
     
@@ -367,8 +305,21 @@ struct ScannerView: View {
                 .toolbar {
                     navigationToolbar
                 }
-                .sheet(isPresented: isShowingResults) {
-                    productDetailSheet()
+                .sheet(
+                    store: store.scope(
+                        state: \.$destination.productDetail,
+                        action: \.destination.productDetail
+                    )
+                ) { store in
+                    ProductDetailView(store: store)
+                        .presentationDetents([.medium, .large])
+                        .presentationDragIndicator(.visible)
+                        .onAppear {
+                            self.store.send(.pauseDetection)
+                        }
+                        .onDisappear {
+                            self.store.send(.resumeDetection)
+                        }
                 }
             }
         }
