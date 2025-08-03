@@ -67,7 +67,7 @@ struct ScannerFeatureDomain {
     enum Action: Equatable {
         case onAppear
         case onDisappear
-        case permissionResponse(CameraPermissionStatus)
+        case permissionReceived(CameraPermissionStatus)
         case sessionStarted
         case barcodeDetected(String)
         case scanFailed(ScannerError)
@@ -81,6 +81,7 @@ struct ScannerFeatureDomain {
     
     @Dependency(\.barcodeScanner) var barcodeScanner
     @Dependency(\.productGateway) var productGateway
+    @Dependency(\.scannedProducts) var scannedProducts
     
     var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -95,7 +96,7 @@ struct ScannerFeatureDomain {
                 return .run { send in
                     let permissionStatus = await barcodeScanner.requestCameraPermission()
                     print("🔍 Scanner: Permission status: \(permissionStatus)")
-                    await send(.permissionResponse(permissionStatus))
+                    await send(.permissionReceived(permissionStatus))
                 }
                 
             case .onDisappear:
@@ -105,7 +106,7 @@ struct ScannerFeatureDomain {
                 state.scanState = .idle
                 return .cancel(id: "scanner_session")
                 
-            case .permissionResponse(let status):
+            case .permissionReceived(let status):
                 state.cameraPermissionStatus = status
                 
                 switch status {
@@ -240,11 +241,11 @@ struct ScannerView: View {
             VStack(spacing: DesignSystem.Spacing.md) {
                 Text("Align barcode within frame")
                     .font(DesignSystem.Typography.body)
-                    .foregroundColor(.white)
-                    .shadow(color: .black.opacity(0.7), radius: 2)
+                    .foregroundColor(DesignSystem.Colors.background)
+                    .shadow(color: DesignSystem.Shadow.heavy, radius: DesignSystem.Shadow.radiusLight)
                 
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
-                    .stroke(Color.white, lineWidth: 3)
+                    .stroke(DesignSystem.Colors.background, lineWidth: 3)
                     .frame(height: 120)
                     .padding(.horizontal, DesignSystem.Spacing.xl)
                     .scaleEffect(store.isScanning ? 1.05 : 1.0)
@@ -300,7 +301,7 @@ struct ScannerView: View {
                     stateOverlays
                 }
                 .customNavigationTitle("Scan Product")
-                .toolbarBackground(Color.black, for: .navigationBar)
+                .toolbarBackground(DesignSystem.Colors.textPrimary, for: .navigationBar)
                 .toolbarBackground(.visible, for: .navigationBar)
                 .toolbar {
                     navigationToolbar
@@ -312,8 +313,9 @@ struct ScannerView: View {
                     )
                 ) { store in
                     ProductDetailView(store: store)
-                        .presentationDetents([.medium, .large])
+                        .presentationDetents([.large])
                         .presentationDragIndicator(.visible)
+                        .interactiveDismissDisabled(false)
                         .onAppear {
                             self.store.send(.pauseDetection)
                         }
@@ -349,7 +351,7 @@ struct StatusIndicator: View {
             }
             .padding(.horizontal, DesignSystem.Spacing.lg)
             .padding(.vertical, DesignSystem.Spacing.sm)
-            .background(Color.black.opacity(0.6))
+            .background(DesignSystem.Colors.textPrimary.opacity(0.6))
             .cornerRadius(DesignSystem.CornerRadius.md)
             
         case .processing(let barcode):
@@ -363,7 +365,7 @@ struct StatusIndicator: View {
             }
             .padding(.horizontal, DesignSystem.Spacing.lg)
             .padding(.vertical, DesignSystem.Spacing.sm)
-            .background(Color.black.opacity(0.6))
+            .background(DesignSystem.Colors.textPrimary.opacity(0.6))
             .cornerRadius(DesignSystem.CornerRadius.md)
             
         default:

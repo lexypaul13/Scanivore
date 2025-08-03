@@ -90,7 +90,7 @@ struct ProductDetailFeatureDomain {
                 switch color.lowercased() {
                 case "green": return DesignSystem.Colors.success
                 case "yellow": return DesignSystem.Colors.warning
-                case "orange": return Color.orange
+                case "orange": return DesignSystem.Colors.warning
                 case "red": return DesignSystem.Colors.error
                 default: break
                 }
@@ -138,7 +138,7 @@ struct ProductDetailFeatureDomain {
     enum Action: Equatable {
         case onAppear
         case loadHealthAssessment
-        case healthAssessmentResponse(TaskResult<HealthAssessmentResponse>)
+        case healthAssessmentReceived(TaskResult<HealthAssessmentResponse>)
         // Recommended swaps actions removed
         case ingredientTapped(IngredientRisk)
         case dismissIngredientSheet
@@ -147,6 +147,8 @@ struct ProductDetailFeatureDomain {
         case toggleIngredientSection(String)
         case ingredientTappedWithCitations(IngredientRisk, [Citation])
     }
+    
+    @Dependency(\.scannedProducts) var scannedProducts
     
     var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -158,7 +160,7 @@ struct ProductDetailFeatureDomain {
                 // Check cache first to potentially avoid loading state (async to avoid main thread blocking)
                 return .run { [productCode = state.productCode] send in
                     if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: productCode) {
-                        await send(.healthAssessmentResponse(.success(cacheResult.assessment)))
+                        await send(.healthAssessmentReceived(.success(cacheResult.assessment)))
                         
                         // Log instant performance for cache hits
                         if cacheResult.fromCache {
@@ -175,7 +177,7 @@ struct ProductDetailFeatureDomain {
                 state.error = nil
                 
                 return .run { [productCode = state.productCode] send in
-                    await send(.healthAssessmentResponse(
+                    await send(.healthAssessmentReceived(
                         TaskResult {
                             @Dependency(\.productGateway) var productGateway
                             return try await productGateway.getHealthAssessment(productCode)
@@ -183,7 +185,7 @@ struct ProductDetailFeatureDomain {
                     ))
                 }
                 
-            case let .healthAssessmentResponse(.success(assessment)):
+            case let .healthAssessmentReceived(.success(assessment)):
                 state.isLoading = false
                 state.healthAssessment = assessment
                 
@@ -200,9 +202,14 @@ struct ProductDetailFeatureDomain {
                     }
                 }
                 
-                return .none
+                // Save product to scan history automatically when health assessment loads successfully
+                return .run { [productCode = state.productCode] _ in
+                    let savedProduct = assessment.toSavedProduct(barcode: productCode)
+                    await scannedProducts.save(savedProduct)
+                    print("💾 ProductDetail: Saved product to history: \(savedProduct.productName)")
+                }
                 
-            case let .healthAssessmentResponse(.failure(error)):
+            case let .healthAssessmentReceived(.failure(error)):
                 print("❌ Health assessment failed for \(state.productCode): \(error)")
                 state.isLoading = false
                 
@@ -250,6 +257,7 @@ struct ProductDetailFeatureDomain {
                 }
             }
         }
+        ._printChanges()
     }
 }
 
@@ -376,7 +384,7 @@ struct ErrorMessageSection: View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             // Error icon
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 40))
+                .font(.system(size: DesignSystem.Typography.xxxxl))
                 .foregroundColor(DesignSystem.Colors.warning)
             
             // Error message
@@ -499,7 +507,7 @@ struct ErrorView: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 50))
+                .font(.system(size: DesignSystem.Typography.xxxxxl))
                 .foregroundColor(DesignSystem.Colors.error)
             
             Text("Product Not Available")

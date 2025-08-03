@@ -503,8 +503,8 @@ public extension HealthAssessmentResponse {
     private func extractNumericValue(from text: String) -> Double {
         let pattern = #"(\d+(?:\.\d+)?)"#
         if let regex = try? NSRegularExpression(pattern: pattern),
-           let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) {
-            let range = Range(match.range(at: 1), in: text)!
+           let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+           let range = Range(match.range(at: 1), in: text) {
             return Double(text[range]) ?? 0.0
         }
         return 0.0
@@ -546,5 +546,21 @@ public extension HealthAssessmentResponse {
         }
         
         return recommendations
+    }
+    
+    /// Convert HealthAssessmentResponse to SavedProduct for history persistence
+    func toSavedProduct(barcode: String) -> SavedProduct {
+        let productName = product_info?.name ?? "Unknown Product"
+        let productBrand = product_info?.brand
+        let meatScan = toMeatScan(barcode: barcode)
+        
+        return SavedProduct(
+            id: barcode,
+            productName: productName,
+            productBrand: productBrand,
+            scanDate: Date(),
+            meatScan: meatScan,
+            isFavorite: false
+        )
     }
 }
