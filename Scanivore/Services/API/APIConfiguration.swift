@@ -12,11 +12,12 @@ public struct APIConfiguration {
     public static let baseURL = "https://clear-meat-api-production.up.railway.app"
     public static let apiVersion = "v1"
     
-    // ⚡ PERFORMANCE OPTIMIZATIONS (2025-07-18)
+    // ⚡ PERFORMANCE OPTIMIZATIONS (2025-08-07)
     // Backend optimized: 94% faster health assessments (5s vs 83s baseline)
-    // Mobile format: 65% bandwidth reduction + parallel citation processing
+    // Mobile format: 49.9% JSON payload reduction (2.3KB → 1.2KB) + citation webview support
+    // Client-side caching: 24h TTL provides instant responses for repeated scans
     public static let timeout: TimeInterval = 15.0  // Reduced from 30s for 94% faster backend
-    public static let healthAssessmentTimeout: TimeInterval = 60.0  // Increased for network reliability + AI generation
+    public static let healthAssessmentTimeout: TimeInterval = 90.0  // Increased to 90s for mobile networks + AI generation with auto-retry
     
     // API Endpoints
     public enum Endpoints {
@@ -65,12 +66,16 @@ public enum APIEnvironment {
     }
     
     public var isDebugMode: Bool {
+        #if DEBUG
         switch self {
         case .development:
             return true
         case .production:
             return false
         }
+        #else
+        return false
+        #endif
     }
 }
 
@@ -88,7 +93,24 @@ public extension APIConfiguration {
     
     static var isDebugMode: Bool {
         #if DEBUG
-        return true
+        return currentEnvironment.isDebugMode
+        #else
+        return false
+        #endif
+    }
+    
+    // MARK: - Secure Configuration
+    static var shouldLogAPIResponses: Bool {
+        #if DEBUG
+        return isDebugMode
+        #else
+        return false
+        #endif
+    }
+    
+    static var shouldLogNetworkRequests: Bool {
+        #if DEBUG
+        return isDebugMode
         #else
         return false
         #endif

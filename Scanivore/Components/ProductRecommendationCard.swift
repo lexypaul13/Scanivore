@@ -73,7 +73,7 @@ struct ProductRecommendationCard: View {
                     // Meat Type Badge
                     HStack(spacing: 4) {
                         Text(recommendation.meatType.icon)
-                            .font(.system(size: 14))
+                            .font(DesignSystem.Typography.body)
                         Text(recommendation.meatType.rawValue)
                             .font(DesignSystem.Typography.captionMedium)
                             .foregroundColor(DesignSystem.Colors.textPrimary)
@@ -94,7 +94,7 @@ struct ProductRecommendationCard: View {
             
             // Arrow
             Image(systemName: "chevron.right")
-                .font(.system(size: 14))
+                .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
         }
         .padding(DesignSystem.Spacing.base)
@@ -125,7 +125,7 @@ struct QualityBadge: View {
         case .good:
             return DesignSystem.Colors.warning  // C = Yellow (matches ProductDetail)
         case .poor:
-            return Color.orange  // D = Orange
+            return DesignSystem.Colors.warning  // D = Orange
         case .bad:
             return DesignSystem.Colors.error  // F = Red
         }
@@ -158,7 +158,7 @@ struct PlaceholderImage: View {
             
             VStack(spacing: DesignSystem.Spacing.xs) {
                 Image(systemName: "photo")
-                    .font(.system(size: 30))
+                    .font(.system(size: DesignSystem.Typography.xxxl))
                     .foregroundColor(DesignSystem.Colors.textSecondary.opacity(0.6))
                 
                 Text("No Image")

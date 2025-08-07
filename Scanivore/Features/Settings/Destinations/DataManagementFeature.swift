@@ -21,7 +21,7 @@ public struct DataManagementFeature {
         public init() {}
     }
     
-    public enum Action: Sendable {
+    public enum Action: Equatable {
         case onAppear
         case deleteAllDataTapped
         case confirmDeleteAllData
@@ -31,7 +31,7 @@ public struct DataManagementFeature {
         
         // Async responses
         case storageInfoLoaded(TaskResult<StorageInfo>)
-        case deleteAllDataResponse(TaskResult<Void>)
+        case deleteAllDataResponse(TaskResult<Bool>)
         
         // Internal actions
         case delegate(Delegate)
@@ -96,8 +96,9 @@ public struct DataManagementFeature {
                 
                 return .run { send in
                     await send(.deleteAllDataResponse(
-                        TaskResult {
+                        await TaskResult {
                             try await scanHistoryClient.deleteAllScans()
+                            return true
                         }
                     ))
                 }
@@ -106,11 +107,16 @@ public struct DataManagementFeature {
                 state.showingDeleteConfirmation = false
                 return .none
                 
-            case .deleteAllDataResponse(.success):
+            case let .deleteAllDataResponse(.success(success)):
                 state.isLoading = false
-                state.totalScans = 0
-                state.storageUsed = "0 MB"
-                return .send(.delegate(.dataDeleted))
+                if success {
+                    state.totalScans = 0
+                    state.storageUsed = "0 MB"
+                    return .send(.delegate(.dataDeleted))
+                } else {
+                    state.errorMessage = "Failed to delete data"
+                    return .none
+                }
                 
             case let .deleteAllDataResponse(.failure(error)):
                 state.isLoading = false

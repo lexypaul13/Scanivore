@@ -15,7 +15,7 @@ struct FilterButton: View {
         Button(action: action) {
             HStack(spacing: DesignSystem.Spacing.xs) {
                 Image(systemName: "line.horizontal.3.decrease.circle")
-                    .font(.system(size: 16))
+                    .font(DesignSystem.Typography.body)
                 
                 Text("Filters")
                     .font(DesignSystem.Typography.bodyMedium)

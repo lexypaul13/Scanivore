@@ -19,14 +19,19 @@ public final class TokenManager {
     
     // MARK: - Token Storage
     public func storeToken(_ token: String) async throws {
-        let tokenData = token.data(using: .utf8)!
+        guard let tokenData = token.data(using: .utf8) else {
+            throw TokenManagerError.storageError("Failed to encode token as UTF-8")
+        }
         
-        // Create query
+        // Create secure query with proper access controls
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecValueData as String: tokenData
+            kSecValueData as String: tokenData,
+            // Security enhancements:
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecAttrSynchronizable as String: false  // Prevent syncing across devices
         ]
         
         // Delete existing item first
@@ -46,7 +51,8 @@ public final class TokenManager {
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecAttrSynchronizable as String: false  // Match storage settings
         ]
         
         var item: CFTypeRef?
@@ -70,7 +76,8 @@ public final class TokenManager {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account
+            kSecAttrAccount as String: account,
+            kSecAttrSynchronizable as String: false  // Match storage settings
         ]
         
         let status = SecItemDelete(query as CFDictionary)
@@ -106,30 +113,84 @@ public final class TokenManager {
             return false
         }
         
-        // Decode the payload (second component)
-        let payload = components[1]
+        // Validate header
+        guard validateJWTHeader(components[0]) else {
+            return false
+        }
+        
+        // Validate payload
+        guard validateJWTPayload(components[1]) else {
+            return false
+        }
+        
+        // Note: For production, implement proper signature verification
+        // This requires the server's public key or shared secret
+        return true
+    }
+    
+    private func validateJWTHeader(_ headerComponent: String) -> Bool {
+        guard let headerData = decodeBase64URLComponent(headerComponent),
+              let headerDict = try? JSONSerialization.jsonObject(with: headerData) as? [String: Any],
+              let alg = headerDict["alg"] as? String,
+              let typ = headerDict["typ"] as? String else {
+            return false
+        }
+        
+        // Ensure proper algorithm and type
+        return alg == "HS256" && typ == "JWT"
+    }
+    
+    private func validateJWTPayload(_ payloadComponent: String) -> Bool {
+        guard let payloadData = decodeBase64URLComponent(payloadComponent),
+              let payloadDict = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any] else {
+            return false
+        }
+        
+        let currentTime = Date().timeIntervalSince1970
+        
+        // Check expiration (exp)
+        if let exp = payloadDict["exp"] as? TimeInterval {
+            guard exp > currentTime else {
+                return false // Token expired
+            }
+        }
+        
+        // Check not before (nbf)
+        if let nbf = payloadDict["nbf"] as? TimeInterval {
+            guard nbf <= currentTime else {
+                return false // Token not yet valid
+            }
+        }
+        
+        // Check issued at (iat) - should not be in future
+        if let iat = payloadDict["iat"] as? TimeInterval {
+            guard iat <= currentTime + 300 else { // Allow 5 minute clock skew
+                return false // Token issued in future
+            }
+        }
+        
+        // Validate issuer if present
+        if let iss = payloadDict["iss"] as? String {
+            guard iss == "clear-meat-api" else {
+                return false // Invalid issuer
+            }
+        }
+        
+        return true
+    }
+    
+    private func decodeBase64URLComponent(_ component: String) -> Data? {
+        var base64 = component
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
         
         // Add padding if needed
-        let paddedPayload = payload.padding(toLength: ((payload.count + 3) / 4) * 4, withPad: "=", startingAt: 0)
-        
-        guard let data = Data(base64Encoded: paddedPayload) else {
-            return false
+        let padding = 4 - (base64.count % 4)
+        if padding != 4 {
+            base64 += String(repeating: "=", count: padding)
         }
         
-        do {
-            let json = try JSONSerialization.jsonObject(with: data, options: [])
-            
-            guard let dict = json as? [String: Any],
-                  let exp = dict["exp"] as? TimeInterval else {
-                return false
-            }
-            
-            // Check if token is expired
-            let expirationDate = Date(timeIntervalSince1970: exp)
-            return expirationDate > Date()
-        } catch {
-            return false
-        }
+        return Data(base64Encoded: base64)
     }
 }
 

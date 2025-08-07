@@ -31,7 +31,7 @@ struct HeroSection: View {
                         .overlay(
                             VStack {
                                 Image(systemName: "photo")
-                                    .font(.system(size: 50))
+                                    .font(.system(size: DesignSystem.Typography.xxxxxl))
                                     .foregroundColor(DesignSystem.Colors.textSecondary)
                                 Text("No Image")
                                     .font(DesignSystem.Typography.caption)
@@ -45,7 +45,7 @@ struct HeroSection: View {
             
             // Gradient Overlay
             LinearGradient(
-                colors: [Color.clear, Color.black.opacity(0.3)],
+                colors: [Color.clear, DesignSystem.Colors.textPrimary.opacity(0.3)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -150,7 +150,7 @@ struct AIHealthSummary: View {
             HStack(spacing: DesignSystem.Spacing.sm) {
                 Image(systemName: "brain.head.profile")
                     .foregroundColor(DesignSystem.Colors.primaryRed)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.system(size: DesignSystem.Typography.lg))
                 Text("AI Health Summary")
                     .font(DesignSystem.Typography.heading2)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
@@ -221,7 +221,7 @@ struct FallbackHeroSection: View {
                         .overlay(
                             VStack {
                                 Image(systemName: "photo")
-                                    .font(.system(size: 40))
+                                    .font(.system(size: DesignSystem.Typography.xxxxl))
                                     .foregroundColor(DesignSystem.Colors.textSecondary)
                                 Text("No Image")
                                     .font(DesignSystem.Typography.body)

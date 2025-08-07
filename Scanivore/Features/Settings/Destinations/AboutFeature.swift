@@ -27,7 +27,7 @@ public struct AboutFeature {
         }
     }
     
-    public enum Action: Sendable {
+    public enum Action: Equatable {
         case onAppear
         case termsOfServiceTapped
         case privacyPolicyTapped

@@ -35,7 +35,7 @@ struct CreateAccountFeatureDomain {
         }
     }
     
-    enum Action {
+    enum Action: Equatable {
         case emailChanged(String)
         case passwordChanged(String)
         case confirmPasswordChanged(String)
@@ -46,9 +46,9 @@ struct CreateAccountFeatureDomain {
         case validateEmail
         case validatePassword
         case validateConfirmPassword
-        case createAccountResponse(Result<Bool, Error>)
+        case createAccountResponse(TaskResult<Bool>)
         
-        enum Delegate {
+        enum Delegate: Equatable {
             case accountCreated
             case navigateBack
         }
@@ -114,15 +114,15 @@ struct CreateAccountFeatureDomain {
                 state.errorMessage = nil
                 
                 return .run { [email = state.email, password = state.password, fullName = state.fullName] send in
-                    do {
-                        @Dependency(\.authGateway) var authGateway
-                        
-                        // Call real API
-                        _ = try await authGateway.register(email, password, fullName)
-                        await send(.createAccountResponse(.success(true)))
-                    } catch {
-                        await send(.createAccountResponse(.failure(error)))
-                    }
+                    await send(.createAccountResponse(
+                        await TaskResult {
+                            @Dependency(\.authGateway) var authGateway
+                            
+                            // Call real API
+                            _ = try await authGateway.register(email, password, fullName)
+                            return true
+                        }
+                    ))
                 }
                 
             case let .createAccountResponse(.success(success)):

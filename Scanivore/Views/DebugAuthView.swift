@@ -17,13 +17,13 @@ struct DebugAuthView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("🔐 Authentication Debug")
-                .font(.title)
+                .font(DesignSystem.Typography.heading1)
                 .padding(.bottom)
             
             // Auth Status
             VStack(alignment: .leading, spacing: 8) {
                 Text("Status:")
-                    .font(.headline)
+                    .font(DesignSystem.Typography.heading3)
                 Text(authStatus)
                     .font(.system(.body, design: .monospaced))
                     .foregroundColor(.green)
@@ -33,7 +33,7 @@ struct DebugAuthView: View {
             if !userInfo.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("User Info:")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.heading3)
                     Text(userInfo)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.blue)
@@ -44,7 +44,7 @@ struct DebugAuthView: View {
             if !token.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Token (first 50 chars):")
-                        .font(.headline)
+                        .font(DesignSystem.Typography.heading3)
                     Text(token)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.orange)

@@ -10,7 +10,7 @@ import SwiftUI
 struct LaunchScreenView: View {
     var body: some View {
         ZStack {
-            Color.white
+            DesignSystem.Colors.background
                 .ignoresSafeArea()
             
             Image("Scanivore_Logo")

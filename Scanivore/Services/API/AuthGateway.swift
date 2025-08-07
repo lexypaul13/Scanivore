@@ -9,6 +9,14 @@ import Foundation
 import Alamofire
 import Dependencies
 import ComposableArchitecture
+
+// MARK: - Session Configuration
+private let secureSession: Session = {
+    let configuration = URLSessionConfiguration.default
+    configuration.timeoutIntervalForRequest = APIConfiguration.timeout
+    configuration.timeoutIntervalForResource = APIConfiguration.healthAssessmentTimeout
+    return Session(configuration: configuration)
+}()
 // MARK: - Auth Gateway
 @DependencyClient
 public struct AuthGateway: Sendable {
@@ -26,7 +34,7 @@ extension AuthGateway: DependencyKey {
         register: { email, password, fullName in
             let request = AuthRequest(email: email, password: password, fullName: fullName)
             
-            let response = try await AF.request(
+            let response = try await secureSession.request(
                 "\(APIConfiguration.baseURL)/api/v1/auth/register",
                 method: .post,
                 parameters: request,
@@ -50,7 +58,7 @@ extension AuthGateway: DependencyKey {
                 "password": password
             ]
             
-            let response = try await AF.request(
+            let response = try await secureSession.request(
                 "\(APIConfiguration.baseURL)/api/v1/auth/login",
                 method: .post,
                 parameters: parameters,
@@ -77,7 +85,7 @@ extension AuthGateway: DependencyKey {
                     return
                 }
                 
-                _ = try await AF.request(
+                _ = try await secureSession.request(
                     "\(APIConfiguration.baseURL)/api/v1/auth/logout",
                     method: .post,
                     headers: [
@@ -103,7 +111,7 @@ extension AuthGateway: DependencyKey {
                 throw URLError(.userAuthenticationRequired)
             }
             
-            _ = try await AF.request(
+            _ = try await secureSession.request(
                 "\(APIConfiguration.baseURL)/api/v1/auth/account",
                 method: .delete,
                 headers: [
@@ -125,7 +133,7 @@ extension AuthGateway: DependencyKey {
                 return nil
             }
             
-            return try await AF.request(
+            return try await secureSession.request(
                 "\(APIConfiguration.baseURL)/api/v1/users/me",
                 method: .get,
                 headers: [

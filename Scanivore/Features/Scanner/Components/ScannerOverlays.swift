@@ -15,17 +15,17 @@ struct PermissionOverlay: View {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle())
                 .scaleEffect(2.0)
-                .tint(.white)
+                .tint(DesignSystem.Colors.background)
             
             Text("Requesting Camera Permission...")
                 .font(DesignSystem.Typography.heading2)
-                .foregroundColor(.white)
+                .foregroundColor(DesignSystem.Colors.background)
                 .multilineTextAlignment(.center)
         }
         .padding(DesignSystem.Spacing.xxxl)
-        .background(Color.black.opacity(0.8))
+        .background(DesignSystem.Colors.textPrimary.opacity(0.8))
         .cornerRadius(DesignSystem.CornerRadius.xxl)
-        .shadow(color: .black.opacity(0.5), radius: 8)
+        .shadow(color: DesignSystem.Shadow.heavy, radius: DesignSystem.Shadow.radiusMedium)
     }
 }
 
@@ -35,16 +35,16 @@ struct PreparingOverlay: View {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle())
                 .scaleEffect(2.0)
-                .tint(.white)
+                .tint(DesignSystem.Colors.background)
             
             Text("Starting Camera...")
                 .font(DesignSystem.Typography.heading2)
-                .foregroundColor(.white)
+                .foregroundColor(DesignSystem.Colors.background)
         }
         .padding(DesignSystem.Spacing.xxxl)
-        .background(Color.black.opacity(0.8))
+        .background(DesignSystem.Colors.textPrimary.opacity(0.8))
         .cornerRadius(DesignSystem.CornerRadius.xxl)
-        .shadow(color: .black.opacity(0.5), radius: 8)
+        .shadow(color: DesignSystem.Shadow.heavy, radius: DesignSystem.Shadow.radiusMedium)
     }
 }
 
@@ -52,7 +52,7 @@ struct ScanningActiveOverlay: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "viewfinder")
-                .font(.system(size: 48))
+                .font(.system(size: DesignSystem.Typography.xxxxxl))
                 .foregroundColor(DesignSystem.Colors.primaryRed)
             
             Text("Scanning for Barcode...")
@@ -105,7 +105,7 @@ struct ErrorOverlay: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(.system(size: DesignSystem.Typography.xxxxxl))
                 .foregroundColor(DesignSystem.Colors.warning)
             
             Text("Scanning Error")
@@ -142,7 +142,7 @@ struct ProductNotFoundOverlay: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "magnifyingglass.circle")
-                .font(.system(size: 48))
+                .font(.system(size: DesignSystem.Typography.xxxxxl))
                 .foregroundColor(DesignSystem.Colors.primaryRed)
             
             Text("Product Not Found")

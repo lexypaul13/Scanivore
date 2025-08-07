@@ -223,7 +223,7 @@ struct AuthHeader: View {
                 if showBackButton {
                     Button(action: onBackTapped ?? {}) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .medium))
+                            .font(.system(size: DesignSystem.Typography.lg))
                             .foregroundColor(DesignSystem.Colors.primaryRed)
                     }
                     .buttonStyle(PlainButtonStyle())

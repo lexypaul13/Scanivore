@@ -17,7 +17,7 @@ public struct PrivacyFeature {
         public init() {}
     }
     
-    public enum Action: Sendable {
+    public enum Action: Equatable {
         case onAppear
         
         // Internal actions

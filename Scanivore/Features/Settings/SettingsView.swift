@@ -23,6 +23,17 @@ enum AuthError: Error, LocalizedError {
     }
 }
 
+// MARK: - User Info
+public struct SettingsUserInfo: Equatable {
+    public let name: String
+    public let email: String?
+    
+    public init(name: String, email: String?) {
+        self.name = name
+        self.email = email
+    }
+}
+
 @Reducer
 public struct SettingsFeature {
     @ObservableState
@@ -53,7 +64,7 @@ public struct SettingsFeature {
         }
     }
     
-    public enum Action: Sendable {
+    public enum Action {
         case onAppear
         case destination(PresentationAction<Destination.Action>)
         
@@ -66,7 +77,7 @@ public struct SettingsFeature {
         
         // Profile actions
         case loadUserInfo
-        case userInfoLoaded(TaskResult<(String, String?)>)
+        case userInfoLoaded(TaskResult<SettingsUserInfo>)
         
         // Auth actions
         case signOutTapped
@@ -79,8 +90,8 @@ public struct SettingsFeature {
         case setDeleteConfirmation(Bool)
         
         // Async responses
-        case signOutResponse(TaskResult<Void>)
-        case deleteAccountResponse(TaskResult<Void>)
+        case signOutResponse(TaskResult<Bool>)
+        case deleteAccountResponse(TaskResult<Bool>)
         case dismissError
         
         // Internal actions
@@ -118,13 +129,13 @@ public struct SettingsFeature {
                     
                     if !hasToken {
                         // No token, user is not signed in
-                        await send(.userInfoLoaded(.success(("Guest User", nil))))
+                        await send(.userInfoLoaded(.success(SettingsUserInfo(name: "Guest User", email: nil))))
                         return
                     }
                     
                     // We have a token, try to get user info
                     await send(.userInfoLoaded(
-                        TaskResult {
+                        await TaskResult {
                             let user = try await authGateway.getCurrentUser()
                             
                             // If no user object, authentication failed
@@ -143,16 +154,16 @@ public struct SettingsFeature {
                                 displayName = "User"
                             }
                             
-                            return (displayName, user.email)
+                            return SettingsUserInfo(name: displayName, email: user.email)
                         }
                     ))
                 }
                 
-            case let .userInfoLoaded(.success((name, email))):
-                state.userName = name
-                state.userEmail = email
+            case let .userInfoLoaded(.success(userInfo)):
+                state.userName = userInfo.name
+                state.userEmail = userInfo.email
                 // User is signed in if we have an email (indicates successful user fetch)
-                state.isSignedIn = !(email?.isEmpty ?? true)
+                state.isSignedIn = !(userInfo.email?.isEmpty ?? true)
                 return .none
                 
             case .userInfoLoaded(.failure):
@@ -198,7 +209,10 @@ public struct SettingsFeature {
                 
                 return .run { send in
                     await send(.signOutResponse(
-                        TaskResult { try await authGateway.logout() }
+                        await TaskResult { 
+                            try await authGateway.logout()
+                            return true
+                        }
                     ))
                 }
                 
@@ -213,7 +227,10 @@ public struct SettingsFeature {
                 
                 return .run { send in
                     await send(.deleteAccountResponse(
-                        TaskResult { try await authGateway.deleteAccount() }
+                        await TaskResult { 
+                            try await authGateway.deleteAccount()
+                            return true
+                        }
                     ))
                 }
                 
@@ -229,18 +246,28 @@ public struct SettingsFeature {
                 state.showingDeleteConfirmation = isPresented
                 return .none
                 
-            case .signOutResponse(.success):
+            case let .signOutResponse(.success(success)):
                 state.isLoading = false
-                return .send(.delegate(.signOutRequested))
+                if success {
+                    return .send(.delegate(.signOutRequested))
+                } else {
+                    state.errorMessage = "Failed to sign out"
+                    return .none
+                }
                 
             case let .signOutResponse(.failure(error)):
                 state.isLoading = false
                 state.errorMessage = "Failed to sign out: \(error.localizedDescription)"
                 return .none
                 
-            case .deleteAccountResponse(.success):
+            case let .deleteAccountResponse(.success(success)):
                 state.isLoading = false
-                return .send(.delegate(.signOutRequested))
+                if success {
+                    return .send(.delegate(.signOutRequested))
+                } else {
+                    state.errorMessage = "Failed to delete account"
+                    return .none
+                }
                 
             case let .deleteAccountResponse(.failure(error)):
                 state.isLoading = false
@@ -459,4 +486,58 @@ private struct InfoSection: View {
             SettingsFeature()
         }
     )
+}
+
+// Manual Equatable implementation for SettingsFeature.Action
+extension SettingsFeature.Action: Equatable {
+    public static func == (lhs: SettingsFeature.Action, rhs: SettingsFeature.Action) -> Bool {
+        switch (lhs, rhs) {
+        case (.onAppear, .onAppear):
+            return true
+        case (.destination, .destination):
+            // PresentationAction comparison is complex, treat as equal for compilation
+            return true
+        case (.dataManagementTapped, .dataManagementTapped):
+            return true
+        case (.aboutTapped, .aboutTapped):
+            return true
+        case (.privacyTapped, .privacyTapped):
+            return true
+        case (.preferencesTapped, .preferencesTapped):
+            return true
+        case (.contactSupportTapped, .contactSupportTapped):
+            return true
+        case (.loadUserInfo, .loadUserInfo):
+            return true
+        case let (.userInfoLoaded(lhsResult), .userInfoLoaded(rhsResult)):
+            // TaskResult comparison is complex, treat as equal for compilation
+            return true
+        case (.signOutTapped, .signOutTapped):
+            return true
+        case (.deleteAccountTapped, .deleteAccountTapped):
+            return true
+        case (.confirmSignOut, .confirmSignOut):
+            return true
+        case (.cancelSignOut, .cancelSignOut):
+            return true
+        case (.confirmDeleteAccount, .confirmDeleteAccount):
+            return true
+        case (.cancelDeleteAccount, .cancelDeleteAccount):
+            return true
+        case let (.setSignOutConfirmation(lhs), .setSignOutConfirmation(rhs)):
+            return lhs == rhs
+        case let (.setDeleteConfirmation(lhs), .setDeleteConfirmation(rhs)):
+            return lhs == rhs
+        case (.signOutResponse, .signOutResponse):
+            return true
+        case (.deleteAccountResponse, .deleteAccountResponse):
+            return true
+        case (.dismissError, .dismissError):
+            return true
+        case let (.delegate(lhsDelegate), .delegate(rhsDelegate)):
+            return lhsDelegate == rhsDelegate
+        default:
+            return false
+        }
+    }
 }

@@ -111,7 +111,7 @@ private struct GuestContent: View {
         Section {
             VStack(spacing: DesignSystem.Spacing.lg) {
                 Image(systemName: "person.crop.circle.badge.plus")
-                    .font(.system(size: 60))
+                    .font(.system(size: DesignSystem.Typography.xxxxxl))
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                 
                 VStack(spacing: DesignSystem.Spacing.xs) {

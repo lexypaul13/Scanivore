@@ -9,7 +9,7 @@ import SwiftUI
 import ComposableArchitecture
 
 // MARK: - Dietary Preference Type
-public enum DietaryPreferenceType: String, CaseIterable {
+public enum DietaryPreferenceType: String, CaseIterable, Equatable {
     case preservatives = "Avoid Preservatives"
     case antibioticFree = "Prefer Antibiotic-Free"
     case organic = "Prefer Organic"
@@ -65,14 +65,14 @@ public struct PreferencesFeature {
         public init() {}
     }
     
-    public enum Action: Sendable {
+    public enum Action: Equatable {
         case onAppear
         case preferencesLoaded(TaskResult<OnboardingPreferences?>)
         case toggleDietaryPreference(DietaryPreferenceType)
         case toggleMeatType(MeatType)
         case saveButtonTapped
-        case saveResponse(TaskResult<Void>)
-        case syncToBackendResponse(TaskResult<Void>)
+        case saveResponse(TaskResult<Bool>)
+        case syncToBackendResponse(TaskResult<Bool>)
         case dismissError
         case dismissTapped
         case confirmDismissWithoutSaving
@@ -163,14 +163,21 @@ public struct PreferencesFeature {
                 return .run { [preferences = state.preferences] send in
                     // Save locally first
                     await send(.saveResponse(
-                        TaskResult {
+                        await TaskResult {
                             await onboardingClient.save(preferences)
+                            return true
                         }
                     ))
                 }
                 
-            case .saveResponse(.success):
-                state.originalPreferences = state.preferences
+            case let .saveResponse(.success(success)):
+                if success {
+                    state.originalPreferences = state.preferences
+                } else {
+                    state.isSaving = false
+                    state.errorMessage = "Failed to save preferences"
+                    return .none
+                }
                 
                 // Try to sync to backend if user is authenticated
                 return .run { [preferences = state.preferences] send in
@@ -192,13 +199,14 @@ public struct PreferencesFeature {
                         )
                         
                         await send(.syncToBackendResponse(
-                            TaskResult {
+                            await TaskResult {
                                 _ = try await userGateway.updatePreferences(userPreferences)
+                                return true
                             }
                         ))
                     } else {
                         // Not authenticated, just complete the save
-                        await send(.syncToBackendResponse(.success(())))
+                        await send(.syncToBackendResponse(.success(true)))
                     }
                 }
                 
@@ -207,12 +215,17 @@ public struct PreferencesFeature {
                 state.errorMessage = "Failed to save preferences: \(error.localizedDescription)"
                 return .none
                 
-            case .syncToBackendResponse(.success):
+            case let .syncToBackendResponse(.success(success)):
                 state.isSaving = false
-                // Notify the app that preferences have been updated
-                return .run { send in
-                    await send(.delegate(.preferencesUpdated))
-                    await dismiss()
+                if success {
+                    // Notify the app that preferences have been updated
+                    return .run { send in
+                        await send(.delegate(.preferencesUpdated))
+                        await dismiss()
+                    }
+                } else {
+                    state.errorMessage = "Failed to sync preferences to backend"
+                    return .none
                 }
                 
             case let .syncToBackendResponse(.failure(error)):
@@ -330,18 +343,18 @@ struct PreferencesView: View {
             .disabled(store.isSaving)
             .overlay {
                 if store.isSaving {
-                    Color.black.opacity(0.3)
+                    DesignSystem.Colors.textPrimary.opacity(0.3)
                         .ignoresSafeArea()
                     
                     VStack(spacing: DesignSystem.Spacing.base) {
                         ProgressView()
-                            .tint(.white)
+                            .tint(DesignSystem.Colors.background)
                         Text("Saving preferences...")
                             .font(DesignSystem.Typography.body)
-                            .foregroundColor(.white)
+                            .foregroundColor(DesignSystem.Colors.background)
                     }
                     .padding(DesignSystem.Spacing.lg)
-                    .background(Color.black.opacity(0.8))
+                    .background(DesignSystem.Colors.textPrimary.opacity(0.8))
                     .cornerRadius(DesignSystem.CornerRadius.md)
                 }
             }
@@ -381,7 +394,7 @@ struct PreferencesView: View {
                     if store.preferences.preferredMeatTypes.contains(meatType) {
                         Image(systemName: "checkmark")
                             .foregroundColor(DesignSystem.Colors.primaryRed)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(DesignSystem.Typography.bodyMedium)
                     }
                 }
                 .contentShape(Rectangle())
@@ -433,7 +446,7 @@ private struct PreferenceToggleRow: View {
         HStack(spacing: DesignSystem.Spacing.base) {
             Image(systemName: systemImage)
                 .foregroundColor(DesignSystem.Colors.primaryRed)
-                .font(.system(size: 20))
+                .font(.system(size: DesignSystem.Typography.lg))
                 .frame(width: 28)
             
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {

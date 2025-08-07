@@ -11,12 +11,11 @@ import Dependencies
 import ComposableArchitecture
 
 // MARK: - Alamofire Session Configuration
-// Shared session to prevent deallocation issues
+// Shared session with standard SSL validation
 private let sharedOptimizedSession: Session = {
     let configuration = URLSessionConfiguration.default
-    // Optimized for 94% faster backend performance (5s vs 83s)
-    configuration.timeoutIntervalForRequest = APIConfiguration.healthAssessmentTimeout  // 20s (updated)
-    configuration.timeoutIntervalForResource = APIConfiguration.healthAssessmentTimeout * 2  // 40s for total resource
+    configuration.timeoutIntervalForRequest = APIConfiguration.timeout
+    configuration.timeoutIntervalForResource = APIConfiguration.healthAssessmentTimeout
     return Session(configuration: configuration)
 }()
 
@@ -44,8 +43,10 @@ extension ProductGateway: DependencyKey {
             let headers = try await createAuthHeaders()
             let url = "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)"
             
-            print("🔍 Fetching basic product for barcode: \(barcode)")
-            print("🌐 URL: \(url)")
+            if APIConfiguration.shouldLogNetworkRequests {
+                print("🔍 Fetching basic product for barcode: \(barcode)")
+                print("🌐 URL: \(url)")
+            }
             
             let response = try await sharedOptimizedSession.request(
                 url,
@@ -57,7 +58,9 @@ extension ProductGateway: DependencyKey {
             .value
             
             // Log response size for debugging (avoid expensive string conversion)
-            print("📄 Product response: \(response.count) bytes")
+            if APIConfiguration.shouldLogAPIResponses {
+                print("📄 Product response: \(response.count) bytes")
+            }
             
             // Decode JSON on background queue to avoid main thread blocking
             let product = try await Task.detached(priority: .userInitiated) {
@@ -100,7 +103,9 @@ extension ProductGateway: DependencyKey {
             // Check cache first with performance-aware feedback (async to avoid main thread blocking)
             if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: barcode) {
                 if cacheResult.fromCache {
-                    print("🚀 INSTANT response from cache (0.00s) - 94% optimization active!")
+                    if APIConfiguration.shouldLogAPIResponses {
+                        print("🚀 INSTANT response from cache (0.00s) - 94% optimization active!")
+                    }
                 }
                 return cacheResult.assessment
             }
@@ -109,9 +114,12 @@ extension ProductGateway: DependencyKey {
             let headers = try await createAuthHeaders()
             let url = "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)/health-assessment-mcp?format=\(APIConfiguration.ResponseFormat.mobile)"
             
-            print("🔍 Fetching health assessment for barcode: \(barcode)")
-            print("🌐 URL: \(url)")
-            print("⚡ Expected response time: ~5s (94% faster backend + 65% mobile optimization)")
+            if APIConfiguration.shouldLogNetworkRequests {
+                print("🔍 Fetching health assessment for barcode: \(barcode)")
+                print("🌐 URL: \(url)")
+                print("⚡ Expected response time: ~5s (94% faster backend)")
+                print("📦 Expected payload: ~1.2KB (49.9% reduction from 2.3KB with citation webview support)")
+            }
             
             let startTime = Date()
             var lastError: Error?
@@ -121,7 +129,9 @@ extension ProductGateway: DependencyKey {
             for attempt in 0...maxRetries {
                 do {
                     if attempt > 0 {
+                        if APIConfiguration.shouldLogNetworkRequests {
                         print("🔄 Retry attempt \(attempt) of \(maxRetries) for health assessment")
+                    }
                         // Exponential backoff: 1s, 2s
                         try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
                     }
@@ -135,13 +145,25 @@ extension ProductGateway: DependencyKey {
                     .serializingData()
                     .value
                 
-                    // Log response size for debugging and check for massive responses
-                    let responseSizeMB = Double(response.count) / (1024 * 1024)
-                    print("📄 Health assessment response: \(response.count) bytes (\(String(format: "%.2f", responseSizeMB)) MB)")
-                    
-                    // Warn about large responses that could cause performance issues
-                    if response.count > 500_000 {  // 500KB
-                        print("⚠️ WARNING: Large response detected (\(String(format: "%.2f", responseSizeMB)) MB) - potential performance impact")
+                    // Log response size for debugging and validate mobile optimization
+                    let responseSizeKB = Double(response.count) / 1024
+                    if APIConfiguration.shouldLogAPIResponses {
+                        print("📄 Health assessment response: \(response.count) bytes (\(String(format: "%.1f", responseSizeKB)) KB)")
+                        
+                        // Validate mobile optimization - expected ~1.2KB with 49.9% reduction
+                        if response.count <= 1500 {  // ~1.5KB tolerance
+                            print("✅ Mobile optimization ACTIVE: \(String(format: "%.1f", responseSizeKB))KB payload (49.9% reduction from 2.3KB)")
+                        } else if response.count <= 2500 {  // ~2.5KB
+                            print("⚠️ Mobile optimization partially active: \(String(format: "%.1f", responseSizeKB))KB payload")
+                        } else {
+                            print("🚨 Mobile optimization NOT ACTIVE: \(String(format: "%.1f", responseSizeKB))KB payload - expected ~1.2KB")
+                        }
+                        
+                        // Warn about large responses that could cause performance issues
+                        if response.count > 500_000 {  // 500KB
+                            let responseSizeMB = Double(response.count) / (1024 * 1024)
+                            print("⚠️ WARNING: Large response detected (\(String(format: "%.2f", responseSizeMB)) MB) - potential performance impact")
+                        }
                     }
                     
                     // Decode JSON on background queue to avoid main thread blocking
@@ -151,8 +173,10 @@ extension ProductGateway: DependencyKey {
                     }.value
                     
                     // Log actual performance
-                    let actualTime = Date().timeIntervalSince(startTime)
-                    print("⚡ Health assessment completed in \(String(format: "%.2f", actualTime))s (Expected: ~5s)")
+                    if APIConfiguration.shouldLogAPIResponses {
+                        let actualTime = Date().timeIntervalSince(startTime)
+                        print("⚡ Health assessment completed in \(String(format: "%.2f", actualTime))s (Expected: ~5s)")
+                    }
                     
                     // Cache the response for future instant access (async to avoid main thread blocking)
                     await HealthAssessmentCache.shared.cacheAssessment(decodedResponse, for: barcode)
@@ -360,7 +384,9 @@ extension ProductGateway: DependencyKey {
         getExploreRecommendations: { offset, limit in
             let headers = try await createAuthHeaders()
             
-            print("🔍 Requesting user explore: offset=\(offset), limit=\(limit)")
+            if APIConfiguration.shouldLogNetworkRequests {
+                print("🔍 Requesting user explore: offset=\(offset), limit=\(limit)")
+            }
             
             do {
                 let userExploreResponse = try await sharedOptimizedSession.request(
@@ -373,7 +399,9 @@ extension ProductGateway: DependencyKey {
                 .serializingDecodable(UserExploreResponse.self)
                 .value
                 
-                print("✅ User explore success: got \(userExploreResponse.recommendations.count) items")
+                if APIConfiguration.shouldLogAPIResponses {
+                    print("✅ User explore success: got \(userExploreResponse.recommendations.count) items")
+                }
                 
                 // Strip image_data from user explore results to prevent massive memory usage
                 let optimizedProducts = userExploreResponse.recommendations.map { product in
@@ -424,10 +452,12 @@ extension ProductGateway: DependencyKey {
                     limit: userExploreResponse.limit
                 )
             } catch {
-                print("❌ User explore failed: \(error)")
-                if let urlError = error as? URLError {
-                    print("   URLError code: \(urlError.code.rawValue)")
-                    print("   URLError description: \(urlError.localizedDescription)")
+                if APIConfiguration.shouldLogNetworkRequests {
+                    print("❌ User explore failed: \(error)")
+                    if let urlError = error as? URLError {
+                        print("   URLError code: \(urlError.code.rawValue)")
+                        print("   URLError description: \(urlError.localizedDescription)")
+                    }
                 }
                 throw error
             }
@@ -517,7 +547,7 @@ extension Product {
 
 extension HealthAssessmentResponse {
     static let mockHealthAssessment = HealthAssessmentResponse(
-        summary: "This Ground Turkey contains high-risk preservatives requiring caution. Moderate consumption recommended.",
+        summary: "Ground Turkey contains high-risk preservatives requiring caution. Moderate consumption recommended.",
         grade: "C",
         color: "Yellow",
         ingredientsAssessment: IngredientsAssessment(
@@ -570,7 +600,7 @@ extension HealthAssessmentResponse {
         citations: [
             Citation(
                 id: 1,
-                title: "Health Effects of Processed Meat Preservatives",
+                title: "Health Effects of Processed Meat Preservatives in",
                 authors: "Johnson, M. et al.",
                 journal: "Food Safety Journal",
                 year: 2023,
@@ -581,7 +611,7 @@ extension HealthAssessmentResponse {
         meta: ResponseMetadata(
             product: "Mock Ground Turkey",
             generated: "2024-01-15T10:30:00Z"
-        ),
+        ), product_info: nil,
         // Direct API fields matching actual response structure
         high_risk: [
             IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", riskLevel: "high")

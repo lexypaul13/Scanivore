@@ -156,9 +156,10 @@ struct AppFeature {
                 
             case .onboardingIntro(.delegate(.introCompleted)):
                 state.authState.hasCompletedIntro = true
-                return .run { _ in
+                return .run { [currentState = state.authState] _ in
                     @Dependency(\.authState) var authState
-                    await authState.markIntroCompleted()
+                    // Save the updated state to persistence (prevents race conditions)
+                    await authState.save(currentState)
                 }
                 
             case .onboardingIntro:
@@ -177,10 +178,13 @@ struct AppFeature {
                 
             case .createAccount(.delegate(.accountCreated)):
                 state.authState.isLoggedIn = true
+                state.authState.hasCompletedIntro = false  // New users should see Lottie intro animations
+                state.authState.hasCompletedOnboarding = false  // Ensure new users see onboarding
                 state.authFlow = .login
-                return .run { _ in
+                return .run { [currentState = state.authState] _ in
                     @Dependency(\.authState) var authState
-                    await authState.markLoggedIn(true)
+                    // Save the current state to persistence (prevents race conditions)
+                    await authState.save(currentState)
                 }
                 
             case .createAccount(.delegate(.navigateBack)):
@@ -211,10 +215,11 @@ struct AppFeature {
                 
             case .onboarding(.delegate(.onboardingCompleted(let preferences))):
                 state.authState.hasCompletedOnboarding = true
-                return .run { _ in
+                return .run { [currentState = state.authState] _ in
                     @Dependency(\.authState) var authState
                     @Dependency(\.onboarding) var onboarding
-                    await authState.markOnboardingCompleted()
+                    // Save the updated state and preferences (prevents race conditions)
+                    await authState.save(currentState)
                     await onboarding.save(preferences)
                 }
                 
@@ -254,6 +259,44 @@ struct AppFeature {
             case .settings:
                 return .none
             }
+        }
+    }
+}
+
+// Manual Equatable implementation for AppFeature.Action
+extension AppFeature.Action: Equatable {
+    static func == (lhs: AppFeature.Action, rhs: AppFeature.Action) -> Bool {
+        switch (lhs, rhs) {
+        case (.appDidLaunch, .appDidLaunch):
+            return true
+        case (.launchScreenFinished, .launchScreenFinished):
+            return true
+        case let (.authStateLoaded(lhsState), .authStateLoaded(rhsState)):
+            return lhsState == rhsState
+        case (.resetOnboarding, .resetOnboarding):
+            return true
+        case let (.tabSelected(lhsTab), .tabSelected(rhsTab)):
+            return lhsTab == rhsTab
+        case (.onboardingIntro, .onboardingIntro):
+            return true
+        case (.login, .login):
+            return true
+        case (.createAccount, .createAccount):
+            return true
+        case (.signIn, .signIn):
+            return true
+        case (.onboarding, .onboarding):
+            return true
+        case (.scanner, .scanner):
+            return true
+        case (.explore, .explore):
+            return true
+        case (.history, .history):
+            return true
+        case (.settings, .settings):
+            return true
+        default:
+            return false
         }
     }
 } 

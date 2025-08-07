@@ -10,6 +10,7 @@ import ComposableArchitecture
 
 // MARK: - Onboarding Path
 @Reducer(state: .equatable)
+@CasePathable
 enum OnboardingPath {
     case question(OnboardingQuestionFeatureDomain)
     case meatSelection(MeatSelectionFeatureDomain)
@@ -25,7 +26,7 @@ struct OnboardingFeatureDomain {
         var currentQuestionIndex = 0
         
         var currentStep: Int {
-            path.count + 1
+            path.count + 1 // Add 1 because root question is not in path
         }
         
         var totalSteps: Int {
@@ -33,7 +34,8 @@ struct OnboardingFeatureDomain {
         }
         
         var progress: Double {
-            Double(currentStep) / Double(totalSteps)
+            guard totalSteps > 0 else { return 0 }
+            return Double(currentStep) / Double(totalSteps)
         }
         
         var canGoBack: Bool {
@@ -41,17 +43,17 @@ struct OnboardingFeatureDomain {
         }
         
         init() {
-            // Clean initializer - flow starts with onAppear
+            // Start with empty path - first question will be shown as root
         }
     }
     
     enum Action {
-        case onAppear
         case path(StackActionOf<OnboardingPath>)
         case backButtonTapped
+        case rootQuestionAnswered(questionId: Int, answer: Bool)
         case delegate(Delegate)
         
-        enum Delegate {
+        enum Delegate: Equatable {
             case onboardingCompleted(OnboardingPreferences)
             case onboardingCancelled
         }
@@ -60,20 +62,26 @@ struct OnboardingFeatureDomain {
     var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
-            case .onAppear:
-                // Start with first question
-                if let firstQuestion = OnboardingQuestion.questions.first {
-                    state.currentQuestionIndex = 0
-                    state.path.append(.question(OnboardingQuestionFeatureDomain.State(question: firstQuestion)))
-                }
-                return .none
-                
             case .backButtonTapped:
                 guard state.canGoBack else { return .none }
                 state.path.removeLast()
                 // Update question index if going back to a question
                 if case .question = state.path.last {
                     state.currentQuestionIndex = max(0, state.currentQuestionIndex - 1)
+                } else if state.path.isEmpty {
+                    // Going back to root question
+                    state.currentQuestionIndex = 0
+                }
+                return .none
+                
+            case let .rootQuestionAnswered(questionId, answer):
+                // Save the answer to preferences (first question)
+                state.preferences.avoidPreservatives = answer
+                
+                // Move to next question
+                state.currentQuestionIndex = 1
+                if let nextQuestion = OnboardingQuestion.questions.first(where: { $0.id == 2 }) {
+                    state.path.append(.question(OnboardingQuestionFeatureDomain.State(question: nextQuestion)))
                 }
                 return .none
                 
@@ -138,7 +146,19 @@ struct OnboardingView: View {
                 DesignSystem.Colors.background
                     .ignoresSafeArea()
                 NavigationStack(path: $bindableStore.scope(state: \.path, action: \.path)) {
-                    EmptyView() // Root view is never shown
+                    // Show first question as root to avoid empty view
+                    if let firstQuestion = OnboardingQuestion.questions.first {
+                        RootQuestionView(
+                            question: firstQuestion,
+                            onAnswer: { answer in
+                                bindableStore.send(.rootQuestionAnswered(questionId: firstQuestion.id, answer: answer))
+                            }
+                        )
+                        .navigationBarBackButtonHidden(true)
+                        .toolbarRole(.editor)
+                    } else {
+                        EmptyView()
+                    }
                 } destination: { store in
                     switch store.case {
                     case let .question(questionStore):
@@ -152,8 +172,9 @@ struct OnboardingView: View {
                     }
                 }
                 
-                // Progress bar overlay
+                // Progress bar and back button overlay
                 VStack {
+                    // Progress bar
                     ProgressBar(
                         current: bindableStore.currentStep,
                         total: bindableStore.totalSteps,
@@ -162,27 +183,31 @@ struct OnboardingView: View {
                     .padding(.horizontal, DesignSystem.Spacing.screenPadding)
                     .padding(.top, DesignSystem.Spacing.sm)
                     
+                    // Back button positioned below progress bar
+                    HStack {
+                        if bindableStore.canGoBack {
+                            Button(action: { bindableStore.send(.backButtonTapped) }) {
+                                Image(systemName: "chevron.left")
+                                    .font(DesignSystem.Typography.heading3)
+                                    .foregroundColor(DesignSystem.Colors.primaryRed)
+                                    .frame(width: 32, height: 32)
+                                    .background(
+                                        Circle()
+                                            .fill(DesignSystem.Colors.background)
+                                            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                                    )
+                            }
+                            .padding(.leading, DesignSystem.Spacing.screenPadding)
+                            .padding(.top, DesignSystem.Spacing.sm)
+                        }
+                        
+                        Spacer()
+                    }
+                    
                     Spacer()
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    if bindableStore.canGoBack {
-                        Button(action: { bindableStore.send(.backButtonTapped) }) {
-                            HStack(spacing: DesignSystem.Spacing.xs) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 14, weight: .medium))
-
-                            }
-                            .foregroundColor(DesignSystem.Colors.primaryRed)
-                        }
-                    }
-                }
-            }
-        }
-        .onAppear {
-            bindableStore.send(.onAppear)
         }
     }
 }
@@ -208,6 +233,98 @@ struct ProgressBar: View {
             }
         }
         .frame(height: 4)
+    }
+}
+
+// Manual Equatable implementation for Action
+extension OnboardingFeatureDomain.Action: Equatable {
+    static func == (lhs: OnboardingFeatureDomain.Action, rhs: OnboardingFeatureDomain.Action) -> Bool {
+        switch (lhs, rhs) {
+        case (.backButtonTapped, .backButtonTapped):
+            return true
+        case let (.rootQuestionAnswered(lhsId, lhsAnswer), .rootQuestionAnswered(rhsId, rhsAnswer)):
+            return lhsId == rhsId && lhsAnswer == rhsAnswer
+        case let (.delegate(lhsDelegate), .delegate(rhsDelegate)):
+            return lhsDelegate == rhsDelegate
+        case (.path, .path):
+            // StackAction comparison is complex, treat as equal for compilation
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+// MARK: - Root Question View
+struct RootQuestionView: View {
+    let question: OnboardingQuestion
+    let onAnswer: (Bool) -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+            
+            VStack(spacing: DesignSystem.Spacing.lg) {
+                // Question
+                Text(question.title)
+                    .font(DesignSystem.Typography.heading1)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, DesignSystem.Spacing.xl)
+                
+                // Subtitle
+                Text(question.subtitle)
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, DesignSystem.Spacing.xxxl)
+            }
+            
+            Spacer()
+            
+            // Answer Buttons
+            VStack(spacing: DesignSystem.Spacing.base) {
+                OnboardingAnswerButton(
+                    title: "Yes",
+                    isPositive: true,
+                    action: { onAnswer(true) }
+                )
+                
+                OnboardingAnswerButton(
+                    title: "No",
+                    isPositive: false,
+                    action: { onAnswer(false) }
+                )
+            }
+            .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+            .padding(.bottom, 60) // Reduced padding since back button is now at top
+        }
+    }
+}
+
+// MARK: - Answer Button Component
+struct OnboardingAnswerButton: View {
+    let title: String
+    let isPositive: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(DesignSystem.Typography.buttonText)
+                .foregroundColor(isPositive ? .white : DesignSystem.Colors.textPrimary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xl)
+                        .fill(isPositive ? DesignSystem.Colors.primaryRed : DesignSystem.Colors.backgroundSecondary)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.xl)
+                                .stroke(isPositive ? Color.clear : DesignSystem.Colors.border, lineWidth: 1)
+                        )
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

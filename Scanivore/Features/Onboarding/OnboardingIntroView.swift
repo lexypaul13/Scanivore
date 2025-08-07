@@ -25,7 +25,7 @@ struct OnboardingIntroFeatureDomain {
         }
     }
     
-    enum Action {
+    enum Action: Equatable {
         case pageChanged(Int)
         case skipTapped
         case getStartedTapped
@@ -230,8 +230,8 @@ struct GradeScreenView: View {
     private let gradeColors: [Color] = [
         DesignSystem.Colors.error,      // Bad - Red
         DesignSystem.Colors.warning,    // Fair - Orange
-        Color.green.opacity(0.8),       // Good - Light Green
-        Color.green                     // Excellent - Dark Green
+        DesignSystem.Colors.success.opacity(0.8),       // Good - Light Green
+        DesignSystem.Colors.success                     // Excellent - Dark Green
     ]
     
     var body: some View {
@@ -413,13 +413,13 @@ struct ChooseScreenView: View {
                         ZStack {
                             // Thumbs up effect
                             Image(systemName: "hand.thumbsup.fill")
-                                .font(.system(size: 40, weight: .medium))
-                                .foregroundColor(Color.green)
+                                .font(.system(size: DesignSystem.Typography.xxxxl))
+                                .foregroundColor(DesignSystem.Colors.success)
                                 .rotationEffect(.degrees(arrowRotation))
                                 .opacity(goodProductOpacity)
                             
                             Image(systemName: "hand.thumbsdown.fill")
-                                .font(.system(size: 40, weight: .medium))
+                                .font(.system(size: DesignSystem.Typography.xxxxl))
                                 .foregroundColor(DesignSystem.Colors.error)
                                 .opacity(1 - goodProductOpacity)
                         }
@@ -824,8 +824,8 @@ struct MeatPackage: View {
     
     private var packageColor: Color {
         switch grade {
-        case "Excellent": return Color.green
-        case "Good": return Color.green.opacity(0.8)
+        case "Excellent": return DesignSystem.Colors.success
+        case "Good": return DesignSystem.Colors.success.opacity(0.8)
         case "Fair": return DesignSystem.Colors.warning
         case "Bad": return DesignSystem.Colors.error
         default: return DesignSystem.Colors.border
@@ -849,11 +849,11 @@ struct GradeBadge: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(isGood ? Color.green : DesignSystem.Colors.error)
+                .fill(isGood ? DesignSystem.Colors.success : DesignSystem.Colors.error)
                 .frame(width: 20, height: 20)
             
             Text(isGood ? "Excellent" : "Bad")
-                .font(.system(size: 6, weight: .bold))
+                .font(DesignSystem.Typography.small)
                 .foregroundColor(.white)
         }
     }
@@ -916,7 +916,7 @@ struct DissolvinProductView: View {
             .overlay(
                 Image(systemName: "xmark")
                     .foregroundColor(DesignSystem.Colors.primaryRed)
-                    .font(.system(size: 32, weight: .bold))
+                    .font(.system(size: DesignSystem.Typography.xxxl))
             )
             .scaleEffect(scale)
             .opacity(opacity)
@@ -933,17 +933,17 @@ struct MaterializingProductView: View {
             .frame(width: 80, height: 100)
             .overlay(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                    .stroke(Color.green, lineWidth: 3)
+                    .stroke(DesignSystem.Colors.success, lineWidth: 3)
             )
             .overlay(
                 Image(systemName: "checkmark")
-                    .foregroundColor(Color.green)
-                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(DesignSystem.Colors.success)
+                    .font(.system(size: DesignSystem.Typography.xxxl))
             )
             .scaleEffect(scale)
             .opacity(opacity)
             .shadow(
-                color: Color.green.opacity(opacity * 0.3),
+                color: DesignSystem.Colors.success.opacity(opacity * 0.3),
                 radius: 10,
                 x: 0,
                 y: 0

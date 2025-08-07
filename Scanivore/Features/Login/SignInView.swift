@@ -30,7 +30,7 @@ struct SignInFeatureDomain {
         }
     }
     
-    enum Action {
+    enum Action: Equatable {
         case emailChanged(String)
         case passwordChanged(String)
         case signInTapped
@@ -39,9 +39,9 @@ struct SignInFeatureDomain {
         case clearError
         case validateEmail
         case validatePassword
-        case signInResponse(Result<Bool, Error>)
+        case signInResponse(TaskResult<Bool>)
         
-        enum Delegate {
+        enum Delegate: Equatable {
             case signedIn
             case navigateBack
             case navigateToForgotPassword
@@ -87,15 +87,15 @@ struct SignInFeatureDomain {
                 state.errorMessage = nil
                 
                 return .run { [email = state.email, password = state.password] send in
-                    do {
-                        @Dependency(\.authGateway) var authGateway
-                        
-                        // Call real API
-                        _ = try await authGateway.login(email, password)
-                        await send(.signInResponse(.success(true)))
-                    } catch {
-                        await send(.signInResponse(.failure(error)))
-                    }
+                    await send(.signInResponse(
+                        await TaskResult {
+                            @Dependency(\.authGateway) var authGateway
+                            
+                            // Call real API
+                            _ = try await authGateway.login(email, password)
+                            return true
+                        }
+                    ))
                 }
                 
             case let .signInResponse(.success(success)):

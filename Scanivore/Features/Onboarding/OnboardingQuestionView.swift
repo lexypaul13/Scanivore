@@ -17,7 +17,7 @@ struct OnboardingQuestion: Equatable {
 
 // MARK: - OnboardingQuestion Feature Domain
 @Reducer
-struct OnboardingQuestionFeatureDomain: Equatable {
+struct OnboardingQuestionFeatureDomain {
     @ObservableState
     struct State: Equatable {
         let question: OnboardingQuestion
@@ -124,7 +124,7 @@ struct OnboardingQuestionView: View {
                     )
                 }
                 .padding(.horizontal, DesignSystem.Spacing.screenPadding)
-                .padding(.bottom, DesignSystem.Spacing.xxxxxl)
+                .padding(.bottom, 60) // Reduced padding since back button is now at top
             }
         }
     }

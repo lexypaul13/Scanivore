@@ -10,7 +10,7 @@ import ComposableArchitecture
 import Foundation
 // MARK: - MeatSelection Feature
 @Reducer
-struct MeatSelectionFeatureDomain:Equatable {
+struct MeatSelectionFeatureDomain {
     @ObservableState
     struct State: Equatable {
         var selectedTypes: Set<MeatType> = []
@@ -124,7 +124,7 @@ struct MeatSelectionView: View {
                 }
                 .disabled(!store.canContinue)
                 .padding(.horizontal, DesignSystem.Spacing.screenPadding)
-                .padding(.bottom, DesignSystem.Spacing.xxxxxl)
+                .padding(.bottom, 60) // Reduced padding since back button is now at top
             }
         }
     }

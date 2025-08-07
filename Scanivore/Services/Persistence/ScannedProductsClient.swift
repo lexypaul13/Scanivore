@@ -9,6 +9,18 @@ import Foundation
 import Dependencies
 import ComposableArchitecture
 
+// MARK: - File System Errors
+public enum FileSystemError: Error, LocalizedError {
+    case documentsDirectoryNotFound
+    
+    public var errorDescription: String? {
+        switch self {
+        case .documentsDirectoryNotFound:
+            return "Documents directory could not be accessed"
+        }
+    }
+}
+
 // MARK: - Scanned Product Model
 public struct SavedProduct: Codable, Equatable, Identifiable {
     public let id: String // barcode
@@ -16,22 +28,19 @@ public struct SavedProduct: Codable, Equatable, Identifiable {
     public let productBrand: String?
     public let scanDate: Date
     public let meatScan: MeatScan
-    public let isFavorite: Bool
     
     public init(
         id: String,
         productName: String,
         productBrand: String?,
         scanDate: Date,
-        meatScan: MeatScan,
-        isFavorite: Bool = false
+        meatScan: MeatScan
     ) {
         self.id = id
         self.productName = productName
         self.productBrand = productBrand
         self.scanDate = scanDate
         self.meatScan = meatScan
-        self.isFavorite = isFavorite
     }
 }
 
@@ -39,10 +48,8 @@ public struct SavedProduct: Codable, Equatable, Identifiable {
 @DependencyClient
 public struct ScannedProductsClient: Sendable {
     public var loadAll: @Sendable () async -> [SavedProduct] = { [] }
-    public var loadFavorites: @Sendable () async -> [SavedProduct] = { [] }
     public var save: @Sendable (SavedProduct) async -> Void
     public var delete: @Sendable (String) async -> Void
-    public var toggleFavorite: @Sendable (String) async -> Void
     public var clearAll: @Sendable () async -> Void
     public var getProduct: @Sendable (String) async -> SavedProduct? = { _ in nil }
 }
@@ -62,16 +69,6 @@ extension ScannedProductsClient: DependencyKey {
             return (try? decoder.decode([SavedProduct].self, from: data)) ?? []
         },
         
-        loadFavorites: {
-            @Dependency(\.fileStorage) var fileStorage
-            
-            guard let data = try? await fileStorage.load("scanned_products.json") else {
-                return []
-            }
-            
-            let allProducts = (try? JSONDecoder().decode([SavedProduct].self, from: data)) ?? []
-            return allProducts.filter { $0.isFavorite }
-        },
         
         save: { product in
             @Dependency(\.fileStorage) var fileStorage
@@ -111,25 +108,6 @@ extension ScannedProductsClient: DependencyKey {
             try? await fileStorage.save("scanned_products.json", data ?? Data())
         },
         
-        toggleFavorite: { productId in
-            @Dependency(\.fileStorage) var fileStorage
-            
-            var products = await Self.liveValue.loadAll()
-            
-            if let index = products.firstIndex(where: { $0.id == productId }) {
-                products[index] = SavedProduct(
-                    id: products[index].id,
-                    productName: products[index].productName,
-                    productBrand: products[index].productBrand,
-                    scanDate: products[index].scanDate,
-                    meatScan: products[index].meatScan,
-                    isFavorite: !products[index].isFavorite
-                )
-            }
-            
-            let data = try? JSONEncoder().encode(products)
-            try? await fileStorage.save("scanned_products.json", data ?? Data())
-        },
         
         clearAll: {
             @Dependency(\.fileStorage) var fileStorage
@@ -151,31 +129,18 @@ extension ScannedProductsClient: DependencyKey {
                 productName: "Organic Ground Beef",
                 productBrand: "Organic Valley",
                 scanDate: Date(),
-                meatScan: .mock,
-                isFavorite: true
+                meatScan: .mock
             ),
             SavedProduct(
                 id: "9876543210987",
                 productName: "Free Range Chicken Breast",
                 productBrand: "Perdue",
                 scanDate: Date().addingTimeInterval(-86400),
-                meatScan: .mock,
-                isFavorite: false
-            )
-        ] },
-        loadFavorites: { [
-            SavedProduct(
-                id: "1234567890123",
-                productName: "Organic Ground Beef",
-                productBrand: "Organic Valley",
-                scanDate: Date(),
-                meatScan: .mock,
-                isFavorite: true
+                meatScan: .mock
             )
         ] },
         save: { _ in },
         delete: { _ in },
-        toggleFavorite: { _ in },
         clearAll: { },
         getProduct: { _ in
             SavedProduct(
@@ -183,8 +148,7 @@ extension ScannedProductsClient: DependencyKey {
                 productName: "Organic Ground Beef",
                 productBrand: "Organic Valley",
                 scanDate: Date(),
-                meatScan: .mock,
-                isFavorite: true
+                meatScan: .mock
             )
         }
     )
@@ -209,17 +173,23 @@ public struct FileStorageClient: Sendable {
 extension FileStorageClient: DependencyKey {
     public static let liveValue: Self = .init(
         save: { filename, data in
-            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+                throw FileSystemError.documentsDirectoryNotFound
+            }
             let fileURL = documentsPath.appendingPathComponent(filename)
             try data.write(to: fileURL)
         },
         load: { filename in
-            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+                return nil
+            }
             let fileURL = documentsPath.appendingPathComponent(filename)
             return try? Data(contentsOf: fileURL)
         },
         delete: { filename in
-            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+                return
+            }
             let fileURL = documentsPath.appendingPathComponent(filename)
             try? FileManager.default.removeItem(at: fileURL)
         }

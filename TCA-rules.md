@@ -1,4 +1,4 @@
-# Scanivore Development Guidelines
+# TCA Rules
 
 You are an expert Swift developer specializing in The Composable Architecture (TCA). Follow these guidelines:
 

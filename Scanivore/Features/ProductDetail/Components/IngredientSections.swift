@@ -108,7 +108,7 @@ struct CollapsibleIngredientSection: View {
                     Spacer()
                     
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(DesignSystem.Typography.bodyMedium)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
                 .padding(.vertical, DesignSystem.Spacing.base)
@@ -269,13 +269,13 @@ struct EnhancedIngredientDetailSheet: View {
                             .lineSpacing(4)
                     }
                     
-                    // Citations Section
-                    if !citations.isEmpty {
-                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-                            Text("Scientific References")
-                                .font(DesignSystem.Typography.heading3)
-                                .foregroundColor(DesignSystem.Colors.textPrimary)
-                            
+                    // Citations Section with graceful degradation
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                        Text("Scientific References")
+                            .font(DesignSystem.Typography.heading3)
+                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                        
+                        if !citations.isEmpty {
                             VStack(spacing: DesignSystem.Spacing.sm) {
                                 ForEach(citations.prefix(3), id: \.id) { citation in
                                     CitationCard(citation: citation)
@@ -288,6 +288,27 @@ struct EnhancedIngredientDetailSheet: View {
                                     .foregroundColor(DesignSystem.Colors.textSecondary)
                                     .padding(.top, DesignSystem.Spacing.xs)
                             }
+                        } else {
+                            // Graceful message when citations are not available
+                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                                HStack {
+                                    Image(systemName: "info.circle")
+                                        .font(DesignSystem.Typography.small)
+                                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                                    
+                                    Text("Citations temporarily unavailable")
+                                        .font(DesignSystem.Typography.small)
+                                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                                }
+                                
+                                Text("Analysis based on nutrition database and ingredient assessment.")
+                                    .font(DesignSystem.Typography.small)
+                                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                                    .opacity(0.8)
+                            }
+                            .padding(DesignSystem.Spacing.sm)
+                            .background(DesignSystem.Colors.backgroundSecondary.opacity(0.5))
+                            .cornerRadius(DesignSystem.CornerRadius.md)
                         }
                     }
                 }
@@ -326,6 +347,7 @@ struct CitationCard: View {
                 .font(DesignSystem.Typography.bodyMedium)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
                 .lineLimit(2)
+                .multilineTextAlignment(.leading)
             
             if let authors = citation.authors {
                 Text(authors)
@@ -356,11 +378,11 @@ struct CitationCard: View {
                         .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.primaryRed))
                 } else if citationURL != nil {
                     Image(systemName: "link")
-                        .font(.system(size: 12))
+                        .font(DesignSystem.Typography.small)
                         .foregroundColor(DesignSystem.Colors.primaryRed)
                 } else {
                     Image(systemName: "link.badge.plus")
-                        .font(.system(size: 12))
+                        .font(DesignSystem.Typography.small)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
             }

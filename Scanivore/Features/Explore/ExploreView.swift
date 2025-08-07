@@ -77,8 +77,8 @@ struct ExploreFeatureDomain {
         
         // Pagination actions
         case loadMoreRecommendations
-        case recommendationsResponse(TaskResult<ExploreResponse>)
-        case recommendationsResponseOptimized(ExploreResponse)
+        case recommendationsReceived(TaskResult<ExploreResponse>)
+        case recommendationsProcessed(ExploreResponse)
         
         // Product actions  
         case refreshRecommendations
@@ -87,7 +87,7 @@ struct ExploreFeatureDomain {
         // Search actions
         case searchDebounced
         case searchSubmitted(String)
-        case searchResponse(TaskResult<SearchResponse>)
+        case searchResponseReceived(TaskResult<SearchResponse>)
         case clearSearch
         
         // Navigation actions
@@ -180,22 +180,22 @@ struct ExploreFeatureDomain {
                         try await gateway.getExploreRecommendations(offset, 10)
                     }
                     
-                    await send(.recommendationsResponse(result))
+                    await send(.recommendationsReceived(result))
                 }
                 .cancellable(id: "explore-recommendations")
                 
-            case let .recommendationsResponse(.success(response)):
+            case let .recommendationsReceived(.success(response)):
                 state.isLoading = false
                 
                 // First process through the optimization
-                return .send(.recommendationsResponseOptimized(response))
+                return .send(.recommendationsProcessed(response))
                 
-            case let .recommendationsResponse(.failure(error)):
+            case let .recommendationsReceived(.failure(error)):
                 state.isLoading = false
                 state.error = error.localizedDescription
                 return .none
                 
-            case let .recommendationsResponseOptimized(response):
+            case let .recommendationsProcessed(response):
                 // Convert to ProductRecommendation models
                 let newRecommendations = response.recommendations.map { 
                     ProductRecommendation.fromRecommendationItem($0)
@@ -231,11 +231,11 @@ struct ExploreFeatureDomain {
                         try await gateway.searchProducts(query)
                     }
                     
-                    await send(.searchResponse(result))
+                    await send(.searchResponseReceived(result))
                 }
                 .cancellable(id: "search-request")
                 
-            case let .searchResponse(.success(searchResponse)):
+            case let .searchResponseReceived(.success(searchResponse)):
                 state.isSearching = false
                 
                 // Convert Product array to ProductRecommendation array
@@ -246,7 +246,7 @@ struct ExploreFeatureDomain {
                 state.searchResults = IdentifiedArrayOf(uniqueElements: searchRecommendations)
                 return .none
                 
-            case let .searchResponse(.failure(error)):
+            case let .searchResponseReceived(.failure(error)):
                 state.isSearching = false
                 state.searchError = "Search failed: \(error.localizedDescription)"
                 state.searchResults = []
@@ -285,7 +285,7 @@ struct ExploreFeatureDomain {
                         try await gateway.getExploreRecommendations(offset, 10)
                     }
                     
-                    await send(.recommendationsResponse(result))
+                    await send(.recommendationsReceived(result))
                 }
                 .cancellable(id: "explore-more-recommendations")
 
@@ -401,7 +401,7 @@ struct ExploreView: View {
                 store.send(.gradeToggled(grade))
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12))
+                    .font(DesignSystem.Typography.small)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
             }
         }
@@ -460,7 +460,7 @@ struct ExploreView: View {
     private func errorView(_ error: String) -> some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(.system(size: DesignSystem.Typography.xxxxxl))
                 .foregroundColor(DesignSystem.Colors.error)
             
             Text("Something went wrong")
@@ -493,7 +493,7 @@ struct ExploreView: View {
             if store.isSearchActive && !store.isSearching {
                 // No search results
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 48))
+                    .font(.system(size: DesignSystem.Typography.xxxxxl))
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                 
                 Text("No products found")
@@ -506,7 +506,7 @@ struct ExploreView: View {
             } else {
                 // No recommendations
                 Image(systemName: "star.slash")
-                    .font(.system(size: 48))
+                    .font(.system(size: DesignSystem.Typography.xxxxxl))
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                 
                 Text("No recommendations yet")

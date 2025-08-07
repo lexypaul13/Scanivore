@@ -31,7 +31,7 @@ public struct AccountFeature {
         }
     }
     
-    public enum Action: Sendable {
+    public enum Action: Equatable {
         case onAppear
         case signInTapped
         case signOutTapped
@@ -45,8 +45,8 @@ public struct AccountFeature {
         case setDeleteConfirmation(Bool)
         
         // Async responses
-        case signOutResponse(TaskResult<Void>)
-        case deleteAccountResponse(TaskResult<Void>)
+        case signOutResponse(TaskResult<Bool>)
+        case deleteAccountResponse(TaskResult<Bool>)
         
         // Internal actions
         case delegate(Delegate)
@@ -91,7 +91,10 @@ public struct AccountFeature {
                 
                 return .run { send in
                     await send(.signOutResponse(
-                        TaskResult { try await authGateway.logout() }
+                        await TaskResult { 
+                            try await authGateway.logout()
+                            return true
+                        }
                     ))
                 }
                 
@@ -102,7 +105,10 @@ public struct AccountFeature {
                 
                 return .run { send in
                     await send(.deleteAccountResponse(
-                        TaskResult { try await authGateway.deleteAccount() }
+                        await TaskResult { 
+                            try await authGateway.deleteAccount()
+                            return true
+                        }
                     ))
                 }
                 
@@ -114,11 +120,16 @@ public struct AccountFeature {
                 state.showingDeleteConfirmation = false
                 return .none
                 
-            case .signOutResponse(.success):
+            case let .signOutResponse(.success(success)):
                 state.isLoading = false
-                return .run { send in
-                    await dismiss()
-                    await send(.delegate(.signOutCompleted))
+                if success {
+                    return .run { send in
+                        await dismiss()
+                        await send(.delegate(.signOutCompleted))
+                    }
+                } else {
+                    state.errorMessage = "Failed to sign out"
+                    return .none
                 }
                 
             case let .signOutResponse(.failure(error)):
@@ -126,11 +137,16 @@ public struct AccountFeature {
                 state.errorMessage = "Failed to sign out: \(error.localizedDescription)"
                 return .none
                 
-            case .deleteAccountResponse(.success):
+            case let .deleteAccountResponse(.success(success)):
                 state.isLoading = false
-                return .run { send in
-                    await dismiss()
-                    await send(.delegate(.accountDeleted))
+                if success {
+                    return .run { send in
+                        await dismiss()
+                        await send(.delegate(.accountDeleted))
+                    }
+                } else {
+                    state.errorMessage = "Failed to delete account"
+                    return .none
                 }
                 
             case let .deleteAccountResponse(.failure(error)):

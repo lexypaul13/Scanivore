@@ -103,7 +103,7 @@ struct PlaceholderImageView: View {
             .overlay(
                 VStack {
                     Image(systemName: "photo")
-                        .font(.system(size: 20))
+                        .font(.system(size: DesignSystem.Typography.lg))
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                     Text("No Image")
                         .font(DesignSystem.Typography.small)

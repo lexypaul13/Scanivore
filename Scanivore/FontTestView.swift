@@ -34,7 +34,7 @@ struct FontTestView: View {
             
             // Test if fonts are loaded
             Text("Available Fonts:")
-                .font(.headline)
+                .font(DesignSystem.Typography.heading3)
                 .padding(.top)
             
             ScrollView {
@@ -42,7 +42,7 @@ struct FontTestView: View {
                     ForEach(UIFont.familyNames.sorted(), id: \.self) { family in
                         if family.contains("Cereal") || family.contains("Airbnb") {
                             Text(family)
-                                .font(.caption)
+                                .font(DesignSystem.Typography.caption)
                                 .foregroundColor(.green)
                             ForEach(UIFont.fontNames(forFamilyName: family), id: \.self) { font in
                                 Text("  - \(font)")

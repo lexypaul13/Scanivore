@@ -47,8 +47,8 @@ struct CameraPreviewLayer: UIViewRepresentable {
         if uiView.layer.sublayers?.isEmpty ?? true {
             let gradientLayer = CAGradientLayer()
             gradientLayer.colors = [
-                UIColor.darkGray.cgColor,
-                UIColor.black.cgColor
+                UIColor(DesignSystem.Colors.textSecondary).cgColor,
+                UIColor(DesignSystem.Colors.textPrimary).cgColor
             ]
             gradientLayer.frame = uiView.bounds
             uiView.layer.addSublayer(gradientLayer)

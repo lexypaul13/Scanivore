@@ -47,7 +47,6 @@ struct HistoryFeatureDomain {
         case productTapped(SavedProduct)
         case destination(PresentationAction<Destination.Action>)
         case deleteProduct(String)
-        case toggleFavorite(String)
     }
     
     @Dependency(\.scannedProducts) var scannedProducts
@@ -105,12 +104,6 @@ struct HistoryFeatureDomain {
                     await scannedProducts.delete(productId)
                     await send(.loadHistory)
                 }
-                
-            case let .toggleFavorite(productId):
-                return .run { send in
-                    await scannedProducts.toggleFavorite(productId)
-                    await send(.loadHistory)
-                }
             }
         }
         .ifLet(\.$destination, action: \.destination)
@@ -143,12 +136,7 @@ struct HistoryView: View {
                                         Button("Delete") {
                                             store.send(.deleteProduct(product.id))
                                         }
-                                        .tint(.red)
-                                        
-                                        Button(product.isFavorite ? "Unfavorite" : "Favorite") {
-                                            store.send(.toggleFavorite(product.id))
-                                        }
-                                        .tint(.orange)
+                                        .tint(DesignSystem.Colors.error)
                                     }
                                 }
                             }
@@ -220,7 +208,7 @@ struct SavedProductRowView: View {
             HStack(spacing: DesignSystem.Spacing.md) {
                 Text(product.meatScan.meatType.icon)
                     .font(DesignSystem.Typography.heading2)
-                    .frame(width: 50, height: 50)
+                    .frame(width: DesignSystem.Spacing.xxxxxl, height: DesignSystem.Spacing.xxxxxl)
                     .background(
                         Circle()
                             .fill(safetyColor.opacity(0.1))
@@ -258,17 +246,9 @@ struct SavedProductRowView: View {
                 
                 Spacer()
                 
-                VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xs) {
-                    if product.isFavorite {
-                        Image(systemName: "heart.fill")
-                            .foregroundColor(DesignSystem.Colors.primaryRed)
-                            .font(DesignSystem.Typography.caption)
-                    }
-                    
-                    Image(systemName: "chevron.right")
-                        .font(DesignSystem.Typography.small)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
+                Image(systemName: "chevron.right")
+                    .font(DesignSystem.Typography.small)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
             }
             .padding(.vertical, DesignSystem.Spacing.xs)
         }
@@ -319,8 +299,8 @@ struct FilterView: View {
         NavigationStack {
             VStack {
                 Text("Filters coming soon...")
-                    .font(.title2)
-                    .foregroundColor(.secondary)
+                    .font(DesignSystem.Typography.heading2)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .background(DesignSystem.Colors.backgroundSecondary)

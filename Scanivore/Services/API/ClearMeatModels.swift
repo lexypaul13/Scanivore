@@ -559,8 +559,7 @@ public extension HealthAssessmentResponse {
             productName: productName,
             productBrand: productBrand,
             scanDate: Date(),
-            meatScan: meatScan,
-            isFavorite: false
+            meatScan: meatScan
         )
     }
 }

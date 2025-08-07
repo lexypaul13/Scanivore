@@ -17,12 +17,12 @@ struct LoginFeatureDomain {
         var errorMessage: String?
     }
     
-    enum Action {
+    enum Action: Equatable {
         case createAccountTapped
         case signInTapped
         case clearError
         
-        enum Delegate {
+        enum Delegate: Equatable {
             case navigateToCreateAccount
             case navigateToSignIn
         }
@@ -114,7 +114,7 @@ struct LoginView: View {
                         } label: {
                             HStack {
                                 Image(systemName: "person.crop.circle.badge.plus")
-                                    .font(.system(size: 20, weight: .medium))
+                                    .font(.system(size: DesignSystem.Typography.lg))
                                 
                                 Text("Create Account")
                                     .font(DesignSystem.Typography.buttonText)
@@ -139,7 +139,7 @@ struct LoginView: View {
                         } label: {
                             HStack {
                                 Image(systemName: "person.crop.circle")
-                                    .font(.system(size: 20, weight: .medium))
+                                    .font(.system(size: DesignSystem.Typography.lg))
                                 
                                 Text("Sign In")
                                     .font(DesignSystem.Typography.buttonText)
@@ -156,32 +156,6 @@ struct LoginView: View {
                         }
                         .buttonStyle(PlainButtonStyle())
                         
-                        // Terms and privacy text
-                        VStack(spacing: DesignSystem.Spacing.sm) {
-                            Text("By continuing, you agree to our")
-                                .font(DesignSystem.Typography.caption)
-                                .foregroundColor(DesignSystem.Colors.textSecondary)
-                            
-                            HStack(spacing: DesignSystem.Spacing.xs) {
-                                Button("Terms of Service") {
-                                    // Handle terms tap
-                                }
-                                .font(DesignSystem.Typography.caption)
-                                .foregroundColor(DesignSystem.Colors.primaryRed)
-                                .underline()
-                                
-                                Text("and")
-                                    .font(DesignSystem.Typography.caption)
-                                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                                
-                                Button("Privacy Policy") {
-                                    // Handle privacy tap
-                                }
-                                .font(DesignSystem.Typography.caption)
-                                .foregroundColor(DesignSystem.Colors.primaryRed)
-                                .underline()
-                            }
-                        }
                         .padding(.top, DesignSystem.Spacing.md)
                     }
                     .padding(.horizontal, DesignSystem.Spacing.xl)

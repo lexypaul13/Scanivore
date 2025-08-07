@@ -9,6 +9,14 @@ import Alamofire
 import Dependencies
 import ComposableArchitecture
 
+// MARK: - Session Configuration
+private let secureSession: Session = {
+    let configuration = URLSessionConfiguration.default
+    configuration.timeoutIntervalForRequest = APIConfiguration.timeout
+    configuration.timeoutIntervalForResource = APIConfiguration.healthAssessmentTimeout
+    return Session(configuration: configuration)
+}()
+
 // MARK: - User Gateway
 @DependencyClient
 public struct UserGateway: Sendable {
@@ -22,7 +30,7 @@ extension UserGateway: DependencyKey {
         updatePreferences: { preferences in
             let headers = try await createAuthHeaders()
             
-            return try await AF.request(
+            return try await secureSession.request(
                 "\(APIConfiguration.baseURL)/api/v1/users/me",
                 method: .put,
                 parameters: ["preferences": preferences],
@@ -37,7 +45,7 @@ extension UserGateway: DependencyKey {
         getProfile: {
             let headers = try await createAuthHeaders()
             
-            return try await AF.request(
+            return try await secureSession.request(
                 "\(APIConfiguration.baseURL)/api/v1/users/me",
                 method: .get,
                 headers: headers
