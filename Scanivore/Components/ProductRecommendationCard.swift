@@ -61,11 +61,13 @@ struct ProductRecommendationCard: View {
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                     
                     Text(recommendation.brand)
                         .font(DesignSystem.Typography.body)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 }
                 
                 // Meat type and quality badges
@@ -77,6 +79,10 @@ struct ProductRecommendationCard: View {
                         Text(recommendation.meatType.rawValue)
                             .font(DesignSystem.Typography.captionMedium)
                             .foregroundColor(DesignSystem.Colors.textPrimary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .allowsTightening(true)
                     }
                     .padding(.horizontal, DesignSystem.Spacing.sm)
                     .padding(.vertical, 4)
@@ -140,6 +146,10 @@ struct QualityBadge: View {
             Text(level.displayName)
                 .font(DesignSystem.Typography.captionMedium)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .fixedSize(horizontal: true, vertical: false)
+                .allowsTightening(true)
         }
         .padding(.horizontal, DesignSystem.Spacing.md)
         .padding(.vertical, DesignSystem.Spacing.xs)

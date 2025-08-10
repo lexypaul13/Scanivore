@@ -172,6 +172,7 @@ struct ScannerFeatureDomain {
                 state.destination = .productDetail(
                     ProductDetailFeatureDomain.State(
                         productCode: barcode,
+                        context: .scanned,
                         productName: nil,
                         productBrand: nil,
                         productImageUrl: nil,

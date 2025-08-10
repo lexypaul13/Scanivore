@@ -45,13 +45,15 @@ public struct SettingsFeature {
         public var showingSignOutConfirmation: Bool = false
         public var showingDeleteConfirmation: Bool = false
         public var isLoading: Bool = false
+        public var isProfileLoading: Bool = true
         public var errorMessage: String?
         
         public init(
             destination: Destination.State? = nil,
             isSignedIn: Bool = false,
             userName: String = "Guest User",
-            userEmail: String? = nil
+            userEmail: String? = nil,
+            isProfileLoading: Bool = true
         ) {
             self.destination = destination
             self.isSignedIn = isSignedIn
@@ -60,6 +62,7 @@ public struct SettingsFeature {
             self.showingSignOutConfirmation = false
             self.showingDeleteConfirmation = false
             self.isLoading = false
+            self.isProfileLoading = isProfileLoading
             self.errorMessage = nil
         }
     }
@@ -123,6 +126,7 @@ public struct SettingsFeature {
                 return .send(.loadUserInfo)
                 
             case .loadUserInfo:
+                state.isProfileLoading = true
                 return .run { send in
                     // First check if we have a token
                     let hasToken = await TokenManager.shared.hasToken()
@@ -164,6 +168,7 @@ public struct SettingsFeature {
                 state.userEmail = userInfo.email
                 // User is signed in if we have an email (indicates successful user fetch)
                 state.isSignedIn = !(userInfo.email?.isEmpty ?? true)
+                state.isProfileLoading = false
                 return .none
                 
             case .userInfoLoaded(.failure):
@@ -172,6 +177,7 @@ public struct SettingsFeature {
                 // If we got here, we have a token but it's invalid (401 error)
                 // Show as signed in so user can sign out and get a new token
                 state.isSignedIn = true
+                state.isProfileLoading = false
                 return .none
                 
             case .dataManagementTapped:
@@ -377,11 +383,28 @@ private struct ProfileSection: View {
     
     var body: some View {
         Section {
-            ProfileHeaderView(
-                userName: store.userName,
-                userEmail: store.userEmail,
-                isSignedIn: store.isSignedIn
-            )
+            if store.isProfileLoading {
+                HStack(spacing: DesignSystem.Spacing.base) {
+                    Circle()
+                        .fill(DesignSystem.Colors.backgroundSecondary)
+                        .frame(width: 56, height: 56)
+                    VStack(alignment: .leading, spacing: 6) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(DesignSystem.Colors.backgroundSecondary)
+                            .frame(width: 140, height: 14)
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(DesignSystem.Colors.backgroundSecondary)
+                            .frame(width: 200, height: 12)
+                    }
+                }
+                .redacted(reason: .placeholder)
+            } else {
+                ProfileHeaderView(
+                    userName: store.userName,
+                    userEmail: store.userEmail,
+                    isSignedIn: store.isSignedIn
+                )
+            }
         }
         .listRowBackground(DesignSystem.Colors.background)
     }

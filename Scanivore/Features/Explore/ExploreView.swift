@@ -262,6 +262,7 @@ struct ExploreFeatureDomain {
             case let .productTapped(recommendation):
                 state.productDetail = ProductDetailFeatureDomain.State(
                     productCode: recommendation.id,
+                    context: .explored,
                     productName: recommendation.name,
                     productBrand: recommendation.brand,
                     productImageUrl: recommendation.imageUrl,

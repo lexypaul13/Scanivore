@@ -186,15 +186,26 @@ extension ProductGateway: DependencyKey {
                 } catch {
                     lastError = error
                     
-                                    // Check if it's a timeout error
-                if let urlError = error as? URLError, urlError.code == .timedOut {
-                    print("⏱️ Request timed out for \(barcode) (attempt \(attempt + 1)/\(maxRetries + 1)) - Network or server delay")
-                    if attempt < maxRetries {
-                        // Wait longer between retries for timeout issues
-                        try await Task.sleep(nanoseconds: UInt64((attempt + 1) * 2) * 1_000_000_000) // 2s, 4s
-                        continue // Try again
+                    // Check for timeout errors - handle both direct URLError and AFError wrapped cases
+                    var isTimeoutError = false
+                    
+                    if let urlError = error as? URLError, urlError.code == .timedOut {
+                        isTimeoutError = true
+                    } else if let afError = error as? AFError,
+                              case .sessionTaskFailed(let underlyingError) = afError,
+                              let urlError = underlyingError as? URLError,
+                              urlError.code == .timedOut {
+                        isTimeoutError = true
                     }
-                }
+                    
+                    if isTimeoutError {
+                        print("⏱️ Request timed out for \(barcode) (attempt \(attempt + 1)/\(maxRetries + 1)) - Network or server delay")
+                        if attempt < maxRetries {
+                            // Wait longer between retries for timeout issues
+                            try await Task.sleep(nanoseconds: UInt64((attempt + 1) * 2) * 1_000_000_000) // 2s, 4s
+                            continue // Try again
+                        }
+                    }
                     
                     // For non-timeout errors, don't retry
                     print("❌ Health assessment failed for \(barcode): \(error)")
@@ -205,8 +216,19 @@ extension ProductGateway: DependencyKey {
             // If we got here, all retries failed
             if let error = lastError {
                 
-                // Check for timeout error first
+                // Check for timeout error first - handle both direct URLError and AFError wrapped cases
+                var isTimeoutError = false
+                
                 if let urlError = error as? URLError, urlError.code == .timedOut {
+                    isTimeoutError = true
+                } else if let afError = error as? AFError,
+                          case .sessionTaskFailed(let underlyingError) = afError,
+                          let urlError = underlyingError as? URLError,
+                          urlError.code == .timedOut {
+                    isTimeoutError = true
+                }
+                
+                if isTimeoutError {
                     print("⏱️ All retry attempts failed - request timed out for \(barcode)")
                     throw APIError(
                         detail: "Health assessment is taking longer than usual. Please try again or check your network connection.",
@@ -552,15 +574,15 @@ extension HealthAssessmentResponse {
         color: "Yellow",
         ingredientsAssessment: IngredientsAssessment(
             highRisk: [
-                IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", riskLevel: "high")
+                IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", overview: "Preservatives are chemical compounds added to foods to prevent spoilage and extend shelf life. While they serve an important function in food safety, some preservatives have been linked to adverse health effects including allergic reactions, hyperactivity in children, and potential carcinogenic properties with long-term exposure.", riskLevel: "high")
             ],
             moderateRisk: [
-                IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", riskLevel: "moderate"),
-                IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", riskLevel: "moderate")
+                IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", overview: "Salt (sodium chloride) is an essential mineral used for flavor enhancement and preservation. While necessary for bodily functions, excessive intake is linked to high blood pressure, heart disease, and stroke. The American Heart Association recommends limiting sodium intake to 2,300mg per day.", riskLevel: "moderate"),
+                IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", overview: "Natural flavors are derived from plant or animal sources and used to enhance taste. While generally recognized as safe, they can contain undisclosed ingredients and may trigger allergic reactions in sensitive individuals. The exact composition is often proprietary.", riskLevel: "moderate")
             ],
             lowRisk: [
-                IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", riskLevel: "low"),
-                IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", riskLevel: "low")
+                IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", overview: "", riskLevel: "low"),
+                IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", overview: "", riskLevel: "low")
             ]
         ),
         nutrition: [
@@ -614,15 +636,15 @@ extension HealthAssessmentResponse {
         ), product_info: nil,
         // Direct API fields matching actual response structure
         high_risk: [
-            IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", riskLevel: "high")
+            IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", overview: nil, riskLevel: "high")
         ],
         moderate_risk: [
-            IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", riskLevel: "moderate"),
-            IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", riskLevel: "moderate")
+            IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", overview: "", riskLevel: "moderate"),
+            IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", overview: "", riskLevel: "moderate")
         ],
         low_risk: [
-            IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", riskLevel: "low"),
-            IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", riskLevel: "low")
+            IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", overview: "", riskLevel: "low"),
+            IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", overview: "", riskLevel: "low")
         ]
     )
 }

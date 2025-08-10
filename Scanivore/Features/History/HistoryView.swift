@@ -89,9 +89,10 @@ struct HistoryFeatureDomain {
                 state.destination = .productDetail(
                     ProductDetailFeatureDomain.State(
                         productCode: product.id,
+                        context: .history,
                         productName: product.productName,
                         productBrand: product.productBrand,
-                        productImageUrl: nil
+                        productImageUrl: product.productImageUrl
                     )
                 )
                 return .none
@@ -206,17 +207,53 @@ struct SavedProductRowView: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: DesignSystem.Spacing.md) {
-                Text(product.meatScan.meatType.icon)
-                    .font(DesignSystem.Typography.heading2)
-                    .frame(width: DesignSystem.Spacing.xxxxxl, height: DesignSystem.Spacing.xxxxxl)
-                    .background(
-                        Circle()
-                            .fill(safetyColor.opacity(0.1))
-                            .overlay(
+                ZStack {
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                        .fill(DesignSystem.Colors.backgroundSecondary)
+                        .frame(width: 120, height: 120)
+                    if let urlString = product.productImageUrl, let url = URL(string: urlString), !urlString.isEmpty {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 120, height: 120)
+                                    .clipped()
+                                    .cornerRadius(DesignSystem.CornerRadius.md)
+                            case .failure:
+                                Text(product.meatScan.meatType.icon)
+                                    .font(DesignSystem.Typography.heading2)
+                                    .frame(width: 120, height: 120)
+                                    .background(
+                                        Circle()
+                                            .fill(safetyColor.opacity(0.1))
+                                            .overlay(
+                                                Circle()
+                                                    .stroke(safetyColor.opacity(0.3), lineWidth: 2)
+                                            )
+                                    )
+                            case .empty:
+                                ProgressView()
+                                    .tint(DesignSystem.Colors.textSecondary)
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                    } else {
+                        Text(product.meatScan.meatType.icon)
+                            .font(DesignSystem.Typography.heading2)
+                            .frame(width: 120, height: 120)
+                            .background(
                                 Circle()
-                                    .stroke(safetyColor.opacity(0.3), lineWidth: 2)
+                                    .fill(safetyColor.opacity(0.1))
+                                    .overlay(
+                                        Circle()
+                                            .stroke(safetyColor.opacity(0.3), lineWidth: 2)
+                                    )
                             )
-                    )
+                    }
+                }
                 
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     Text(product.productName)
@@ -224,6 +261,7 @@ struct SavedProductRowView: View {
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                     
                     HStack {
                         Text(product.productBrand ?? "Unknown Brand")

@@ -263,7 +263,7 @@ struct EnhancedIngredientDetailSheet: View {
                             .font(DesignSystem.Typography.heading3)
                             .foregroundColor(DesignSystem.Colors.textPrimary)
                         
-                        Text(ingredient.microReport)
+                        Text(ingredient.overview ?? ingredient.microReport)
                             .font(DesignSystem.Typography.body)
                             .foregroundColor(DesignSystem.Colors.textPrimary)
                             .lineSpacing(4)
@@ -271,10 +271,6 @@ struct EnhancedIngredientDetailSheet: View {
                     
                     // Citations Section with graceful degradation
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-                        Text("Scientific References")
-                            .font(DesignSystem.Typography.heading3)
-                            .foregroundColor(DesignSystem.Colors.textPrimary)
-                        
                         if !citations.isEmpty {
                             VStack(spacing: DesignSystem.Spacing.sm) {
                                 ForEach(citations.prefix(3), id: \.id) { citation in
@@ -289,25 +285,30 @@ struct EnhancedIngredientDetailSheet: View {
                                     .padding(.top, DesignSystem.Spacing.xs)
                             }
                         } else {
-                            // Graceful message when citations are not available
+                            // Disclaimer when citations are not available
                             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                                 HStack {
-                                    Image(systemName: "info.circle")
+                                    Image(systemName: "exclamationmark.triangle.fill")
                                         .font(DesignSystem.Typography.small)
-                                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                                        .foregroundColor(DesignSystem.Colors.primaryRed)
                                     
-                                    Text("Citations temporarily unavailable")
+                                    Text("Health Information Disclaimer")
                                         .font(DesignSystem.Typography.small)
-                                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(DesignSystem.Colors.primaryRed)
                                 }
                                 
-                                Text("Analysis based on nutrition database and ingredient assessment.")
+                                Text("This analysis is AI-generated based on ingredient databases and nutritional research. Always consult healthcare professionals for medical advice.")
                                     .font(DesignSystem.Typography.small)
-                                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                                    .opacity(0.8)
+                                    .foregroundColor(DesignSystem.Colors.primaryRed.opacity(0.9))
+                                    .lineSpacing(2)
                             }
                             .padding(DesignSystem.Spacing.sm)
-                            .background(DesignSystem.Colors.backgroundSecondary.opacity(0.5))
+                            .background(DesignSystem.Colors.primaryRed.opacity(0.1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                                    .stroke(DesignSystem.Colors.primaryRed.opacity(0.3), lineWidth: 1)
+                            )
                             .cornerRadius(DesignSystem.CornerRadius.md)
                         }
                     }
@@ -348,12 +349,14 @@ struct CitationCard: View {
                 .foregroundColor(DesignSystem.Colors.textPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
             
             if let authors = citation.authors {
                 Text(authors)
                     .font(DesignSystem.Typography.small)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                     .lineLimit(1)
+                    .truncationMode(.tail)
             }
             
             HStack {

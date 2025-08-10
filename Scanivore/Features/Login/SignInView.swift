@@ -56,7 +56,7 @@ struct SignInFeatureDomain {
                 state.email = email
                 state.emailError = nil
                 return .run { send in
-                    try await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
+                    try await Task.sleep(nanoseconds: 800_000_000) // 800ms debounce
                     await send(.validateEmail)
                 }
                 
@@ -64,20 +64,19 @@ struct SignInFeatureDomain {
                 state.password = password
                 state.passwordError = nil
                 return .run { send in
-                    try await Task.sleep(nanoseconds: 300_000_000)
+                    try await Task.sleep(nanoseconds: 800_000_000)
                     await send(.validatePassword)
                 }
                 
             case .validateEmail:
-                if !state.email.isEmpty && !isValidEmail(state.email) {
+                if !state.email.isEmpty && state.email.count > 3 && !isValidEmail(state.email) {
                     state.emailError = "Please enter a valid email address"
                 }
                 return .none
                 
             case .validatePassword:
-                if !state.password.isEmpty && state.password.count < 6 {
-                    state.passwordError = "Password must be at least 6 characters"
-                }
+                // For sign in, we don't validate password format since it was already created
+                // Just ensure it's not empty when form is submitted
                 return .none
                 
             case .signInTapped:
@@ -294,7 +293,8 @@ struct SignInView: View {
 
 // MARK: - Validation Helpers
 private func isValidEmail(_ email: String) -> Bool {
-    let emailRegex = #"^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
+    // More permissive email validation that accepts most common formats
+    let emailRegex = #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#
     return email.range(of: emailRegex, options: .regularExpression) != nil
 }
 

@@ -106,10 +106,12 @@ struct HeadlineSection: View {
                 .font(DesignSystem.Typography.heading1)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
                 .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
             
             Text(store.productBrand ?? "Brand information unavailable")
                 .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, DesignSystem.Spacing.screenPadding)

@@ -7,6 +7,14 @@
 
 import SwiftUI
 import ComposableArchitecture
+import Alamofire
+
+// MARK: - Product Detail Context
+enum ProductDetailContext: Equatable {
+    case scanned      // Product was scanned with barcode scanner
+    case explored     // Product was viewed from explore/search
+    case history      // Product was viewed from scan history
+}
 
 
 // MARK: - Product Detail Feature Domain
@@ -15,10 +23,11 @@ struct ProductDetailFeatureDomain {
     @ObservableState
     struct State: Equatable {
         let productCode: String
+        let context: ProductDetailContext  // Track how user arrived at product detail
         var productName: String?
         var productBrand: String?
         var productImageUrl: String?
-        let originalRiskRating: String? // Add original OpenFoodFacts risk rating
+        var originalRiskRating: String? // Add original OpenFoodFacts risk rating
         
         var healthAssessment: HealthAssessmentResponse?
         // Recommended swaps feature removed to fix 404 errors
@@ -126,19 +135,27 @@ struct ProductDetailFeatureDomain {
             return highRisk + moderateRisk + lowRisk
         }
         
-        init(productCode: String, productName: String? = nil, productBrand: String? = nil, productImageUrl: String? = nil, originalRiskRating: String? = nil) {
+        init(
+            productCode: String, 
+            context: ProductDetailContext,
+            productName: String? = nil, 
+            productBrand: String? = nil, 
+            productImageUrl: String? = nil, 
+            originalRiskRating: String? = nil
+        ) {
             self.productCode = productCode
+            self.context = context
             self.productName = productName
             self.productBrand = productBrand
             self.productImageUrl = productImageUrl
             self.originalRiskRating = originalRiskRating
         }
     }
-    
     enum Action: Equatable {
         case onAppear
         case loadHealthAssessment
         case healthAssessmentReceived(TaskResult<HealthAssessmentResponse>)
+        case basicProductReceived(TaskResult<Product>)
         // Recommended swaps actions removed
         case ingredientTapped(IngredientRisk)
         case dismissIngredientSheet
@@ -149,22 +166,23 @@ struct ProductDetailFeatureDomain {
     }
     
     @Dependency(\.scannedProducts) var scannedProducts
+    @Dependency(\.productGateway) var productGateway
     
     var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
             case .onAppear:
                 // Check if we already have the assessment or if it needs refresh
-                guard state.healthAssessment == nil else { return .none }
+                guard state.healthAssessment == nil else { 
+                    return Effect<Action>.none 
+                }
                 
                 // Check cache first to potentially avoid loading state (async to avoid main thread blocking)
                 return .run { [productCode = state.productCode] send in
                     if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: productCode) {
                         await send(.healthAssessmentReceived(.success(cacheResult.assessment)))
-                        
                         // Log instant performance for cache hits
                         if cacheResult.fromCache {
-                            print("🚀 ProductDetail: INSTANT cache hit - no loading needed!")
                         }
                     } else {
                         // Cache miss - proceed with network fetch
@@ -178,10 +196,7 @@ struct ProductDetailFeatureDomain {
                 
                 return .run { [productCode = state.productCode] send in
                     await send(.healthAssessmentReceived(
-                        TaskResult {
-                            @Dependency(\.productGateway) var productGateway
-                            return try await productGateway.getHealthAssessment(productCode)
-                        }
+                        TaskResult { try await productGateway.getHealthAssessment(productCode) }
                     ))
                 }
                 
@@ -202,29 +217,60 @@ struct ProductDetailFeatureDomain {
                     }
                 }
                 
-                // Save product to scan history automatically when health assessment loads successfully
-                return .run { [productCode = state.productCode] _ in
-                    let savedProduct = assessment.toSavedProduct(barcode: productCode)
-                    await scannedProducts.save(savedProduct)
-                    print("💾 ProductDetail: Saved product to history: \(savedProduct.productName)")
+                // Only save to scan history if this product was actually scanned (not just viewed)
+                if state.context == .scanned {
+                    return .run { [productCode = state.productCode] _ in
+                        let savedProduct = assessment.toSavedProduct(barcode: productCode)
+                        await scannedProducts.save(savedProduct)
+                        print("💾 ProductDetail: Saved scanned product \(productCode) to history")
+                    }
+                } else {
+                    print("👁️ ProductDetail: Product \(state.productCode) viewed from \(state.context) - not saving to scan history")
+                    return .none
                 }
                 
             case let .healthAssessmentReceived(.failure(error)):
-                print("❌ Health assessment failed for \(state.productCode): \(error)")
-                state.isLoading = false
+                 state.isLoading = false
                 
-                // Set user-friendly error message based on error type
-                if let apiError = error as? APIError {
-                    state.error = apiError.detail
-                } else {
+                 if let apiError = error as? APIError {
+                     if apiError.statusCode == -1001 {
+                        state.error = "Health assessment timed out. Basic product grade available from barcode scan."
+                     } else {
+                        state.error = apiError.detail
+                    }
+                } else if let urlError = error as? URLError, urlError.code == .timedOut {
+                    state.error = "Health assessment timed out. Basic product grade available from barcode scan."
+                 } else if let afError = error as? AFError,
+                          case .sessionTaskFailed(let underlyingError) = afError,
+                          let urlError = underlyingError as? URLError,
+                          urlError.code == .timedOut {
+                     state.error = "Health assessment timed out. Basic product grade available from barcode scan."
+                 } else {
                     state.error = "Health assessment currently unavailable. Basic product info available."
                 }
                 
-                // Health assessment failed, but continue without recommended swaps
+                // Health assessment failed - try to load basic product data as fallback
+                return .run { [productCode = state.productCode] send in
+                     await send(.basicProductReceived(
+                        TaskResult { try await productGateway.getProduct(productCode) }
+                    ))
+                }
+                
+            case let .basicProductReceived(.success(product)):
+                // Populate basic product metadata when available
+                if state.productName == nil { state.productName = product.name }
+                if state.productBrand == nil { state.productBrand = product.brand }
+                if state.productImageUrl == nil { state.productImageUrl = product.image_url }
+                if state.originalRiskRating == nil { state.originalRiskRating = product.risk_rating }
                 return .none
                 
-            // Recommended swaps functionality removed
-                
+            case let .basicProductReceived(.failure(error)):
+                // Keep graceful fallback; surface a concise message if nothing else is available
+                if state.error == nil {
+                    state.error = "Basic product info unavailable."
+                }
+                return .none
+            
             case let .ingredientTapped(ingredient):
                 state.selectedIngredient = ingredient
                 state.selectedIngredientCitations = state.healthAssessment?.citations ?? []
@@ -296,7 +342,7 @@ struct ProductDetailView: View {
                             ingredient: ingredient,
                             citations: store.selectedIngredientCitations
                         )
-                        .presentationDetents([.fraction(0.4), .medium, .large])
+                        .presentationDetents([.large])
                         .presentationDragIndicator(.visible)
                     }
                 }
@@ -544,6 +590,7 @@ struct ErrorView: View {
     func createPreviewState() -> ProductDetailFeatureDomain.State {
         var previewState = ProductDetailFeatureDomain.State(
             productCode: "0002000003197",
+            context: .scanned,
             productName: "Ground Turkey",
             productBrand: "Simple Truth Organic",
             productImageUrl: "https://example.com/turkey.jpg"

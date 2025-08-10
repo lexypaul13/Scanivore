@@ -59,27 +59,53 @@ struct DesignSystem {
         private static let cerealExtraBold = "AirbnbCereal_W_XBd"
         private static let cerealBlack = "AirbnbCereal_W_Blk"
         
+        // Helper function to create fonts with proper fallback
+        private static func customFont(_ name: String, size: CGFloat, relativeTo textStyle: Font.TextStyle) -> Font {
+            // Check if font exists, otherwise fallback to system font
+            if UIFont(name: name, size: size) != nil {
+                return Font.custom(name, size: size, relativeTo: textStyle)
+            } else {
+                // Fallback to system font with appropriate weight
+                switch name {
+                case cerealLight:
+                    return Font.system(size: size, weight: .light, design: .default)
+                case cerealBook:
+                    return Font.system(size: size, weight: .regular, design: .default)
+                case cerealMedium:
+                    return Font.system(size: size, weight: .medium, design: .default)
+                case cerealBold:
+                    return Font.system(size: size, weight: .bold, design: .default)
+                case cerealExtraBold:
+                    return Font.system(size: size, weight: .heavy, design: .default)
+                case cerealBlack:
+                    return Font.system(size: size, weight: .black, design: .default)
+                default:
+                    return Font.system(size: size, weight: .regular, design: .default)
+                }
+            }
+        }
+        
         // Text Styles - Using Airbnb Cereal Fonts with fallbacks
-        static let hero = Font.custom(cerealMedium, size: xxxxxl, relativeTo: .largeTitle)
-        static let heading1 = Font.custom(cerealMedium, size: xxxl, relativeTo: .title)
-        static let heading2 = Font.custom(cerealBook, size: xxl, relativeTo: .title2)
-        static let heading3 = Font.custom(cerealMedium, size: lg, relativeTo: .title3)
-        static let body = Font.custom(cerealBook, size: base, relativeTo: .body)
-        static let bodyMedium = Font.custom(cerealMedium, size: base, relativeTo: .body)
-        static let bodySemibold = Font.custom(cerealBold, size: base, relativeTo: .body)
-        static let caption = Font.custom(cerealBook, size: sm, relativeTo: .caption)
-        static let captionMedium = Font.custom(cerealMedium, size: sm, relativeTo: .caption)
-        static let small = Font.custom(cerealBook, size: xs, relativeTo: .caption2)
+        static let hero = customFont(cerealMedium, size: xxxxxl, relativeTo: .largeTitle)
+        static let heading1 = customFont(cerealMedium, size: xxxl, relativeTo: .title)
+        static let heading2 = customFont(cerealBook, size: xxl, relativeTo: .title2)
+        static let heading3 = customFont(cerealMedium, size: lg, relativeTo: .title3)
+        static let body = customFont(cerealBook, size: base, relativeTo: .body)
+        static let bodyMedium = customFont(cerealMedium, size: base, relativeTo: .body)
+        static let bodySemibold = customFont(cerealBold, size: base, relativeTo: .body)
+        static let caption = customFont(cerealBook, size: sm, relativeTo: .caption)
+        static let captionMedium = customFont(cerealMedium, size: sm, relativeTo: .caption)
+        static let small = customFont(cerealBook, size: xs, relativeTo: .caption2)
         
         // Special styles for prices and emphasis
-        static let price = Font.custom(cerealBold, size: base, relativeTo: .body)
-        static let priceSmall = Font.custom(cerealMedium, size: sm, relativeTo: .caption)
-        static let label = Font.custom(cerealMedium, size: xs, relativeTo: .caption2)
-        static let buttonText = Font.custom(cerealMedium, size: base, relativeTo: .body)
+        static let price = customFont(cerealBold, size: base, relativeTo: .body)
+        static let priceSmall = customFont(cerealMedium, size: sm, relativeTo: .caption)
+        static let label = customFont(cerealMedium, size: xs, relativeTo: .caption2)
+        static let buttonText = customFont(cerealMedium, size: base, relativeTo: .body)
         
         // Navigation and section styles
-        static let navigationTitle = Font.custom(cerealMedium, size: md, relativeTo: .headline)
-        static let sectionHeader = Font.custom(cerealBold, size: xs, relativeTo: .caption2)
+        static let navigationTitle = customFont(cerealMedium, size: md, relativeTo: .headline)
+        static let sectionHeader = customFont(cerealBold, size: xs, relativeTo: .caption2)
     }
     
     // MARK: - Spacing
@@ -256,5 +282,13 @@ extension View {
     
     func customNavigationTitle(_ title: String) -> some View {
         self.modifier(NavigationTitleModifier(title: title))
+    }
+    
+    // Text modifier for proper line breaking with custom fonts
+    func textLineBreaking() -> some View {
+        self
+            .fixedSize(horizontal: false, vertical: true)
+            .allowsTightening(true)
+            .minimumScaleFactor(0.9)
     }
 }

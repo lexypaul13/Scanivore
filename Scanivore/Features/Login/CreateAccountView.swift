@@ -62,7 +62,7 @@ struct CreateAccountFeatureDomain {
                 state.email = email
                 state.emailError = nil
                 return .run { send in
-                    try await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
+                    try await Task.sleep(nanoseconds: 800_000_000) // 800ms debounce
                     await send(.validateEmail)
                 }
                 
@@ -70,7 +70,7 @@ struct CreateAccountFeatureDomain {
                 state.password = password
                 state.passwordError = nil
                 return .run { send in
-                    try await Task.sleep(nanoseconds: 300_000_000)
+                    try await Task.sleep(nanoseconds: 800_000_000)
                     await send(.validatePassword)
                 }
                 
@@ -78,7 +78,7 @@ struct CreateAccountFeatureDomain {
                 state.confirmPassword = confirmPassword
                 state.confirmPasswordError = nil
                 return .run { send in
-                    try await Task.sleep(nanoseconds: 300_000_000)
+                    try await Task.sleep(nanoseconds: 800_000_000)
                     await send(.validateConfirmPassword)
                 }
                 
@@ -87,13 +87,14 @@ struct CreateAccountFeatureDomain {
                 return .none
                 
             case .validateEmail:
-                if !state.email.isEmpty && !isValidEmail(state.email) {
+                if !state.email.isEmpty && state.email.count > 3 && !isValidEmail(state.email) {
                     state.emailError = "Please enter a valid email address"
                 }
                 return .none
                 
             case .validatePassword:
-                if !state.password.isEmpty {
+                // Only validate if user has typed enough to matter
+                if !state.password.isEmpty && state.password.count >= 6 {
                     let passwordValidation = validatePassword(state.password)
                     if let error = passwordValidation {
                         state.passwordError = error
@@ -318,35 +319,34 @@ struct CreateAccountView: View {
 
 // MARK: - Validation Helpers
 private func isValidEmail(_ email: String) -> Bool {
-    let emailRegex = #"^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
+    // More permissive email validation that accepts most common formats
+    let emailRegex = #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#
     return email.range(of: emailRegex, options: .regularExpression) != nil
 }
 
 private func validatePassword(_ password: String) -> String? {
     if password.count < 8 {
-        return "Password must be at least 8 characters long"
+        return "Password must be at least 8 characters"
     }
     
     if password.count > 128 {
-        return "Password is too long (maximum 128 characters)"
+        return "Password is too long"
     }
     
-    let hasUppercase = password.range(of: "[A-Z]", options: .regularExpression) != nil
-    let hasLowercase = password.range(of: "[a-z]", options: .regularExpression) != nil
+    // Very simple validation - just check it's not entirely one type
+    let hasLetter = password.range(of: "[A-Za-z]", options: .regularExpression) != nil
     let hasNumber = password.range(of: "[0-9]", options: .regularExpression) != nil
-    let hasSpecial = password.range(of: "[!@#$%^&*(),.?\":{}|<>]", options: .regularExpression) != nil
     
-    let requirementsMet = [hasUppercase, hasLowercase, hasNumber, hasSpecial].filter { $0 }.count
-    
-    if requirementsMet < 3 {
-        return "Password must contain at least 3 of: uppercase letter, lowercase letter, number, special character"
+    // Only require EITHER a number OR a letter (not both)
+    if !hasLetter && !hasNumber {
+        return "Password must contain at least one letter or number"
     }
     
-    // Check for common weak passwords
-    let weakPasswords = ["123456789", "password", "admin", "test", "guest", "user", "qwerty", "letmein", "welcome", "monkey", "dragon"]
+    // Only check for the absolute worst passwords
+    let veryWeakPasswords = ["password", "12345678", "password123"]
     
-    if weakPasswords.contains(password.lowercased()) {
-        return "Password is too common. Please choose a more secure password"
+    if veryWeakPasswords.contains(password.lowercased()) {
+        return "This password is too common"
     }
     
     return nil

@@ -210,17 +210,24 @@ public struct IngredientsAssessment: Codable, Equatable {
 
 public struct IngredientRisk: Codable, Equatable {
     let name: String
-    let risk: String
+    let risk: String?  // Made optional to handle missing field
+    let overview: String?
     let riskLevel: String?
     
-    // Computed property for backward compatibility
+    // Computed property for backward compatibility with default value
     var microReport: String {
-        return risk
+        return risk ?? "Generally recognized as safe for consumption"
+    }
+    
+    // Computed property to always provide a risk description
+    var riskDescription: String {
+        return risk ?? overview ?? "Generally recognized as safe for consumption"
     }
     
     enum CodingKeys: String, CodingKey {
         case name
         case risk = "risk"
+        case overview = "overview"
         case riskLevel = "risk_level"
     }
 }
@@ -552,12 +559,14 @@ public extension HealthAssessmentResponse {
     func toSavedProduct(barcode: String) -> SavedProduct {
         let productName = product_info?.name ?? "Unknown Product"
         let productBrand = product_info?.brand
+        let productImageUrl = product_info?.image_url
         let meatScan = toMeatScan(barcode: barcode)
         
         return SavedProduct(
             id: barcode,
             productName: productName,
             productBrand: productBrand,
+            productImageUrl: productImageUrl,
             scanDate: Date(),
             meatScan: meatScan
         )

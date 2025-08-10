@@ -26,6 +26,7 @@ public struct SavedProduct: Codable, Equatable, Identifiable {
     public let id: String // barcode
     public let productName: String
     public let productBrand: String?
+    public let productImageUrl: String?
     public let scanDate: Date
     public let meatScan: MeatScan
     
@@ -33,12 +34,14 @@ public struct SavedProduct: Codable, Equatable, Identifiable {
         id: String,
         productName: String,
         productBrand: String?,
+        productImageUrl: String? = nil,
         scanDate: Date,
         meatScan: MeatScan
     ) {
         self.id = id
         self.productName = productName
         self.productBrand = productBrand
+        self.productImageUrl = productImageUrl
         self.scanDate = scanDate
         self.meatScan = meatScan
     }
@@ -101,11 +104,18 @@ extension ScannedProductsClient: DependencyKey {
         delete: { productId in
             @Dependency(\.fileStorage) var fileStorage
             
-            var products = await Self.liveValue.loadAll()
-            products.removeAll { $0.id == productId }
-            
-            let data = try? JSONEncoder().encode(products)
-            try? await fileStorage.save("scanned_products.json", data ?? Data())
+            do {
+                var products = await Self.liveValue.loadAll()
+                products.removeAll { $0.id == productId }
+                
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                let data = try encoder.encode(products)
+                try await fileStorage.save("scanned_products.json", data)
+            } catch {
+                print("❌ Error deleting product \(productId): \(error)")
+                // Don't save empty data on error - leave existing data intact
+            }
         },
         
         

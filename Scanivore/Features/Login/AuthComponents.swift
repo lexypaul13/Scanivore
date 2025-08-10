@@ -17,6 +17,7 @@ struct AuthTextField: View {
     let errorMessage: String?
     
     @FocusState private var isFocused: Bool
+    @State private var isPasswordVisible: Bool = false
     
     init(
         title: String,
@@ -58,20 +59,45 @@ struct AuthTextField: View {
                 
                 HStack {
                     if isSecure {
-                        SecureField(placeholder, text: $text)
-                            .font(DesignSystem.Typography.body)
-                            .focused($isFocused)
-                            .keyboardType(keyboardType)
+                        if isPasswordVisible {
+                            TextField(placeholder, text: $text)
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                                .accentColor(DesignSystem.Colors.primaryRed)
+                                .focused($isFocused)
+                                .keyboardType(keyboardType)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                        } else {
+                            SecureField(placeholder, text: $text)
+                                .font(DesignSystem.Typography.body)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                                .accentColor(DesignSystem.Colors.primaryRed)
+                                .focused($isFocused)
+                                .keyboardType(keyboardType)
+                        }
+                        
+                        Button(action: {
+                            isPasswordVisible.toggle()
+                        }) {
+                            Image(systemName: isPasswordVisible ? "eye.slash.fill" : "eye.fill")
+                                .foregroundColor(DesignSystem.Colors.textSecondary)
+                                .font(.system(size: 16))
+                        }
                     } else {
                         TextField(placeholder, text: $text)
                             .font(DesignSystem.Typography.body)
+                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                            .accentColor(DesignSystem.Colors.primaryRed)
                             .focused($isFocused)
                             .keyboardType(keyboardType)
                             .autocapitalization(.none)
                             .disableAutocorrection(true)
                     }
                     
-                    Spacer()
+                    if !isSecure {
+                        Spacer()
+                    }
                 }
                 .padding(.horizontal, DesignSystem.Components.Input.padding)
             }
