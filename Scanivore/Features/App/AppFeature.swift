@@ -130,7 +130,6 @@ struct AppFeature {
                     let loadedState = await authState.load()
                     await send(.authStateLoaded(loadedState))
                     
-                    // Show launch screen for 1.5 seconds
                     try await Task.sleep(for: .seconds(1.5))
                     await send(.launchScreenFinished)
                 }

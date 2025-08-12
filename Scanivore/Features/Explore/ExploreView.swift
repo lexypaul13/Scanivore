@@ -332,18 +332,18 @@ struct ExploreView: View {
                     }
                     .onAppear {
                         store.send(.startAutoRefreshTimer)
-                    }
-                    .onDisappear {
-                        store.send(.stopAutoRefreshTimer)
-                    }
+                }
+                .onDisappear {
+                    store.send(.stopAutoRefreshTimer)
+                }
                     .navigationDestination(
                         item: $store.scope(
                             state: \.productDetail,
                             action: \.productDetail
                         )
-                    ) { productDetailStore in
-                        ProductDetailView(store: productDetailStore)
-                    }
+                ) { productDetailStore in
+                    ProductDetailView(store: productDetailStore)
+                }
             }
         }
     }
@@ -396,7 +396,7 @@ struct ExploreView: View {
             
             Text(grade.rawValue)
                 .font(DesignSystem.Typography.captionMedium)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
             
             Button {
                 store.send(.gradeToggled(grade))
@@ -466,8 +466,8 @@ struct ExploreView: View {
             
             Text("Something went wrong")
                 .font(DesignSystem.Typography.heading3)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-            
+                                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                                    
             Text(error)
                 .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -499,8 +499,8 @@ struct ExploreView: View {
                 
                 Text("No products found")
                     .font(DesignSystem.Typography.heading3)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-                
+                                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                                
                 Text("Try searching for something else")
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textSecondary)

@@ -78,12 +78,12 @@ private struct PolicySections: View {
             
             PolicySection(
                 title: "Data Storage",
-                content: "All data is stored locally on your device. Cloud sync is optional and requires explicit consent."
+                content: "All data is stored locally on your device. There is no cloud sync or backup functionality. Your scan history never leaves your device."
             )
             
             PolicySection(
                 title: "Your Rights",
-                content: "You can delete all your data at any time through the Settings menu. You have the right to export your data in a portable format."
+                content: "You can delete all your data at any time through the Settings menu. Your scan history and preferences can be cleared instantly from your device."
             )
         }
         .font(DesignSystem.Typography.body)

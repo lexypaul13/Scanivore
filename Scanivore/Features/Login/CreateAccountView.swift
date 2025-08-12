@@ -93,7 +93,6 @@ struct CreateAccountFeatureDomain {
                 return .none
                 
             case .validatePassword:
-                // Only validate if user has typed enough to matter
                 if !state.password.isEmpty && state.password.count >= 6 {
                     let passwordValidation = validatePassword(state.password)
                     if let error = passwordValidation {
@@ -333,16 +332,13 @@ private func validatePassword(_ password: String) -> String? {
         return "Password is too long"
     }
     
-    // Very simple validation - just check it's not entirely one type
     let hasLetter = password.range(of: "[A-Za-z]", options: .regularExpression) != nil
     let hasNumber = password.range(of: "[0-9]", options: .regularExpression) != nil
     
-    // Only require EITHER a number OR a letter (not both)
     if !hasLetter && !hasNumber {
         return "Password must contain at least one letter or number"
     }
     
-    // Only check for the absolute worst passwords
     let veryWeakPasswords = ["password", "12345678", "password123"]
     
     if veryWeakPasswords.contains(password.lowercased()) {

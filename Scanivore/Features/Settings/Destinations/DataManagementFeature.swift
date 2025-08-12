@@ -14,6 +14,7 @@ public struct DataManagementFeature {
     public struct State: Equatable {
         public var totalScans: Int = 0
         public var storageUsed: String = "0 MB"
+        public var recentScans: [ScanRecord] = []
         public var isLoading: Bool = false
         public var showingDeleteConfirmation: Bool = false
         public var errorMessage: String?
@@ -28,6 +29,7 @@ public struct DataManagementFeature {
         case cancelDeleteAllData
         case dismissError
         case setDeleteConfirmation(Bool)
+        case recentScansLoaded([ScanRecord])
         
         // Async responses
         case storageInfoLoaded(TaskResult<StorageInfo>)
@@ -78,7 +80,10 @@ public struct DataManagementFeature {
                 state.isLoading = false
                 state.totalScans = info.totalScans
                 state.storageUsed = info.storageUsed
-                return .none
+                return .run { send in
+                    let scans = try await scanHistoryClient.getAllScans()
+                    await send(.recentScansLoaded(scans))
+                }
                 
             case let .storageInfoLoaded(.failure(error)):
                 state.isLoading = false
@@ -112,6 +117,7 @@ public struct DataManagementFeature {
                 if success {
                     state.totalScans = 0
                     state.storageUsed = "0 MB"
+                    state.recentScans = []
                     return .send(.delegate(.dataDeleted))
                 } else {
                     state.errorMessage = "Failed to delete data"
@@ -129,6 +135,10 @@ public struct DataManagementFeature {
                 
             case let .setDeleteConfirmation(isPresented):
                 state.showingDeleteConfirmation = isPresented
+                return .none
+                
+            case let .recentScansLoaded(scans):
+                state.recentScans = scans
                 return .none
                 
             case .delegate:
@@ -150,8 +160,30 @@ private func calculateStorageUsed(for scans: [ScanRecord]) -> String {
     return formatter.string(fromByteCount: Int64(totalBytes))
 }
 
+private func estimateProductSize(_ product: SavedProduct) -> Int {
+    var totalSize = 0
+    
+    // Basic fields (id, dates, etc) ~100 bytes
+    totalSize += 100
+    
+    // Product name and brand
+    totalSize += (product.productName.utf8.count)
+    totalSize += (product.productBrand?.utf8.count ?? 0)
+    
+    // Image URL
+    totalSize += (product.productImageUrl?.utf8.count ?? 0)
+    
+    // MeatScan data (estimated ~2KB for full assessment)
+    totalSize += 2048
+    
+    // Add some overhead for JSON structure
+    totalSize = Int(Double(totalSize) * 1.2)
+    
+    return totalSize
+}
+
 // MARK: - Mock Data Types
-public struct ScanRecord: Equatable {
+public struct ScanRecord: Equatable, Identifiable {
     public let id: String
     public let productName: String
     public let scanDate: Date
@@ -175,17 +207,24 @@ public struct ScanHistoryClient: Sendable {
 extension ScanHistoryClient: DependencyKey {
     public static let liveValue = ScanHistoryClient(
         getAllScans: {
-            // TODO: Implement actual scan history fetching
-            // This would typically fetch from CoreData or similar
-            return [
-                ScanRecord(id: "1", productName: "Ground Beef", scanDate: Date(), estimatedSize: 256000),
-                ScanRecord(id: "2", productName: "Chicken Breast", scanDate: Date(), estimatedSize: 184000),
-                // Mock data for now
-            ]
+            @Dependency(\.scannedProducts) var scannedProducts
+            
+            let savedProducts = await scannedProducts.loadAll()
+            
+            return savedProducts.map { product in
+                let estimatedSize = estimateProductSize(product)
+                
+                return ScanRecord(
+                    id: product.id,
+                    productName: product.productName,
+                    scanDate: product.scanDate,
+                    estimatedSize: estimatedSize
+                )
+            }
         },
         deleteAllScans: {
-            // TODO: Implement actual data deletion
-            // This would typically clear CoreData or similar
+            @Dependency(\.scannedProducts) var scannedProducts
+            await scannedProducts.clearAll()
         }
     )
     

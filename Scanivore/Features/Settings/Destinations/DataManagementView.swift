@@ -58,6 +58,10 @@ private struct DataManagementContent: View {
                 storageUsed: store.storageUsed
             )
             
+            if store.totalScans > 0 {
+                RecentScansSection(store: store)
+            }
+            
             ActionsSection(store: store)
         }
         .scrollContentBackground(.hidden)
@@ -101,13 +105,72 @@ private struct StorageInfoRow: View {
     }
 }
 
+// MARK: - Recent Scans Section
+private struct RecentScansSection: View {
+    let store: StoreOf<DataManagementFeature>
+    
+    var body: some View {
+        Section("Recent Scans") {
+            ForEach(store.recentScans.prefix(5)) { scan in
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(scan.productName)
+                            .font(DesignSystem.Typography.body)
+                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                        
+                        Text(formatScanDate(scan.scanDate))
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    }
+                    
+                    Spacer()
+                    
+                    if let size = scan.estimatedSize {
+                        Text(formatBytes(size))
+                            .font(DesignSystem.Typography.caption)
+                            .foregroundColor(DesignSystem.Colors.textSecondary)
+                    }
+                }
+            }
+            
+            if store.totalScans > 5 {
+                HStack {
+                    Text("And \(store.totalScans - 5) more...")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
+            }
+        }
+        .listRowBackground(DesignSystem.Colors.background)
+    }
+    
+    private func formatScanDate(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+    
+    private func formatBytes(_ bytes: Int) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useKB, .useMB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: Int64(bytes))
+    }
+}
+
 // MARK: - Actions Section
 private struct ActionsSection: View {
     let store: StoreOf<DataManagementFeature>
     
     var body: some View {
         Section("Actions") {
-            DeleteAllDataButton(store: store)
+            if store.totalScans > 0 {
+                DeleteAllDataButton(store: store)
+            } else {
+                Text("No scan data to manage")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+            }
         }
         .listRowBackground(DesignSystem.Colors.background)
     }

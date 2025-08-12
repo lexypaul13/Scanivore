@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Auth Text Field
 struct AuthTextField: View {
     let title: String
     let placeholder: String
@@ -37,12 +36,10 @@ struct AuthTextField: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-            // Field label
             Text(title)
                 .font(DesignSystem.Typography.bodyMedium)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
             
-            // Input field
             ZStack {
                 RoundedRectangle(cornerRadius: DesignSystem.Components.Input.cornerRadius)
                     .fill(DesignSystem.Colors.background)
@@ -102,7 +99,6 @@ struct AuthTextField: View {
                 .padding(.horizontal, DesignSystem.Components.Input.padding)
             }
             
-            // Error message
             if let errorMessage = errorMessage {
                 Text(errorMessage)
                     .font(DesignSystem.Typography.caption)
@@ -115,7 +111,6 @@ struct AuthTextField: View {
     }
 }
 
-// MARK: - Auth Button
 struct AuthButton: View {
     let title: String
     let isLoading: Bool

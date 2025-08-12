@@ -84,7 +84,7 @@ struct GradeFilterView: View {
     private func gradeIndicator(for grade: SafetyGrade) -> some View {
         Circle()
             .fill(gradeColor(for: grade))
-            .frame(width: 100, height: 100)
+            .frame(width: 24, height: 24)
     }
     
     private func gradeColor(for grade: SafetyGrade) -> Color {
