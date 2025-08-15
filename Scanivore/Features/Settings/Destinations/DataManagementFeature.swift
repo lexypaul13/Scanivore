@@ -163,8 +163,8 @@ private func calculateStorageUsed(for scans: [ScanRecord]) -> String {
 private func estimateProductSize(_ product: SavedProduct) -> Int {
     var totalSize = 0
     
-    // Basic fields (id, dates, etc) ~100 bytes
-    totalSize += 100
+    // Basic fields (id, dates, version, etc) ~150 bytes
+    totalSize += 150
     
     // Product name and brand
     totalSize += (product.productName.utf8.count)
@@ -173,11 +173,22 @@ private func estimateProductSize(_ product: SavedProduct) -> Int {
     // Image URL
     totalSize += (product.productImageUrl?.utf8.count ?? 0)
     
-    // MeatScan data (estimated ~2KB for full assessment)
-    totalSize += 2048
+    // MeatScan data (simplified assessment ~1KB)
+    totalSize += 1024
     
-    // Add some overhead for JSON structure
-    totalSize = Int(Double(totalSize) * 1.2)
+    // Full HealthAssessmentResponse if present (v2 products)
+    if product.healthAssessment != nil {
+        // Health assessment includes:
+        // - Summary text (~500 bytes)
+        // - Ingredients assessment (~2KB)
+        // - Nutrition data (~1KB)
+        // - Citations (~1KB)
+        // - Product info (~500 bytes)
+        totalSize += 5120 // ~5KB for full assessment
+    }
+    
+    // Add overhead for JSON structure and encoding
+    totalSize = Int(Double(totalSize) * 1.3)
     
     return totalSize
 }

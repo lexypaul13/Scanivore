@@ -7,6 +7,7 @@
 
 import Foundation
 import Security
+import CryptoKit
 
 // MARK: - Token Manager
 public final class TokenManager {
@@ -123,9 +124,11 @@ public final class TokenManager {
             return false
         }
         
-        // Note: For production, implement proper signature verification
-        // This requires the server's public key or shared secret
-        return true
+        return verifyJWTSignature(
+            header: components[0],
+            payload: components[1],
+            signature: components[2]
+        )
     }
     
     private func validateJWTHeader(_ headerComponent: String) -> Bool {
@@ -136,8 +139,12 @@ public final class TokenManager {
             return false
         }
         
-        // Ensure proper algorithm and type
-        return alg == "HS256" && typ == "JWT"
+        guard alg == "HS256" && typ == "JWT" else {
+            print("🔒 JWT: Invalid algorithm or type - Expected HS256/JWT, got \(alg)/\(typ)")
+            return false
+        }
+        
+        return true
     }
     
     private func validateJWTPayload(_ payloadComponent: String) -> Bool {
@@ -177,6 +184,59 @@ public final class TokenManager {
         }
         
         return true
+    }
+    
+    private func verifyJWTSignature(header: String, payload: String, signature: String) -> Bool {
+        guard let signatureData = decodeBase64URLComponent(signature) else {
+            print("🔒 JWT: Failed to decode signature")
+            return false
+        }
+        
+        let message = "\(header).\(payload)"
+        guard let messageData = message.data(using: .utf8) else {
+            print("🔒 JWT: Failed to encode message")
+            return false
+        }
+        
+        let jwtSecret = APIConfiguration.jwtSecret
+        guard jwtSecret != "REPLACE_WITH_ACTUAL_SERVER_SECRET_IN_PRODUCTION" else {
+            print("🔒 JWT: Production secret not configured - signature verification disabled")
+            #if DEBUG
+            print("⚠️ JWT: DEVELOPMENT MODE - Skipping signature verification")
+            return true
+            #else
+            return false
+            #endif
+        }
+        
+        guard let secretData = jwtSecret.data(using: .utf8) else {
+            print("🔒 JWT: Failed to encode secret")
+            return false
+        }
+        
+        let key = SymmetricKey(data: secretData)
+        let computedSignature = HMAC<SHA256>.authenticationCode(for: messageData, using: key)
+        let computedSignatureData = Data(computedSignature)
+        let isValid = constantTimeEquals(computedSignatureData, signatureData)
+        
+        if !isValid {
+            print("🔒 JWT: Signature verification failed")
+        } else {
+            print("🔒 JWT: Signature verified successfully")
+        }
+        
+        return isValid
+    }
+    
+    private func constantTimeEquals(_ lhs: Data, _ rhs: Data) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        
+        var result: UInt8 = 0
+        for i in 0..<lhs.count {
+            result |= lhs[i] ^ rhs[i]
+        }
+        
+        return result == 0
     }
     
     private func decodeBase64URLComponent(_ component: String) -> Data? {

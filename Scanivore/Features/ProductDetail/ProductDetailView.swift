@@ -172,20 +172,30 @@ struct ProductDetailFeatureDomain {
         Reduce { state, action in
             switch action {
             case .onAppear:
-                // Check if we already have the assessment or if it needs refresh
-                guard state.healthAssessment == nil else { 
+                // Check if we already have the assessment (from history) or if it needs refresh
+                guard state.healthAssessment == nil else {
+                    // Already have assessment from saved history - no network call needed
+                    print("📱 ProductDetail: Using local health assessment for \(state.productCode)")
                     return Effect<Action>.none 
                 }
                 
-                // Check cache first to potentially avoid loading state (async to avoid main thread blocking)
-                return .run { [productCode = state.productCode] send in
-                    if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: productCode) {
-                        await send(.healthAssessmentReceived(.success(cacheResult.assessment)))
-                        // Log instant performance for cache hits
-                        if cacheResult.fromCache {
+                // For non-history items, check cache first
+                if state.context != .history {
+                    return .run { [productCode = state.productCode] send in
+                        if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: productCode) {
+                            await send(.healthAssessmentReceived(.success(cacheResult.assessment)))
+                            if cacheResult.fromCache {
+                                print("💾 ProductDetail: Using cached assessment for \(productCode)")
+                            }
+                        } else {
+                            // Cache miss - proceed with network fetch
+                            await send(.loadHealthAssessment)
                         }
-                    } else {
-                        // Cache miss - proceed with network fetch
+                    }
+                } else {
+                    // History item without assessment (old version) - try network as fallback
+                    print("⚠️ ProductDetail: History item missing assessment, fetching from network")
+                    return .run { send in
                         await send(.loadHealthAssessment)
                     }
                 }

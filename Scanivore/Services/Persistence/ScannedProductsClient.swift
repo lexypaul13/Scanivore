@@ -29,6 +29,8 @@ public struct SavedProduct: Codable, Equatable, Identifiable {
     public let productImageUrl: String?
     public let scanDate: Date
     public let meatScan: MeatScan
+    public let healthAssessment: HealthAssessmentResponse? // Full assessment for offline viewing
+    public let version: Int // For migration handling
     
     public init(
         id: String,
@@ -36,7 +38,9 @@ public struct SavedProduct: Codable, Equatable, Identifiable {
         productBrand: String?,
         productImageUrl: String? = nil,
         scanDate: Date,
-        meatScan: MeatScan
+        meatScan: MeatScan,
+        healthAssessment: HealthAssessmentResponse? = nil,
+        version: Int = 2
     ) {
         self.id = id
         self.productName = productName
@@ -44,6 +48,27 @@ public struct SavedProduct: Codable, Equatable, Identifiable {
         self.productImageUrl = productImageUrl
         self.scanDate = scanDate
         self.meatScan = meatScan
+        self.healthAssessment = healthAssessment
+        self.version = version
+    }
+    
+    // Coding keys for backward compatibility
+    enum CodingKeys: String, CodingKey {
+        case id, productName, productBrand, productImageUrl, scanDate, meatScan
+        case healthAssessment, version
+    }
+    
+    // Custom decoder for backward compatibility
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.productName = try container.decode(String.self, forKey: .productName)
+        self.productBrand = try container.decodeIfPresent(String.self, forKey: .productBrand)
+        self.productImageUrl = try container.decodeIfPresent(String.self, forKey: .productImageUrl)
+        self.scanDate = try container.decode(Date.self, forKey: .scanDate)
+        self.meatScan = try container.decode(MeatScan.self, forKey: .meatScan)
+        self.healthAssessment = try container.decodeIfPresent(HealthAssessmentResponse.self, forKey: .healthAssessment)
+        self.version = try container.decodeIfPresent(Int.self, forKey: .version) ?? 1
     }
 }
 

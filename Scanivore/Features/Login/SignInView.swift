@@ -103,10 +103,6 @@ struct SignInFeatureDomain {
                     // Show success alert with debug info
                     state.errorMessage = "✅ Login Successful! Check console for token info."
                     
-                    // Also print to console
-                    print("🎉 LOGIN SUCCESS!")
-                    print("📧 Logged in successfully")
-                    print("✅ Token stored in Keychain")
                     
                     return .run { send in
                         // Clear success message after delay

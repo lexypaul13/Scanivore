@@ -568,7 +568,9 @@ public extension HealthAssessmentResponse {
             productBrand: productBrand,
             productImageUrl: productImageUrl,
             scanDate: Date(),
-            meatScan: meatScan
+            meatScan: meatScan,
+            healthAssessment: self, // Store full assessment for offline viewing
+            version: 2
         )
     }
 }
