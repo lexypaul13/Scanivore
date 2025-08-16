@@ -86,16 +86,14 @@ struct HistoryFeatureDomain {
                 return .none
                 
             case let .productTapped(product):
-                var productDetailState = ProductDetailFeatureDomain.State(
+                state.destination = .productDetail(ProductDetailFeatureDomain.State(
                     productCode: product.id,
                     context: .history,
                     productName: product.productName,
                     productBrand: product.productBrand,
-                    productImageUrl: product.productImageUrl
-                )
-                // Pass stored health assessment for offline viewing
-                productDetailState.healthAssessment = product.healthAssessment
-                state.destination = .productDetail(productDetailState)
+                    productImageUrl: product.productImageUrl,
+                    healthAssessment: product.healthAssessment
+                ))
                 return .none
                 
             case .destination:

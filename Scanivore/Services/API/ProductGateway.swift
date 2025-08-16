@@ -43,10 +43,12 @@ extension ProductGateway: DependencyKey {
             let headers = try await createAuthHeaders()
             let url = "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)"
             
+            #if DEBUG
             if APIConfiguration.shouldLogNetworkRequests {
-                print("🔍 Fetching basic product for barcode: \(barcode)")
-                print("🌐 URL: \(url)")
+                print("🔍 Fetching basic product for barcode: [REDACTED]")
+                print("🌐 URL: [REDACTED]")
             }
+            #endif
             
             let response = try await sharedOptimizedSession.request(
                 url,
@@ -57,10 +59,12 @@ extension ProductGateway: DependencyKey {
             .serializingData()
             .value
             
+            #if DEBUG
             // Log response size for debugging (avoid expensive string conversion)
             if APIConfiguration.shouldLogAPIResponses {
                 print("📄 Product response: \(response.count) bytes")
             }
+            #endif
             
             // Decode JSON on background queue to avoid main thread blocking
             let product = try await Task.detached(priority: .userInitiated) {
@@ -102,11 +106,13 @@ extension ProductGateway: DependencyKey {
         getHealthAssessment: { barcode in
             // Check cache first with performance-aware feedback (async to avoid main thread blocking)
             if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: barcode) {
+                #if DEBUG
                 if cacheResult.fromCache {
                     if APIConfiguration.shouldLogAPIResponses {
                         print("🚀 INSTANT response from cache (0.00s) - 94% optimization active!")
                     }
                 }
+                #endif
                 return cacheResult.assessment
             }
             
@@ -114,12 +120,14 @@ extension ProductGateway: DependencyKey {
             let headers = try await createAuthHeaders()
             let url = "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)/health-assessment-mcp?format=\(APIConfiguration.ResponseFormat.mobile)"
             
+            #if DEBUG
             if APIConfiguration.shouldLogNetworkRequests {
-                print("🔍 Fetching health assessment for barcode: \(barcode)")
-                print("🌐 URL: \(url)")
-                print("⚡ Expected response time: ~5s (94% faster backend)")
-                print("📦 Expected payload: ~1.2KB (49.9% reduction from 2.3KB with citation webview support)")
+                print("🔍 Fetching health assessment for barcode: [REDACTED]")
+                print("🌐 URL: [REDACTED]")
+                print("⚡ Expected response time: ~5s")
+                print("📦 Expected payload: ~1.2KB")
             }
+            #endif
             
             let startTime = Date()
             var lastError: Error?
@@ -129,9 +137,11 @@ extension ProductGateway: DependencyKey {
             for attempt in 0...maxRetries {
                 do {
                     if attempt > 0 {
+                        #if DEBUG
                         if APIConfiguration.shouldLogNetworkRequests {
-                        print("🔄 Retry attempt \(attempt) of \(maxRetries) for health assessment")
-                    }
+                            print("🔄 Retry attempt \(attempt) of \(maxRetries) for health assessment")
+                        }
+                        #endif
                         // Exponential backoff: 1s, 2s
                         try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
                     }
@@ -145,26 +155,28 @@ extension ProductGateway: DependencyKey {
                     .serializingData()
                     .value
                 
+                    #if DEBUG
                     // Log response size for debugging and validate mobile optimization
                     let responseSizeKB = Double(response.count) / 1024
                     if APIConfiguration.shouldLogAPIResponses {
                         print("📄 Health assessment response: \(response.count) bytes (\(String(format: "%.1f", responseSizeKB)) KB)")
                         
-                        // Validate mobile optimization - expected ~1.2KB with 49.9% reduction
-                        if response.count <= 1500 {  // ~1.5KB tolerance
-                            print("✅ Mobile optimization ACTIVE: \(String(format: "%.1f", responseSizeKB))KB payload (49.9% reduction from 2.3KB)")
-                        } else if response.count <= 2500 {  // ~2.5KB
+                        // Validate mobile optimization
+                        if response.count <= 1500 {
+                            print("✅ Mobile optimization ACTIVE: \(String(format: "%.1f", responseSizeKB))KB payload")
+                        } else if response.count <= 2500 {
                             print("⚠️ Mobile optimization partially active: \(String(format: "%.1f", responseSizeKB))KB payload")
                         } else {
-                            print("🚨 Mobile optimization NOT ACTIVE: \(String(format: "%.1f", responseSizeKB))KB payload - expected ~1.2KB")
+                            print("🚨 Mobile optimization NOT ACTIVE: \(String(format: "%.1f", responseSizeKB))KB payload")
                         }
                         
-                        // Warn about large responses that could cause performance issues
-                        if response.count > 500_000 {  // 500KB
+                        // Warn about large responses
+                        if response.count > 500_000 {
                             let responseSizeMB = Double(response.count) / (1024 * 1024)
-                            print("⚠️ WARNING: Large response detected (\(String(format: "%.2f", responseSizeMB)) MB) - potential performance impact")
+                            print("⚠️ WARNING: Large response detected (\(String(format: "%.2f", responseSizeMB)) MB)")
                         }
                     }
+                    #endif
                     
                     // Decode JSON on background queue to avoid main thread blocking
                     let decodedResponse = try await Task.detached(priority: .userInitiated) {
@@ -172,11 +184,13 @@ extension ProductGateway: DependencyKey {
                         return try decoder.decode(HealthAssessmentResponse.self, from: response)
                     }.value
                     
+                    #if DEBUG
                     // Log actual performance
                     if APIConfiguration.shouldLogAPIResponses {
                         let actualTime = Date().timeIntervalSince(startTime)
-                        print("⚡ Health assessment completed in \(String(format: "%.2f", actualTime))s (Expected: ~5s)")
+                        print("⚡ Health assessment completed in \(String(format: "%.2f", actualTime))s")
                     }
+                    #endif
                     
                     // Cache the response for future instant access (async to avoid main thread blocking)
                     await HealthAssessmentCache.shared.cacheAssessment(decodedResponse, for: barcode)
@@ -199,7 +213,9 @@ extension ProductGateway: DependencyKey {
                     }
                     
                     if isTimeoutError {
-                        print("⏱️ Request timed out for \(barcode) (attempt \(attempt + 1)/\(maxRetries + 1)) - Network or server delay")
+                        #if DEBUG
+                        print("⏱️ Request timed out for [REDACTED] (attempt \(attempt + 1)/\(maxRetries + 1))")
+                        #endif
                         if attempt < maxRetries {
                             // Wait longer between retries for timeout issues
                             try await Task.sleep(nanoseconds: UInt64((attempt + 1) * 2) * 1_000_000_000) // 2s, 4s
@@ -207,8 +223,10 @@ extension ProductGateway: DependencyKey {
                         }
                     }
                     
+                    #if DEBUG
                     // For non-timeout errors, don't retry
-                    print("❌ Health assessment failed for \(barcode): \(error)")
+                    print("❌ Health assessment failed: \(error)")
+                    #endif
                     break
                 }
             }
@@ -229,7 +247,9 @@ extension ProductGateway: DependencyKey {
                 }
                 
                 if isTimeoutError {
-                    print("⏱️ All retry attempts failed - request timed out for \(barcode)")
+                    #if DEBUG
+                    print("⏱️ All retry attempts failed - request timed out")
+                    #endif
                     throw APIError(
                         detail: "Health assessment is taking longer than usual. Please try again or check your network connection.",
                         statusCode: -1001
@@ -240,7 +260,9 @@ extension ProductGateway: DependencyKey {
                 if let afError = error as? AFError {
                     switch afError {
                     case .responseValidationFailed(reason: .unacceptableStatusCode(code: let statusCode)):
+                        #if DEBUG
                         print("❌ HTTP \(statusCode) error for health assessment")
+                        #endif
                         
                         // For API failures, throw a descriptive error
                         if statusCode >= 500 {
@@ -406,9 +428,11 @@ extension ProductGateway: DependencyKey {
         getExploreRecommendations: { offset, limit in
             let headers = try await createAuthHeaders()
             
+            #if DEBUG
             if APIConfiguration.shouldLogNetworkRequests {
                 print("🔍 Requesting user explore: offset=\(offset), limit=\(limit)")
             }
+            #endif
             
             do {
                 let userExploreResponse = try await sharedOptimizedSession.request(
@@ -421,9 +445,11 @@ extension ProductGateway: DependencyKey {
                 .serializingDecodable(UserExploreResponse.self)
                 .value
                 
+                #if DEBUG
                 if APIConfiguration.shouldLogAPIResponses {
                     print("✅ User explore success: got \(userExploreResponse.recommendations.count) items")
                 }
+                #endif
                 
                 // Strip image_data from user explore results to prevent massive memory usage
                 let optimizedProducts = userExploreResponse.recommendations.map { product in
@@ -474,6 +500,7 @@ extension ProductGateway: DependencyKey {
                     limit: userExploreResponse.limit
                 )
             } catch {
+                #if DEBUG
                 if APIConfiguration.shouldLogNetworkRequests {
                     print("❌ User explore failed: \(error)")
                     if let urlError = error as? URLError {
@@ -481,6 +508,7 @@ extension ProductGateway: DependencyKey {
                         print("   URLError description: \(urlError.localizedDescription)")
                     }
                 }
+                #endif
                 throw error
             }
         }

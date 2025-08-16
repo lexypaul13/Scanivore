@@ -91,11 +91,13 @@ struct ScannerFeatureDomain {
                 guard state.scanState == .idle else { return .none }
                 
                 state.scanState = .requestingPermission
-                print("🔍 Scanner: View appeared, requesting camera permission")
+                // Camera permission request initiated
                 
                 return .run { send in
                     let permissionStatus = await barcodeScanner.requestCameraPermission()
+                    #if DEBUG
                     print("🔍 Scanner: Permission status: \(permissionStatus)")
+                    #endif
                     await send(.permissionReceived(permissionStatus))
                 }
                 
@@ -112,7 +114,9 @@ struct ScannerFeatureDomain {
                 switch status {
                 case .granted:
                     state.scanState = .preparing
+                    #if DEBUG
                     print("🔍 Scanner: Permission granted, starting session")
+                    #endif
                     
                     return .run { send in
                         // Small delay to show preparing state
@@ -123,11 +127,16 @@ struct ScannerFeatureDomain {
                         for await event in AsyncStream<ScannerEvent> { continuation in
                             barcodeScanner.startScanning(
                                 { barcode in
-                                    print("🔍 Scanner: Barcode detected: \(barcode)")
+                                    #if DEBUG && ENABLE_VERBOSE_BARCODE_LOGGING
+                                    // SECURITY: Barcode value redacted to prevent PII logging
+                                    print("🔍 Scanner: Barcode detected: [REDACTED]")
+                                    #endif
                                     continuation.yield(.barcodeDetected(barcode))
                                 },
                                 { error in
+                                    #if DEBUG
                                     print("🔍 Scanner: Error occurred: \(error)")
+                                    #endif
                                     continuation.yield(.scanFailed(error))
                                 }
                             )
@@ -172,11 +181,7 @@ struct ScannerFeatureDomain {
                 state.destination = .productDetail(
                     ProductDetailFeatureDomain.State(
                         productCode: barcode,
-                        context: .scanned,
-                        productName: nil,
-                        productBrand: nil,
-                        productImageUrl: nil,
-                        originalRiskRating: nil
+                        context: .scanned
                     )
                 )
                 state.scanState = .scanning

@@ -122,7 +122,6 @@ public struct SettingsFeature {
         Reduce { state, action in
             switch action {
             case .onAppear:
-                print("Settings onAppear triggered")
                 return .send(.loadUserInfo)
                 
             case .loadUserInfo:

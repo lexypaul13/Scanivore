@@ -141,7 +141,8 @@ struct ProductDetailFeatureDomain {
             productName: String? = nil, 
             productBrand: String? = nil, 
             productImageUrl: String? = nil, 
-            originalRiskRating: String? = nil
+            originalRiskRating: String? = nil,
+            healthAssessment: HealthAssessmentResponse? = nil
         ) {
             self.productCode = productCode
             self.context = context
@@ -149,6 +150,7 @@ struct ProductDetailFeatureDomain {
             self.productBrand = productBrand
             self.productImageUrl = productImageUrl
             self.originalRiskRating = originalRiskRating
+            self.healthAssessment = healthAssessment
         }
     }
     enum Action: Equatable {

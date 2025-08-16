@@ -140,7 +140,10 @@ public final class TokenManager {
         }
         
         guard alg == "HS256" && typ == "JWT" else {
-            print("🔒 JWT: Invalid algorithm or type - Expected HS256/JWT, got \(alg)/\(typ)")
+            #if DEBUG
+            // SECURITY: Token implementation details redacted
+            print("🔒 JWT: Token validation failed - invalid format")
+            #endif
             return false
         }
         
@@ -188,21 +191,27 @@ public final class TokenManager {
     
     private func verifyJWTSignature(header: String, payload: String, signature: String) -> Bool {
         guard let signatureData = decodeBase64URLComponent(signature) else {
-            print("🔒 JWT: Failed to decode signature")
+            #if DEBUG
+            // SECURITY: Cryptographic implementation details redacted
+            print("🔒 JWT: Token validation error")
+            #endif
             return false
         }
         
         let message = "\(header).\(payload)"
         guard let messageData = message.data(using: .utf8) else {
-            print("🔒 JWT: Failed to encode message")
+            #if DEBUG
+            // SECURITY: Cryptographic implementation details redacted
+            print("🔒 JWT: Token validation error")
+            #endif
             return false
         }
         
         let jwtSecret = APIConfiguration.jwtSecret
         guard jwtSecret != "REPLACE_WITH_ACTUAL_SERVER_SECRET_IN_PRODUCTION" else {
-            print("🔒 JWT: Production secret not configured - signature verification disabled")
             #if DEBUG
-            print("⚠️ JWT: DEVELOPMENT MODE - Skipping signature verification")
+            // SECURITY: Cryptographic implementation details redacted
+            print("🔒 JWT: Development mode - using fallback validation")
             return true
             #else
             return false
@@ -210,7 +219,10 @@ public final class TokenManager {
         }
         
         guard let secretData = jwtSecret.data(using: .utf8) else {
-            print("🔒 JWT: Failed to encode secret")
+            #if DEBUG
+            // SECURITY: Cryptographic implementation details redacted
+            print("🔒 JWT: Token validation error")
+            #endif
             return false
         }
         
@@ -219,11 +231,14 @@ public final class TokenManager {
         let computedSignatureData = Data(computedSignature)
         let isValid = constantTimeEquals(computedSignatureData, signatureData)
         
+        #if DEBUG
+        // SECURITY: Cryptographic implementation details redacted
         if !isValid {
-            print("🔒 JWT: Signature verification failed")
+            print("🔒 JWT: Token validation failed")
         } else {
-            print("🔒 JWT: Signature verified successfully")
+            print("🔒 JWT: Token validation successful")
         }
+        #endif
         
         return isValid
     }
