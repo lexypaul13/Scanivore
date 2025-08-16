@@ -15,7 +15,6 @@ struct CreateAccountFeatureDomain {
     struct State: Equatable {
         var email = ""
         var password = ""
-        var confirmPassword = ""
         var fullName = ""
         var isLoading = false
         var errorMessage: String?
@@ -23,29 +22,24 @@ struct CreateAccountFeatureDomain {
         // Validation states
         var emailError: String?
         var passwordError: String?
-        var confirmPasswordError: String?
         
         var isFormValid: Bool {
             !email.isEmpty &&
             !password.isEmpty &&
-            !confirmPassword.isEmpty &&
             emailError == nil &&
-            passwordError == nil &&
-            confirmPasswordError == nil
+            passwordError == nil
         }
     }
     
     enum Action: Equatable {
         case emailChanged(String)
         case passwordChanged(String)
-        case confirmPasswordChanged(String)
         case fullNameChanged(String)
         case createAccountTapped
         case backTapped
         case clearError
         case validateEmail
         case validatePassword
-        case validateConfirmPassword
         case createAccountResponse(TaskResult<Bool>)
         
         enum Delegate: Equatable {
@@ -74,14 +68,6 @@ struct CreateAccountFeatureDomain {
                     await send(.validatePassword)
                 }
                 
-            case let .confirmPasswordChanged(confirmPassword):
-                state.confirmPassword = confirmPassword
-                state.confirmPasswordError = nil
-                return .run { send in
-                    try await Task.sleep(nanoseconds: 800_000_000)
-                    await send(.validateConfirmPassword)
-                }
-                
             case let .fullNameChanged(fullName):
                 state.fullName = fullName
                 return .none
@@ -98,12 +84,6 @@ struct CreateAccountFeatureDomain {
                     if let error = passwordValidation {
                         state.passwordError = error
                     }
-                }
-                return .none
-                
-            case .validateConfirmPassword:
-                if !state.confirmPassword.isEmpty && state.password != state.confirmPassword {
-                    state.confirmPasswordError = "Passwords do not match"
                 }
                 return .none
                 
@@ -238,18 +218,6 @@ struct CreateAccountView: View {
                                 ),
                                 isSecure: true,
                                 errorMessage: store.passwordError
-                            )
-                            
-                            // Confirm password field
-                            AuthTextField(
-                                title: "Confirm Password",
-                                placeholder: "Confirm your password",
-                                text: .init(
-                                    get: { store.confirmPassword },
-                                    set: { store.send(.confirmPasswordChanged($0)) }
-                                ),
-                                isSecure: true,
-                                errorMessage: store.confirmPasswordError
                             )
                             
                             // Error message
