@@ -149,6 +149,11 @@ struct ScanScreenView: View {
                     .fill(DesignSystem.Colors.background)
                     .frame(width: 280, height: 280)
                     .shadow(color: DesignSystem.Colors.shadowMedium, radius: 8, x: 0, y: 4)
+                    .overlay(
+                        Circle()
+                            .stroke(DesignSystem.Colors.primaryRed, lineWidth: 3)
+                            .frame(width: 280, height: 280)
+                    )
                 
                 // Main animation container
                 ZStack {
@@ -253,6 +258,11 @@ struct GradeScreenView: View {
                     .fill(DesignSystem.Colors.background)
                     .frame(width: 280, height: 280)
                     .shadow(color: DesignSystem.Colors.shadowMedium, radius: 8, x: 0, y: 4)
+                    .overlay(
+                        Circle()
+                            .stroke(DesignSystem.Colors.primaryRed, lineWidth: 3)
+                            .frame(width: 280, height: 280)
+                    )
                 
                 VStack(spacing: DesignSystem.Spacing.xl) {
                     // Animated grade dial
@@ -264,9 +274,11 @@ struct GradeScreenView: View {
                         
                         // Scrambling grade text
                         Text(gradeText)
-                            .font(DesignSystem.Typography.heading1)
+                            .font(gradeText == "Excellent" ? DesignSystem.Typography.heading2 : DesignSystem.Typography.heading1)
                             .foregroundColor(circleColor)
                             .rotationEffect(.degrees(gradeRotation))
+                            .minimumScaleFactor(0.7)
+                            .lineLimit(1)
                     }
                     
                     // Quality indicators with staggered animation
@@ -400,6 +412,11 @@ struct ChooseScreenView: View {
                     .fill(DesignSystem.Colors.background)
                     .frame(width: 280, height: 280)
                     .shadow(color: DesignSystem.Colors.shadowMedium, radius: 8, x: 0, y: 4)
+                    .overlay(
+                        Circle()
+                            .stroke(DesignSystem.Colors.primaryRed, lineWidth: 3)
+                            .frame(width: 280, height: 280)
+                    )
                 
                 ZStack {
                     HStack(spacing: DesignSystem.Spacing.lg) {
@@ -850,10 +867,11 @@ struct GradeBadge: View {
         ZStack {
             Circle()
                 .fill(isGood ? DesignSystem.Colors.success : DesignSystem.Colors.error)
-                .frame(width: 20, height: 20)
+                .frame(width: 24, height: 24)
             
-            Text(isGood ? "Excellent" : "Bad")
-                .font(DesignSystem.Typography.small)
+            Text(isGood ? "A" : "F")
+                .font(DesignSystem.Typography.captionMedium)
+                .fontWeight(.bold)
                 .foregroundColor(.white)
         }
     }
