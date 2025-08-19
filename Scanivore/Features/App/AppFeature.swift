@@ -190,6 +190,10 @@ struct AppFeature {
                 state.authFlow = .login
                 return .none
                 
+            case .createAccount(.delegate(.navigateToSignIn)):
+                state.authFlow = .signIn
+                return .none
+                
             case .createAccount:
                 return .none
                 

@@ -73,7 +73,6 @@ public struct SettingsFeature {
         
         // Navigation actions
         case dataManagementTapped
-        case aboutTapped
         case disclaimerTapped
         case privacyTapped
         case preferencesTapped
@@ -110,7 +109,6 @@ public struct SettingsFeature {
     @Reducer(state: .equatable)
     public enum Destination {
         case dataManagement(DataManagementFeature)
-        case about(AboutFeature)
         case disclaimer(DisclaimerFeature)
         case privacy(PrivacyFeature)
         case preferences(PreferencesFeature)
@@ -183,10 +181,6 @@ public struct SettingsFeature {
                 
             case .dataManagementTapped:
                 state.destination = .dataManagement(DataManagementFeature.State())
-                return .none
-                
-            case .aboutTapped:
-                state.destination = .about(AboutFeature.State())
                 return .none
                 
             case .disclaimerTapped:
@@ -316,94 +310,98 @@ struct SettingsView: View {
     
     var body: some View {
         NavigationStack {
-            settingsContent
-                .navigationModifiers(store: store)
-                .navigationDestinations(store: store)
-                .alerts(store: store)
-        }
-    }
-    
-    private var settingsContent: some View {
-        ZStack {
-            DesignSystem.Colors.backgroundSecondary
-                .ignoresSafeArea()
-            
-            Form {
-                ProfileSection(store: store)
-                if store.isSignedIn {
-                    AccountActionsSection(store: store)
+            ZStack {
+                DesignSystem.Colors.backgroundSecondary
+                    .ignoresSafeArea()
+                
+                Form {
+                    ProfileSection(store: store)
+                    if store.isSignedIn {
+                        AccountActionsSection(store: store)
+                    }
+                    DataPrivacySection(store: store)
+                    SupportSection()
+                    InfoSection(store: store)
                 }
-                DataPrivacySection(store: store)
-                SupportSection()
-                InfoSection(store: store)
+                .scrollContentBackground(.hidden)
             }
-            .scrollContentBackground(.hidden)
-        }
-    }
-}
-
-// MARK: - View Modifiers Extensions
-private extension View {
-    func navigationModifiers(store: StoreOf<SettingsFeature>) -> some View {
-        self
             .customNavigationTitle("Settings")
             .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .onAppear {
                 store.send(.onAppear)
             }
-    }
-    
-    func navigationDestinations(store: Bindable<StoreOf<SettingsFeature>>) -> some View {
-        self
-            .navigationDestination(item: store.scope(state: \.destination?.dataManagement, action: \.destination.dataManagement)) { dataStore in
+            .navigationDestination(item: $store.scope(state: \.destination?.dataManagement, action: \.destination.dataManagement)) { dataStore in
                 DataManagementView(store: dataStore)
             }
-            .sheet(item: store.scope(state: \.destination?.about, action: \.destination.about)) { aboutStore in
-                AboutView(store: aboutStore)
-            }
-            .sheet(item: store.scope(state: \.destination?.disclaimer, action: \.destination.disclaimer)) { disclaimerStore in
+            .sheet(item: $store.scope(state: \.destination?.disclaimer, action: \.destination.disclaimer)) { disclaimerStore in
                 DisclaimerView(store: disclaimerStore)
             }
-            .sheet(item: store.scope(state: \.destination?.privacy, action: \.destination.privacy)) { privacyStore in
+            .sheet(item: $store.scope(state: \.destination?.privacy, action: \.destination.privacy)) { privacyStore in
                 PrivacyPolicyView(store: privacyStore)
             }
-            .sheet(item: store.scope(state: \.destination?.preferences, action: \.destination.preferences)) { preferencesStore in
+            .sheet(item: $store.scope(state: \.destination?.preferences, action: \.destination.preferences)) { preferencesStore in
                 PreferencesView(store: preferencesStore)
             }
+            .settingsAlerts(store: store)
+        }
+    }
+}
+
+// MARK: - View Extensions for Settings Alerts
+private extension View {
+    func settingsAlerts(store: StoreOf<SettingsFeature>) -> some View {
+        self
+            .signOutAlert(store: store)
+            .deleteAccountAlert(store: store)
+            .errorAlert(store: store)
     }
     
-    func alerts(store: Bindable<StoreOf<SettingsFeature>>) -> some View {
-        self
-            .alert("Sign Out", isPresented: store.showingSignOutConfirmation.sending(\.setSignOutConfirmation)) {
-                Button("Cancel", role: .cancel) {
-                    store.send(.cancelSignOut)
-                }
-                Button("Sign Out", role: .destructive) {
-                    store.send(.confirmSignOut)
-                }
-            } message: {
-                Text("Are you sure you want to sign out?")
+    func signOutAlert(store: StoreOf<SettingsFeature>) -> some View {
+        alert("Sign Out", 
+              isPresented: Binding(
+                  get: { store.showingSignOutConfirmation },
+                  set: { store.send(.setSignOutConfirmation($0)) }
+              )) {
+            Button("Cancel", role: .cancel) {
+                store.send(.cancelSignOut)
             }
-            .alert("Delete Account", isPresented: store.showingDeleteConfirmation.sending(\.setDeleteConfirmation)) {
-                Button("Cancel", role: .cancel) {
-                    store.send(.cancelDeleteAccount)
-                }
-                Button("Delete", role: .destructive) {
-                    store.send(.confirmDeleteAccount)
-                }
-            } message: {
-                Text("This action cannot be undone. Your account and all data will be permanently deleted.")
+            Button("Sign Out", role: .destructive) {
+                store.send(.confirmSignOut)
             }
-            .alert("Error", isPresented: .constant(store.errorMessage != nil)) {
-                Button("OK") {
-                    store.send(.dismissError)
-                }
-            } message: {
-                if let error = store.errorMessage {
-                    Text(error)
-                }
+        } message: {
+            Text("Are you sure you want to sign out?")
+        }
+    }
+    
+    func deleteAccountAlert(store: StoreOf<SettingsFeature>) -> some View {
+        alert("Delete Account",
+              isPresented: Binding(
+                  get: { store.showingDeleteConfirmation },
+                  set: { store.send(.setDeleteConfirmation($0)) }
+              )) {
+            Button("Cancel", role: .cancel) {
+                store.send(.cancelDeleteAccount)
             }
+            Button("Delete", role: .destructive) {
+                store.send(.confirmDeleteAccount)
+            }
+        } message: {
+            Text("This action cannot be undone. Your account and all data will be permanently deleted.")
+        }
+    }
+    
+    func errorAlert(store: StoreOf<SettingsFeature>) -> some View {
+        alert("Error",
+              isPresented: .constant(store.errorMessage != nil)) {
+            Button("OK") {
+                store.send(.dismissError)
+            }
+        } message: {
+            if let error = store.errorMessage {
+                Text(error)
+            }
+        }
     }
 }
 
@@ -515,13 +513,6 @@ private struct InfoSection: View {
     var body: some View {
         Section {
             SettingsRowView(
-                title: "About Scanivore",
-                systemImage: "info.circle",
-                color: DesignSystem.Colors.primaryRed,
-                action: { store.send(.aboutTapped) }
-            )
-            
-            SettingsRowView(
                 title: "Disclaimer",
                 systemImage: "exclamationmark.triangle",
                 color: DesignSystem.Colors.primaryRed,
@@ -548,58 +539,4 @@ private struct InfoSection: View {
     )
 }
 
-// Manual Equatable implementation for SettingsFeature.Action
-extension SettingsFeature.Action: Equatable {
-    public static func == (lhs: SettingsFeature.Action, rhs: SettingsFeature.Action) -> Bool {
-        switch (lhs, rhs) {
-        case (.onAppear, .onAppear):
-            return true
-        case (.destination, .destination):
-            // PresentationAction comparison is complex, treat as equal for compilation
-            return true
-        case (.dataManagementTapped, .dataManagementTapped):
-            return true
-        case (.aboutTapped, .aboutTapped):
-            return true
-        case (.disclaimerTapped, .disclaimerTapped):
-            return true
-        case (.privacyTapped, .privacyTapped):
-            return true
-        case (.preferencesTapped, .preferencesTapped):
-            return true
-        case (.contactSupportTapped, .contactSupportTapped):
-            return true
-        case (.loadUserInfo, .loadUserInfo):
-            return true
-        case let (.userInfoLoaded(lhsResult), .userInfoLoaded(rhsResult)):
-            // TaskResult comparison is complex, treat as equal for compilation
-            return true
-        case (.signOutTapped, .signOutTapped):
-            return true
-        case (.deleteAccountTapped, .deleteAccountTapped):
-            return true
-        case (.confirmSignOut, .confirmSignOut):
-            return true
-        case (.cancelSignOut, .cancelSignOut):
-            return true
-        case (.confirmDeleteAccount, .confirmDeleteAccount):
-            return true
-        case (.cancelDeleteAccount, .cancelDeleteAccount):
-            return true
-        case let (.setSignOutConfirmation(lhs), .setSignOutConfirmation(rhs)):
-            return lhs == rhs
-        case let (.setDeleteConfirmation(lhs), .setDeleteConfirmation(rhs)):
-            return lhs == rhs
-        case (.signOutResponse, .signOutResponse):
-            return true
-        case (.deleteAccountResponse, .deleteAccountResponse):
-            return true
-        case (.dismissError, .dismissError):
-            return true
-        case let (.delegate(lhsDelegate), .delegate(rhsDelegate)):
-            return lhsDelegate == rhsDelegate
-        default:
-            return false
-        }
-    }
-}
+

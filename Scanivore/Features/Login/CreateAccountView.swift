@@ -37,6 +37,7 @@ struct CreateAccountFeatureDomain {
         case fullNameChanged(String)
         case createAccountTapped
         case backTapped
+        case signInTapped
         case clearError
         case validateEmail
         case validatePassword
@@ -45,6 +46,7 @@ struct CreateAccountFeatureDomain {
         enum Delegate: Equatable {
             case accountCreated
             case navigateBack
+            case navigateToSignIn
         }
         case delegate(Delegate)
     }
@@ -137,6 +139,11 @@ struct CreateAccountFeatureDomain {
             case .backTapped:
                 return .run { send in
                     await send(.delegate(.navigateBack))
+                }
+                
+            case .signInTapped:
+                return .run { send in
+                    await send(.delegate(.navigateToSignIn))
                 }
                 
             case .clearError:
@@ -249,7 +256,7 @@ struct CreateAccountView: View {
                                     .foregroundColor(DesignSystem.Colors.textSecondary)
                                 
                                 Button("Sign In") {
-                                    store.send(.backTapped)
+                                    store.send(.signInTapped)
                                 }
                                 .font(DesignSystem.Typography.bodyMedium)
                                 .foregroundColor(DesignSystem.Colors.primaryRed)

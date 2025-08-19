@@ -13,32 +13,6 @@ struct ProfileHeaderView: View {
     let isSignedIn: Bool
     
     var body: some View {
-        HStack(spacing: DesignSystem.Spacing.base) {
-            ProfileIcon()
-            
-            UserInfo(userName: userName, userEmail: userEmail)
-            
-            Spacer()
-        }
-        .padding(.vertical, DesignSystem.Spacing.sm)
-    }
-}
-
-// MARK: - Profile Icon
-private struct ProfileIcon: View {
-    var body: some View {
-        Image(systemName: "person.crop.circle.fill")
-            .font(DesignSystem.Typography.hero)
-            .foregroundColor(DesignSystem.Colors.textSecondary)
-    }
-}
-
-// MARK: - User Info
-private struct UserInfo: View {
-    let userName: String
-    let userEmail: String?
-    
-    var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(userName)
                 .font(DesignSystem.Typography.heading2)
@@ -50,6 +24,8 @@ private struct UserInfo: View {
                     .foregroundColor(DesignSystem.Colors.textSecondary)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, DesignSystem.Spacing.sm)
     }
 }
 
