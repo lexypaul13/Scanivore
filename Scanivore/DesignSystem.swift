@@ -11,30 +11,40 @@ struct DesignSystem {
     
     // MARK: - Colors
     struct Colors {
-        // Primary Red Colors
+        // Primary Red Colors (Stay consistent in both modes)
         static let primaryRed = Color(red: 196/255, green: 30/255, blue: 58/255) // #C41E3A
         static let primaryRedHover = Color(red: 169/255, green: 23/255, blue: 41/255) // #A91729
         static let primaryRedLight = Color(red: 232/255, green: 70/255, blue: 92/255) // #E8465C
         
-        // Supporting Colors
+        // Supporting Colors (Slightly adjusted for dark mode visibility)
         static let success = Color(red: 76/255, green: 175/255, blue: 80/255) // #4CAF50
         static let warning = Color(red: 255/255, green: 193/255, blue: 7/255) // #FFC107
         static let error = Color(red: 211/255, green: 47/255, blue: 47/255) // #D32F2F
         
-        // Neutral Palette
-        static let background = Color.white // #FFFFFF
-        static let backgroundSecondary = Color(red: 245/255, green: 245/255, blue: 245/255) // #F5F5F5
-        static let backgroundTertiary = Color(red: 250/255, green: 250/255, blue: 250/255) // #FAFAFA
+        // Neutral Palette (Adaptive - automatically switches with system appearance)
+        static let background = Color(UIColor.systemBackground) // White in light, Black in dark
+        static let backgroundSecondary = Color(UIColor.secondarySystemBackground) // Light gray in light, Dark gray in dark
+        static let backgroundTertiary = Color(UIColor.tertiarySystemBackground) // Very light gray in light, Darker gray in dark
         
-        static let border = Color(red: 224/255, green: 224/255, blue: 224/255) // #E0E0E0
-        static let borderLight = Color(red: 204/255, green: 204/255, blue: 204/255) // #CCCCCC
+        // Borders (Adaptive)
+        static let border = Color(UIColor.separator) // Light border in light mode, Dark border in dark mode
+        static let borderLight = Color(UIColor.opaqueSeparator) // Slightly stronger border
         
-        static let textPrimary = Color(red: 33/255, green: 33/255, blue: 33/255) // #212121
-        static let textSecondary = Color(red: 117/255, green: 117/255, blue: 117/255) // #757575
+        // Text Colors (Adaptive)
+        static let textPrimary = Color(UIColor.label) // Black in light, White in dark
+        static let textSecondary = Color(UIColor.secondaryLabel) // Gray in light, Light gray in dark
         
-        // Card shadows
-        static let shadowLight = Color.black.opacity(0.1)
-        static let shadowMedium = Color.black.opacity(0.15)
+        // Card shadows (Adaptive opacity)
+        static let shadowLight = Color(UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor.white.withAlphaComponent(0.05)
+                : UIColor.black.withAlphaComponent(0.1)
+        })
+        static let shadowMedium = Color(UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor.white.withAlphaComponent(0.08)
+                : UIColor.black.withAlphaComponent(0.15)
+        })
     }
     
     // MARK: - Typography
@@ -146,9 +156,21 @@ struct DesignSystem {
     
     // MARK: - Shadows
     struct Shadow {
-        static let light = Color.black.opacity(0.08)
-        static let medium = Color.black.opacity(0.12)
-        static let heavy = Color.black.opacity(0.16)
+        static let light = Color(UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor.white.withAlphaComponent(0.05)
+                : UIColor.black.withAlphaComponent(0.08)
+        })
+        static let medium = Color(UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor.white.withAlphaComponent(0.08)
+                : UIColor.black.withAlphaComponent(0.12)
+        })
+        static let heavy = Color(UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor.white.withAlphaComponent(0.10)
+                : UIColor.black.withAlphaComponent(0.16)
+        })
         
         static let offsetLight: CGSize = CGSize(width: 0, height: 2)
         static let offsetMedium: CGSize = CGSize(width: 0, height: 4)
