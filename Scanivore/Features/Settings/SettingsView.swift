@@ -74,6 +74,7 @@ public struct SettingsFeature {
         // Navigation actions
         case dataManagementTapped
         case aboutTapped
+        case disclaimerTapped
         case privacyTapped
         case preferencesTapped
         case contactSupportTapped
@@ -110,6 +111,7 @@ public struct SettingsFeature {
     public enum Destination {
         case dataManagement(DataManagementFeature)
         case about(AboutFeature)
+        case disclaimer(DisclaimerFeature)
         case privacy(PrivacyFeature)
         case preferences(PreferencesFeature)
     }
@@ -185,6 +187,10 @@ public struct SettingsFeature {
                 
             case .aboutTapped:
                 state.destination = .about(AboutFeature.State())
+                return .none
+                
+            case .disclaimerTapped:
+                state.destination = .disclaimer(DisclaimerFeature.State())
                 return .none
                 
             case .privacyTapped:
@@ -310,40 +316,66 @@ struct SettingsView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack {
-                DesignSystem.Colors.backgroundSecondary
-                    .ignoresSafeArea()
-                
-                Form {
-                    ProfileSection(store: store)
-                    if store.isSignedIn {
-                        AccountActionsSection(store: store)
-                    }
-                    DataPrivacySection(store: store)
-                    SupportSection()
-                    InfoSection(store: store)
+            settingsContent
+                .navigationModifiers(store: store)
+                .navigationDestinations(store: store)
+                .alerts(store: store)
+        }
+    }
+    
+    private var settingsContent: some View {
+        ZStack {
+            DesignSystem.Colors.backgroundSecondary
+                .ignoresSafeArea()
+            
+            Form {
+                ProfileSection(store: store)
+                if store.isSignedIn {
+                    AccountActionsSection(store: store)
                 }
-                .scrollContentBackground(.hidden)
+                DataPrivacySection(store: store)
+                SupportSection()
+                InfoSection(store: store)
             }
+            .scrollContentBackground(.hidden)
+        }
+    }
+}
+
+// MARK: - View Modifiers Extensions
+private extension View {
+    func navigationModifiers(store: StoreOf<SettingsFeature>) -> some View {
+        self
             .customNavigationTitle("Settings")
             .toolbarBackground(DesignSystem.Colors.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .onAppear {
                 store.send(.onAppear)
             }
-            .navigationDestination(item: $store.scope(state: \.destination?.dataManagement, action: \.destination.dataManagement)) { dataStore in
+    }
+    
+    func navigationDestinations(store: Bindable<StoreOf<SettingsFeature>>) -> some View {
+        self
+            .navigationDestination(item: store.scope(state: \.destination?.dataManagement, action: \.destination.dataManagement)) { dataStore in
                 DataManagementView(store: dataStore)
             }
-            .sheet(item: $store.scope(state: \.destination?.about, action: \.destination.about)) { aboutStore in
+            .sheet(item: store.scope(state: \.destination?.about, action: \.destination.about)) { aboutStore in
                 AboutView(store: aboutStore)
             }
-            .sheet(item: $store.scope(state: \.destination?.privacy, action: \.destination.privacy)) { privacyStore in
+            .sheet(item: store.scope(state: \.destination?.disclaimer, action: \.destination.disclaimer)) { disclaimerStore in
+                DisclaimerView(store: disclaimerStore)
+            }
+            .sheet(item: store.scope(state: \.destination?.privacy, action: \.destination.privacy)) { privacyStore in
                 PrivacyPolicyView(store: privacyStore)
             }
-            .sheet(item: $store.scope(state: \.destination?.preferences, action: \.destination.preferences)) { preferencesStore in
+            .sheet(item: store.scope(state: \.destination?.preferences, action: \.destination.preferences)) { preferencesStore in
                 PreferencesView(store: preferencesStore)
             }
-            .alert("Sign Out", isPresented: $store.showingSignOutConfirmation.sending(\.setSignOutConfirmation)) {
+    }
+    
+    func alerts(store: Bindable<StoreOf<SettingsFeature>>) -> some View {
+        self
+            .alert("Sign Out", isPresented: store.showingSignOutConfirmation.sending(\.setSignOutConfirmation)) {
                 Button("Cancel", role: .cancel) {
                     store.send(.cancelSignOut)
                 }
@@ -353,7 +385,7 @@ struct SettingsView: View {
             } message: {
                 Text("Are you sure you want to sign out?")
             }
-            .alert("Delete Account", isPresented: $store.showingDeleteConfirmation.sending(\.setDeleteConfirmation)) {
+            .alert("Delete Account", isPresented: store.showingDeleteConfirmation.sending(\.setDeleteConfirmation)) {
                 Button("Cancel", role: .cancel) {
                     store.send(.cancelDeleteAccount)
                 }
@@ -372,7 +404,6 @@ struct SettingsView: View {
                     Text(error)
                 }
             }
-        }
     }
 }
 
@@ -464,7 +495,7 @@ private struct DataPrivacySection: View {
 private struct SupportSection: View {
     var body: some View {
         Section("Support") {
-            Link(destination: URL(string: "mailto:support@scanivore.app")!) {
+            Link(destination: URL(string: "mailto:lexypaul14@gmail.com")!) {
                 HStack {
                     Image(systemName: "envelope")
                         .foregroundColor(DesignSystem.Colors.primaryRed)
@@ -488,6 +519,13 @@ private struct InfoSection: View {
                 systemImage: "info.circle",
                 color: DesignSystem.Colors.primaryRed,
                 action: { store.send(.aboutTapped) }
+            )
+            
+            SettingsRowView(
+                title: "Disclaimer",
+                systemImage: "exclamationmark.triangle",
+                color: DesignSystem.Colors.primaryRed,
+                action: { store.send(.disclaimerTapped) }
             )
             
             HStack {
@@ -522,6 +560,8 @@ extension SettingsFeature.Action: Equatable {
         case (.dataManagementTapped, .dataManagementTapped):
             return true
         case (.aboutTapped, .aboutTapped):
+            return true
+        case (.disclaimerTapped, .disclaimerTapped):
             return true
         case (.privacyTapped, .privacyTapped):
             return true

@@ -100,10 +100,6 @@ struct SignInFeatureDomain {
             case let .signInResponse(.success(success)):
                 state.isLoading = false
                 if success {
-                    // Show success alert with debug info
-                    state.errorMessage = "✅ Login Successful! Check console for token info."
-                    
-                    
                     return .run { send in
                         // Clear success message after delay
                         try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds

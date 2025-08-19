@@ -213,38 +213,7 @@ struct SavedProductRowView: View {
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.base) {
             // Product Image
-            ZStack {
-                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                    .fill(DesignSystem.Colors.backgroundSecondary)
-                    .frame(width: 120, height: 120)
-                
-                if let urlString = product.productImageUrl, let url = URL(string: urlString), !urlString.isEmpty {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 120, height: 120)
-                                .clipped()
-                                .cornerRadius(DesignSystem.CornerRadius.md)
-                        case .failure(_):
-                            // Show placeholder when image fails to load
-                            HistoryPlaceholderImage(meatType: product.meatScan.meatType)
-                        case .empty:
-                            HStack {
-                                ProgressView()
-                                    .tint(DesignSystem.Colors.textSecondary)
-                            }
-                            .frame(width: 120, height: 120)
-                        @unknown default:
-                            HistoryPlaceholderImage(meatType: product.meatScan.meatType)
-                        }
-                    }
-                } else {
-                    HistoryPlaceholderImage(meatType: product.meatScan.meatType)
-                }
-            }
+            HistoryPlaceholderImage(meatType: product.meatScan.meatType)
             
             // Product Info
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
