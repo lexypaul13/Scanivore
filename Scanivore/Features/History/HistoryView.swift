@@ -131,7 +131,14 @@ struct HistoryView: View {
                                     SavedProductRowView(product: product) {
                                         store.send(.productTapped(product))
                                     }
-                                    .listRowBackground(DesignSystem.Colors.background)
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(
+                                        top: DesignSystem.Spacing.xs,
+                                        leading: DesignSystem.Spacing.screenPadding,
+                                        bottom: DesignSystem.Spacing.xs,
+                                        trailing: DesignSystem.Spacing.screenPadding
+                                    ))
                                     .swipeActions(edge: .trailing) {
                                         Button("Delete") {
                                             store.send(.deleteProduct(product.id))
@@ -140,7 +147,7 @@ struct HistoryView: View {
                                     }
                                 }
                             }
-                            .listStyle(InsetGroupedListStyle())
+                            .listStyle(.plain)
                             .scrollContentBackground(.hidden)
                         }
                     }
@@ -204,92 +211,110 @@ struct SavedProductRowView: View {
     }
     
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: DesignSystem.Spacing.md) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                        .fill(DesignSystem.Colors.backgroundSecondary)
-                        .frame(width: 120, height: 120)
-                    if let urlString = product.productImageUrl, let url = URL(string: urlString), !urlString.isEmpty {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 120, height: 120)
-                                    .clipped()
-                                    .cornerRadius(DesignSystem.CornerRadius.md)
-                            case .failure:
-                                Text(product.meatScan.meatType.icon)
-                                    .font(DesignSystem.Typography.heading2)
-                                    .frame(width: 120, height: 120)
-                                    .background(
-                                        Circle()
-                                            .fill(safetyColor.opacity(0.1))
-                                            .overlay(
-                                                Circle()
-                                                    .stroke(safetyColor.opacity(0.3), lineWidth: 2)
-                                            )
-                                    )
-                            case .empty:
+        HStack(spacing: DesignSystem.Spacing.base) {
+            // Product Image
+            ZStack {
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                    .fill(DesignSystem.Colors.backgroundSecondary)
+                    .frame(width: 120, height: 120)
+                
+                if let urlString = product.productImageUrl, let url = URL(string: urlString), !urlString.isEmpty {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 120, height: 120)
+                                .clipped()
+                                .cornerRadius(DesignSystem.CornerRadius.md)
+                        case .failure(_):
+                            // Show placeholder when image fails to load
+                            HistoryPlaceholderImage(meatType: product.meatScan.meatType)
+                        case .empty:
+                            HStack {
                                 ProgressView()
                                     .tint(DesignSystem.Colors.textSecondary)
-                            @unknown default:
-                                EmptyView()
                             }
-                        }
-                    } else {
-                        Text(product.meatScan.meatType.icon)
-                            .font(DesignSystem.Typography.heading2)
                             .frame(width: 120, height: 120)
-                            .background(
-                                Circle()
-                                    .fill(safetyColor.opacity(0.1))
-                                    .overlay(
-                                        Circle()
-                                            .stroke(safetyColor.opacity(0.3), lineWidth: 2)
-                                    )
-                            )
+                        @unknown default:
+                            HistoryPlaceholderImage(meatType: product.meatScan.meatType)
+                        }
                     }
+                } else {
+                    HistoryPlaceholderImage(meatType: product.meatScan.meatType)
                 }
-                
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+            }
+            
+            // Product Info
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                // Name and Brand
+                VStack(alignment: .leading, spacing: 2) {
                     Text(product.productName)
-                        .font(DesignSystem.Typography.heading3)
+                        .font(DesignSystem.Typography.buttonText)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                     
-                    HStack {
-                        Text(product.productBrand ?? "Unknown Brand")
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                        
-                        Text("•")
-                            .foregroundColor(DesignSystem.Colors.textSecondary)
-                        
-                        Text(safetyGrade.rawValue)
-                            .font(DesignSystem.Typography.caption)
-                            .foregroundColor(safetyColor)
-                    }
-                    
-                    // Show scan date
-                    Text(DateFormatter.historyFormatter.string(from: product.scanDate))
-                        .font(DesignSystem.Typography.small)
+                    Text(product.productBrand ?? "Unknown Brand")
+                        .font(DesignSystem.Typography.body)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
                 
-                Spacer()
+                // Meat type and quality badges
+                HStack(spacing: DesignSystem.Spacing.xs) {
+                    // Meat Type Badge
+                    HStack(spacing: 4) {
+                        Text(product.meatScan.meatType.icon)
+                            .font(DesignSystem.Typography.body)
+                        Text(product.meatScan.meatType.rawValue)
+                            .font(DesignSystem.Typography.captionMedium)
+                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .allowsTightening(true)
+                    }
+                    .padding(.horizontal, DesignSystem.Spacing.sm)
+                    .padding(.vertical, 4)
+                    .background(DesignSystem.Colors.backgroundSecondary)
+                    .cornerRadius(DesignSystem.CornerRadius.sm)
+                    
+                    // Quality Badge
+                    HistoryQualityBadge(grade: safetyGrade)
+                }
                 
-                Image(systemName: "chevron.right")
+                // Scan Date
+                Text(DateFormatter.historyFormatter.string(from: product.scanDate))
                     .font(DesignSystem.Typography.small)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
+                
+                Spacer()
             }
-            .padding(.vertical, DesignSystem.Spacing.xs)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            // Arrow
+            Image(systemName: "chevron.right")
+                .font(DesignSystem.Typography.body)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding(DesignSystem.Spacing.base)
+        .background(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                .fill(DesignSystem.Colors.background)
+                .shadow(
+                    color: DesignSystem.Colors.textPrimary.opacity(0.06),
+                    radius: 4,
+                    x: 0,
+                    y: 2
+                )
+        )
+        .onTapGesture {
+            onTap()
+        }
     }
 }
 
@@ -354,6 +379,65 @@ struct FilterView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - History Placeholder Image Component
+struct HistoryPlaceholderImage: View {
+    let meatType: MeatType
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                .fill(DesignSystem.Colors.backgroundSecondary)
+                .frame(width: 120, height: 120)
+            
+            VStack(spacing: DesignSystem.Spacing.xs) {
+                Text(meatType.icon)
+                    .font(.system(size: 32))
+                
+                Text(meatType.rawValue)
+                    .font(DesignSystem.Typography.captionMedium)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+            }
+        }
+        .frame(width: 120, height: 120)
+    }
+}
+
+// MARK: - History Quality Badge Component
+struct HistoryQualityBadge: View {
+    let grade: SafetyGrade
+    
+    var badgeColor: Color {
+        switch grade {
+        case .excellent:
+            return DesignSystem.Colors.success
+        case .fair:
+            return DesignSystem.Colors.warning
+        case .bad:
+            return DesignSystem.Colors.error
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: DesignSystem.Spacing.xs) {
+            Circle()
+                .fill(badgeColor)
+                .frame(width: 8, height: 8)
+            
+            Text(grade.rawValue)
+                .font(DesignSystem.Typography.captionMedium)
+                .foregroundColor(DesignSystem.Colors.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .fixedSize(horizontal: true, vertical: false)
+                .allowsTightening(true)
+        }
+        .padding(.horizontal, DesignSystem.Spacing.md)
+        .padding(.vertical, DesignSystem.Spacing.xs)
+        .background(DesignSystem.Colors.backgroundSecondary)
+        .cornerRadius(DesignSystem.CornerRadius.full)
     }
 }
 

@@ -280,17 +280,6 @@ struct ScannerView: View {
         }
     }
     
-    private var navigationToolbar: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarTrailing) {
-            Button(action: { store.send(.helpButtonTapped) }) {
-                Image(systemName: "questionmark.circle")
-                    .foregroundColor(.white)
-            }
-        }
-    }
-    
-
-    
     // MARK: - Body
     
     var body: some View {
@@ -309,9 +298,6 @@ struct ScannerView: View {
                 .customNavigationTitle("Scan Product")
                 .toolbarBackground(DesignSystem.Colors.textPrimary, for: .navigationBar)
                 .toolbarBackground(.visible, for: .navigationBar)
-                .toolbar {
-                    navigationToolbar
-                }
                 .sheet(
                     store: store.scope(
                         state: \.$destination.productDetail,
