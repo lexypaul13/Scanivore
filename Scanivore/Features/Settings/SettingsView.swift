@@ -471,12 +471,15 @@ private struct DataPrivacySection: View {
                 action: { store.send(.dataManagementTapped) }
             )
             
-            SettingsRowView(
-                title: "Dietary Preferences",
-                systemImage: "fork.knife",
-                color: DesignSystem.Colors.primaryRed,
-                action: { store.send(.preferencesTapped) }
-            )
+            // Only show dietary preferences for authenticated users
+            if store.isSignedIn {
+                SettingsRowView(
+                    title: "Dietary Preferences",
+                    systemImage: "fork.knife",
+                    color: DesignSystem.Colors.primaryRed,
+                    action: { store.send(.preferencesTapped) }
+                )
+            }
             
             SettingsRowView(
                 title: "Privacy Policy",
