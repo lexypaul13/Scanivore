@@ -274,11 +274,12 @@ struct GradeScreenView: View {
                         
                         // Scrambling grade text
                         Text(gradeText)
-                            .font(gradeText == "Excellent" ? DesignSystem.Typography.heading2 : DesignSystem.Typography.heading1)
+                            .font(DesignSystem.Typography.heading2)
                             .foregroundColor(circleColor)
                             .rotationEffect(.degrees(gradeRotation))
-                            .minimumScaleFactor(0.7)
+                            .minimumScaleFactor(0.6)
                             .lineLimit(1)
+                            .multilineTextAlignment(.center)
                     }
                     
                     // Quality indicators with staggered animation
