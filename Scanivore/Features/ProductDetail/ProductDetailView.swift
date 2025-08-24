@@ -33,6 +33,7 @@ struct ProductDetailFeatureDomain {
         // Recommended swaps feature removed to fix 404 errors
         var isLoading = false
         var error: String?
+        var isRateLimited = false
         var showingIngredientSheet = false
         var selectedIngredient: IngredientRisk?
         
@@ -162,9 +163,15 @@ struct ProductDetailFeatureDomain {
         case ingredientTapped(IngredientRisk)
         case dismissIngredientSheet
         case retryTapped
+        case createAccountFromRateLimit
         // New actions for collapsible sections
         case toggleIngredientSection(String)
         case ingredientTappedWithCitations(IngredientRisk, [Citation])
+        case delegate(Delegate)
+        
+        enum Delegate: Equatable {
+            case requestAccountCreation
+        }
     }
     
     @Dependency(\.scannedProducts) var scannedProducts
@@ -247,6 +254,10 @@ struct ProductDetailFeatureDomain {
                  if let apiError = error as? APIError {
                      if apiError.statusCode == -1001 {
                         state.error = "Health assessment timed out. Basic product grade available from barcode scan."
+                     } else if apiError.statusCode == 429 {
+                        // Rate limit error - show upgrade message
+                        state.isRateLimited = true
+                        state.error = apiError.detail
                      } else {
                         state.error = apiError.detail
                     }
@@ -310,9 +321,16 @@ struct ProductDetailFeatureDomain {
                 
             case .retryTapped:
                 state.error = nil
+                state.isRateLimited = false
                 return .run { send in
                     await send(.loadHealthAssessment)
                 }
+                
+            case .createAccountFromRateLimit:
+                return .send(.delegate(.requestAccountCreation))
+                
+            case .delegate:
+                return .none
             }
         }
         ._printChanges()
@@ -415,8 +433,14 @@ struct GracefulFallbackView: View {
                 // White content background
                 VStack(spacing: DesignSystem.Spacing.xl) {
                     // Error message with retry option
-                    ErrorMessageSection(error: error) {
-                        store.send(.retryTapped)
+                    if store.isRateLimited {
+                        RateLimitErrorSection(error: error) {
+                            store.send(.createAccountFromRateLimit)
+                        }
+                    } else {
+                        ErrorMessageSection(error: error) {
+                            store.send(.retryTapped)
+                        }
                     }
                     
                     // Show basic product info if available
@@ -430,6 +454,49 @@ struct GracefulFallbackView: View {
             }
         }
         .background(DesignSystem.Colors.backgroundSecondary)
+    }
+}
+
+// MARK: - Rate Limit Error Section  
+struct RateLimitErrorSection: View {
+    let error: String?
+    let onCreateAccount: () -> Void
+    
+    var body: some View {
+        VStack(spacing: DesignSystem.Spacing.lg) {
+            // Rate limit icon
+            Image(systemName: "clock.badge.exclamationmark")
+                .font(.system(size: DesignSystem.Typography.xxxxl))
+                .foregroundColor(DesignSystem.Colors.warning)
+            
+            // Rate limit message
+            VStack(spacing: DesignSystem.Spacing.sm) {
+                Text("Scan Limit Reached")
+                    .font(DesignSystem.Typography.heading2)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .multilineTextAlignment(.center)
+                
+                Text(error ?? "Guest users can scan 5 products per hour. Create an account for unlimited scans.")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(nil)
+            }
+            
+            // Create Account Button
+            Button("Create Account for Unlimited Scans") {
+                onCreateAccount()
+            }
+            .font(DesignSystem.Typography.buttonText)
+            .foregroundColor(.white)
+            .padding(.horizontal, DesignSystem.Spacing.lg)
+            .padding(.vertical, DesignSystem.Spacing.sm)
+            .background(DesignSystem.Colors.primaryRed)
+            .cornerRadius(DesignSystem.CornerRadius.md)
+        }
+        .padding(DesignSystem.Spacing.lg)
+        .background(DesignSystem.Colors.background)
+        .cornerRadius(DesignSystem.CornerRadius.lg)
     }
 }
 
