@@ -47,6 +47,12 @@ struct HistoryFeatureDomain {
         case productTapped(SavedProduct)
         case destination(PresentationAction<Destination.Action>)
         case deleteProduct(String)
+        case createAccountTapped
+        case delegate(Delegate)
+        
+        enum Delegate: Equatable {
+            case requestAccountCreation
+        }
     }
     
     @Dependency(\.scannedProducts) var scannedProducts
@@ -104,6 +110,12 @@ struct HistoryFeatureDomain {
                     await scannedProducts.delete(productId)
                     await send(.loadHistory)
                 }
+                
+            case .createAccountTapped:
+                return .send(.delegate(.requestAccountCreation))
+                
+            case .delegate:
+                return .none
             }
         }
         .ifLet(\.$destination, action: \.destination)
@@ -123,7 +135,9 @@ struct HistoryView: View {
                     
                     VStack(spacing: 0) {
                         if isGuest {
-                            GuestHistoryView()
+                            GuestHistoryView {
+                                store.send(.createAccountTapped)
+                            }
                         } else if store.isLoading {
                             LoadingHistoryView()
                         } else if store.filteredProducts.isEmpty {
@@ -336,6 +350,8 @@ struct EmptyHistoryView: View {
 }
 
 struct GuestHistoryView: View {
+    let onCreateAccount: () -> Void
+    
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
             Image(systemName: "person.crop.circle.badge.plus")
@@ -353,7 +369,7 @@ struct GuestHistoryView: View {
                 .padding(.horizontal, DesignSystem.Spacing.lg)
             
             Button("Create Account") {
-                // TODO: Navigate to account creation
+                onCreateAccount()
             }
             .font(DesignSystem.Typography.buttonText)
             .foregroundColor(.white)

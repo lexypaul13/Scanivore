@@ -52,11 +52,13 @@ struct AppFeature {
         }
         
         var showCreateAccount: Bool {
-            false  // App Store compliance: skip auth screens, allow guest access
+            // Show create account screen when explicitly requested by user
+            hasCompletedIntro && !isLoggedIn && authFlow == .createAccount
         }
         
         var showSignIn: Bool {
-            false  // App Store compliance: skip auth screens, allow guest access
+            // Show sign in screen when explicitly requested by user
+            hasCompletedIntro && !isLoggedIn && authFlow == .signIn
         }
         
         var showOnboarding: Bool {
@@ -241,6 +243,11 @@ struct AppFeature {
                 return .none
                 
             case .explore:
+                return .none
+                
+            case .history(.delegate(.requestAccountCreation)):
+                // Enable create account flow when explicitly requested
+                state.authFlow = .createAccount
                 return .none
                 
             case .history:
