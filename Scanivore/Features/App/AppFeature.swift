@@ -64,7 +64,11 @@ struct AppFeature {
         }
         
         var showMainApp: Bool {
-            hasCompletedIntro && isLoggedIn && hasCompletedOnboarding
+            hasCompletedIntro // Allow guests after intro, no login required
+        }
+        
+        var isGuestMode: Bool {
+            !isLoggedIn
         }
     }
     
@@ -267,39 +271,4 @@ struct AppFeature {
 }
 
 // Manual Equatable implementation for AppFeature.Action
-extension AppFeature.Action: Equatable {
-    static func == (lhs: AppFeature.Action, rhs: AppFeature.Action) -> Bool {
-        switch (lhs, rhs) {
-        case (.appDidLaunch, .appDidLaunch):
-            return true
-        case (.launchScreenFinished, .launchScreenFinished):
-            return true
-        case let (.authStateLoaded(lhsState), .authStateLoaded(rhsState)):
-            return lhsState == rhsState
-        case (.resetOnboarding, .resetOnboarding):
-            return true
-        case let (.tabSelected(lhsTab), .tabSelected(rhsTab)):
-            return lhsTab == rhsTab
-        case (.onboardingIntro, .onboardingIntro):
-            return true
-        case (.login, .login):
-            return true
-        case (.createAccount, .createAccount):
-            return true
-        case (.signIn, .signIn):
-            return true
-        case (.onboarding, .onboarding):
-            return true
-        case (.scanner, .scanner):
-            return true
-        case (.explore, .explore):
-            return true
-        case (.history, .history):
-            return true
-        case (.settings, .settings):
-            return true
-        default:
-            return false
-        }
-    }
-} 
+extension AppFeature.Action: Equatable {} 

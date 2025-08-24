@@ -112,6 +112,7 @@ struct HistoryFeatureDomain {
 
 struct HistoryView: View {
     let store: StoreOf<HistoryFeatureDomain>
+    @State private var isGuest = true
     
     var body: some View {
         WithPerceptionTracking {
@@ -121,7 +122,9 @@ struct HistoryView: View {
                         .ignoresSafeArea()
                     
                     VStack(spacing: 0) {
-                        if store.isLoading {
+                        if isGuest {
+                            GuestHistoryView()
+                        } else if store.isLoading {
                             LoadingHistoryView()
                         } else if store.filteredProducts.isEmpty {
                             EmptyHistoryView()
@@ -183,6 +186,15 @@ struct HistoryView: View {
             }
             .onAppear {
                 store.send(.onAppear)
+                
+                // Check authentication state
+                Task {
+                    @Dependency(\.authState) var authState
+                    let currentState = await authState.currentState()
+                    await MainActor.run {
+                        isGuest = !currentState.isLoggedIn
+                    }
+                }
             }
         }
     }
@@ -317,6 +329,38 @@ struct EmptyHistoryView: View {
             Text("Your scanned products will appear here")
                 .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DesignSystem.Colors.backgroundSecondary)
+    }
+}
+
+struct GuestHistoryView: View {
+    var body: some View {
+        VStack(spacing: DesignSystem.Spacing.lg) {
+            Image(systemName: "person.crop.circle.badge.plus")
+                .font(DesignSystem.Typography.hero)
+                .foregroundColor(DesignSystem.Colors.primaryRed)
+            
+            Text("Sign Up to Save Scans")
+                .font(DesignSystem.Typography.heading1)
+                .foregroundColor(DesignSystem.Colors.textPrimary)
+            
+            Text("Create an account to save your scan history and access it anytime")
+                .font(DesignSystem.Typography.body)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DesignSystem.Spacing.lg)
+            
+            Button("Create Account") {
+                // TODO: Navigate to account creation
+            }
+            .font(DesignSystem.Typography.buttonText)
+            .foregroundColor(.white)
+            .padding(.horizontal, DesignSystem.Spacing.xl)
+            .padding(.vertical, DesignSystem.Spacing.md)
+            .background(DesignSystem.Colors.primaryRed)
+            .cornerRadius(DesignSystem.CornerRadius.md)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DesignSystem.Colors.backgroundSecondary)

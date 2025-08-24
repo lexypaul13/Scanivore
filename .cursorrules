@@ -1,0 +1,330 @@
+# Scanivore iOS App - Cursor Rules
+
+You are an expert Swift/SwiftUI developer specializing in The Composable Architecture (TCA) working on the Scanivore iOS app. Follow these comprehensive guidelines:
+
+## 🏗️ TCA Architecture Fundamentals
+
+### Core Principles
+- Use @Reducer macro for all feature reducers
+- @ObservableState for state types with Equatable conformance
+- TaskResult pattern for async operations
+- Strict unidirectional data flow
+- Single source of truth for all state
+- Never mutate state outside reducers
+
+### State Management
+- IdentifiedArrayOf<T> for collections
+- Value types (structs) only in state
+- Use @Shared for cross-feature state
+- Implement proper Equatable conformance
+- Use @Presents var destination for navigation
+
+### Actions Design
+- Past tense for responses: `dataLoaded`, `loginCompleted`
+- Present tense for user events: `buttonTapped`, `textChanged`
+- Use TaskResult<T> for async action payloads
+- Group related actions with enums
+- Descriptive, event-based naming
+
+## 🎨 Scanivore Design System
+
+### Colors (Always use DesignSystem.Colors)
+```swift
+// Primary Colors
+DesignSystem.Colors.primaryRed       // #C41E3A - Brand red
+DesignSystem.Colors.background       // Adaptive white/black
+DesignSystem.Colors.backgroundSecondary // Adaptive secondary
+
+// Text Colors
+DesignSystem.Colors.textPrimary      // Adaptive primary text
+DesignSystem.Colors.textSecondary    // Adaptive secondary text
+
+// Status Colors
+DesignSystem.Colors.success          // Green for good/excellent
+DesignSystem.Colors.warning          // Yellow/orange for warnings
+DesignSystem.Colors.error            // Red for errors/bad ratings
+```
+
+### Typography (Always use DesignSystem.Typography)
+```swift
+DesignSystem.Typography.hero         // Large hero text
+DesignSystem.Typography.heading1     // Main headings
+DesignSystem.Typography.heading2     // Sub headings
+DesignSystem.Typography.buttonText   // Button labels
+DesignSystem.Typography.body         // Regular body text
+DesignSystem.Typography.caption      // Small text
+```
+
+### Spacing (Always use DesignSystem.Spacing)
+```swift
+DesignSystem.Spacing.xs              // 4pt
+DesignSystem.Spacing.sm              // 8pt  
+DesignSystem.Spacing.base            // 16pt
+DesignSystem.Spacing.lg              // 24pt
+DesignSystem.Spacing.xl              // 32pt
+DesignSystem.Spacing.screenPadding   // 20pt for screen edges
+```
+
+## 🚫 Anti-Patterns to Avoid
+
+### Extension Patterns
+- **NEVER use `wrappedValue`** - Use proper Binding initializers instead:
+```swift
+// ❌ BAD - Don't do this
+store.wrappedValue.send(.action)
+
+// ✅ GOOD - Use this pattern
+Binding(
+    get: { store.someProperty },
+    set: { store.send(.setSomeProperty($0)) }
+)
+```
+
+### Compiler Type-Checking Issues
+- Break up complex view expressions into extensions
+- Use computed properties for complex views
+- Avoid deeply nested conditional rendering
+
+### Network Calls in History/Offline Features
+- **NEVER make network calls for cached/saved data**
+- Use local placeholders for history items
+- Cache images locally or use placeholder components
+
+## 📱 Scanivore-Specific Patterns
+
+### Authentication Flow
+```swift
+// App-level auth state management
+state.authFlow = .signIn    // Navigate to sign-in
+state.authFlow = .createAccount // Navigate to create account
+state.authState.isLoggedIn = true // Mark as authenticated
+```
+
+### Product Data Models
+```swift
+// Use these core models consistently
+SavedProduct             // For scan history  
+ProductRecommendation    // For explore screen
+HealthAssessmentResponse // For product analysis
+MeatScan                // For meat-specific data
+SafetyGrade             // .excellent, .fair, .bad
+```
+
+### Navigation Delegate Pattern
+```swift
+enum Delegate: Equatable {
+    case navigateBack
+    case navigateToSignIn  
+    case accountCreated
+    case scanCompleted
+}
+
+// In reducer:
+case .buttonTapped:
+    return .send(.delegate(.navigateToSignIn))
+```
+
+### Image Handling
+```swift
+// ✅ For history/offline - Use placeholders
+HistoryPlaceholderImage(meatType: product.meatScan.meatType)
+
+// ✅ For live data - Use AsyncImage with fallback
+AsyncImage(url: url) { phase in
+    switch phase {
+    case .success(let image): image.resized()
+    case .failure(_): PlaceholderImage()
+    case .empty: ProgressView()
+    @unknown default: PlaceholderImage()
+    }
+}
+```
+
+## 🔧 Code Quality Standards
+
+### File Organization
+```
+Features/
+├── FeatureName/
+│   ├── FeatureView.swift      # Main view
+│   ├── Components/            # Feature-specific components
+│   └── Destinations/          # Sub-features/sheets
+├── Shared/                    # Cross-feature utilities
+├── Models/                    # Data types
+└── Services/                  # API clients & dependencies
+```
+
+### View Structure Pattern
+```swift
+struct FeatureView: View {
+    public init(store: StoreOf<FeatureDomain>) {
+        self.store = store
+    }
+    
+    @Bindable var store: StoreOf<FeatureDomain>
+    
+    var body: some View {
+        // Simple view hierarchy
+        // Use extensions for complex modifiers
+    }
+}
+
+// Use extensions to break up complexity
+private extension View {
+    func featureModifiers() -> some View {
+        self.modifier1().modifier2()
+    }
+}
+```
+
+### Error Handling
+```swift
+// Always use TaskResult for async operations
+case .loadData:
+    return .run { send in
+        await send(.dataResponse(
+            TaskResult { try await apiClient.fetchData() }
+        ))
+    }
+
+case let .dataResponse(.success(data)):
+    state.data = data
+    return .none
+    
+case let .dataResponse(.failure(error)):
+    state.errorMessage = error.localizedDescription
+    return .none
+```
+
+### Dependencies Pattern
+```swift
+@DependencyClient
+struct APIClient: Sendable {
+    var fetchData: @Sendable () async throws -> [DataModel]
+}
+
+extension APIClient: DependencyKey {
+    static let liveValue = APIClient(
+        fetchData: {
+            @Dependency(\.httpClient) var http
+            return try await http.request(...)
+        }
+    )
+    
+    static let testValue = APIClient(
+        fetchData: { [] }
+    )
+}
+```
+
+## 🎯 Scanivore Business Logic
+
+### Safety Grades & Colors
+```swift
+// Map quality scores to safety grades
+switch score {
+case 80...100: return .excellent  // Green
+case 60..<80: return .fair        // Yellow  
+default: return .bad              // Red
+}
+```
+
+### Meat Types & Icons
+```swift
+enum MeatType: String, CaseIterable {
+    case beef = "Beef"       // 🥩
+    case pork = "Pork"       // 🥓
+    case chicken = "Chicken" // 🍗
+    case lamb = "Lamb"       // 🍖
+    case fish = "Fish"       // 🐟
+    case turkey = "Turkey"   // 🦃
+    case unknown = "Unknown" // ❓
+}
+```
+
+### Offline-First Principles
+- History view works without network
+- Cache essential data locally
+- Use FileStorage for persistence
+- Graceful network failure handling
+
+## 📝 Comments & Documentation
+
+### When to Add Comments
+- **NEVER add comments unless explicitly requested**
+- Focus on self-documenting code with clear naming
+- Use descriptive variable and function names
+- Let the type system provide documentation
+
+### Commit Messages
+```
+feat: add new feature description
+fix: resolve specific issue description  
+refactor: improve code structure description
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+## 🔒 Security & Privacy
+
+### Data Handling
+- No personal data collection (privacy-first)
+- Local processing only for analysis
+- JWT tokens stored in Keychain
+- Proper token validation with HMAC-SHA256
+- No debug logging in production
+
+### Contact Information
+- Support email: lexypaul14@gmail.com
+- Disclaimer: AI has limitations, working on citations
+- Privacy: No data collected, local processing only
+
+## 🧪 Testing Patterns
+
+### Preview Values
+```swift
+extension Model {
+    static let preview = Model(
+        id: "preview-id",
+        name: "Preview Item",
+        status: .active
+    )
+}
+```
+
+### TCA Testing
+```swift
+let store = TestStore(initialState: Feature.State()) {
+    Feature()
+}
+
+await store.send(.buttonTapped) {
+    $0.isLoading = true
+}
+
+await store.receive(.response(.success(data))) {
+    $0.isLoading = false
+    $0.data = data
+}
+```
+
+## 🚀 Performance
+
+### Optimization Guidelines
+- Use IdentifiedArrayOf for large collections
+- Implement proper Equatable to avoid unnecessary renders
+- Cancel long-running effects with .cancellable(id:)
+- Avoid AsyncImage for cached/history data
+- Use placeholder components for instant loading
+
+### Memory Management
+- Value types only in TCA state
+- Weak references in closures when needed
+- Clean up timers and observers
+- Efficient image loading and caching
+
+---
+
+**Remember**: Always prioritize user experience, maintain design consistency, follow TCA patterns, and keep the codebase clean and maintainable. The app should work offline-first with smooth performance and clear visual hierarchy.

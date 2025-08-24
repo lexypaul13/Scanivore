@@ -175,9 +175,35 @@ struct ExploreFeatureDomain {
                 
                 return .run { send in
                     @Dependency(\.productGateway) var gateway
+                    @Dependency(\.authState) var authState
                     
                     let result = await TaskResult {
-                        try await gateway.getExploreRecommendations(offset, 10)
+                        let currentAuthState = await authState.currentState()
+                        
+                        if currentAuthState.isLoggedIn {
+                            // Authenticated users get personalized recommendations
+                            return try await gateway.getExploreRecommendations(offset, 10)
+                        } else {
+                            // Guest users get generic product list
+                            let searchResponse = try await gateway.searchProducts("")
+                            
+                            // Convert SearchResponse to ExploreResponse format
+                            let recommendations = searchResponse.products.map { product in
+                                RecommendationItem(
+                                    product: product,
+                                    matchDetails: MatchDetails(matches: [], concerns: []),
+                                    matchScore: nil
+                                )
+                            }
+                            
+                            return ExploreResponse(
+                                recommendations: recommendations,
+                                totalMatches: searchResponse.totalResults,
+                                hasMore: false,
+                                offset: 0,
+                                limit: 10
+                            )
+                        }
                     }
                     
                     await send(.recommendationsReceived(result))
