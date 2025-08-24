@@ -48,15 +48,15 @@ struct AppFeature {
         }
         
         var showLogin: Bool {
-            hasCompletedIntro && !isLoggedIn && authFlow == .login
+            false  // App Store compliance: skip login screen, allow guest access
         }
         
         var showCreateAccount: Bool {
-            hasCompletedIntro && !isLoggedIn && authFlow == .createAccount
+            false  // App Store compliance: skip auth screens, allow guest access
         }
         
         var showSignIn: Bool {
-            hasCompletedIntro && !isLoggedIn && authFlow == .signIn
+            false  // App Store compliance: skip auth screens, allow guest access
         }
         
         var showOnboarding: Bool {
@@ -270,5 +270,3 @@ struct AppFeature {
     }
 }
 
-// Manual Equatable implementation for AppFeature.Action
-extension AppFeature.Action: Equatable {} 
