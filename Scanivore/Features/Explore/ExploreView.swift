@@ -178,7 +178,7 @@ struct ExploreFeatureDomain {
                     @Dependency(\.authState) var authState
                     
                     let result = await TaskResult {
-                        let currentAuthState = await authState.currentState()
+                        let currentAuthState = await authState.load()
                         
                         if currentAuthState.isLoggedIn {
                             // Authenticated users get personalized recommendations

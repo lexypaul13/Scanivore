@@ -190,7 +190,7 @@ struct HistoryView: View {
                 // Check authentication state
                 Task {
                     @Dependency(\.authState) var authState
-                    let currentState = await authState.currentState()
+                    let currentState = await authState.load()
                     await MainActor.run {
                         isGuest = !currentState.isLoggedIn
                     }
