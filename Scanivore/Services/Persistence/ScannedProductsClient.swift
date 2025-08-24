@@ -138,7 +138,6 @@ extension ScannedProductsClient: DependencyKey {
                 let data = try encoder.encode(products)
                 try await fileStorage.save("scanned_products.json", data)
             } catch {
-                print("❌ Error deleting product \(productId): \(error)")
                 // Don't save empty data on error - leave existing data intact
             }
         },

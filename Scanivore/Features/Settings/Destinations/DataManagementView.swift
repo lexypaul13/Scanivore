@@ -222,7 +222,7 @@ private struct ErrorAlert: View {
     NavigationStack {
         DataManagementView(
             store: Store(initialState: DataManagementFeature.State()) {
-                DataManagementFeature()._printChanges()
+                DataManagementFeature()
             } withDependencies: {
                 $0.scanHistoryClient = .previewValue
             }

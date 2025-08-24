@@ -163,12 +163,6 @@ struct AIHealthSummary: View {
                 .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
                 .lineSpacing(6)
-                .onAppear {
-                    print("🧠 AI Summary Debug:")
-                    print("  Raw summary: '\(assessment.summary)'")
-                    print("  Cleaned summary: '\(cleanedSummary)'")
-                    print("  Is empty: \(cleanedSummary.isEmpty)")
-                }
         }
         .padding(DesignSystem.Spacing.lg)
         .background(DesignSystem.Colors.background)

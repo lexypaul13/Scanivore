@@ -140,10 +140,6 @@ public final class TokenManager {
         }
         
         guard alg == "HS256" && typ == "JWT" else {
-            #if DEBUG
-            // SECURITY: Token implementation details redacted
-            print("🔒 JWT: Token validation failed - invalid format")
-            #endif
             return false
         }
         
@@ -191,27 +187,17 @@ public final class TokenManager {
     
     private func verifyJWTSignature(header: String, payload: String, signature: String) -> Bool {
         guard let signatureData = decodeBase64URLComponent(signature) else {
-            #if DEBUG
-            // SECURITY: Cryptographic implementation details redacted
-            print("🔒 JWT: Token validation error")
-            #endif
             return false
         }
         
         let message = "\(header).\(payload)"
         guard let messageData = message.data(using: .utf8) else {
-            #if DEBUG
-            // SECURITY: Cryptographic implementation details redacted
-            print("🔒 JWT: Token validation error")
-            #endif
             return false
         }
         
         let jwtSecret = APIConfiguration.jwtSecret
         guard jwtSecret != "REPLACE_WITH_ACTUAL_SERVER_SECRET_IN_PRODUCTION" else {
             #if DEBUG
-            // SECURITY: Cryptographic implementation details redacted
-            print("🔒 JWT: Development mode - using fallback validation")
             return true
             #else
             return false
@@ -219,10 +205,6 @@ public final class TokenManager {
         }
         
         guard let secretData = jwtSecret.data(using: .utf8) else {
-            #if DEBUG
-            // SECURITY: Cryptographic implementation details redacted
-            print("🔒 JWT: Token validation error")
-            #endif
             return false
         }
         
@@ -230,15 +212,6 @@ public final class TokenManager {
         let computedSignature = HMAC<SHA256>.authenticationCode(for: messageData, using: key)
         let computedSignatureData = Data(computedSignature)
         let isValid = constantTimeEquals(computedSignatureData, signatureData)
-        
-        #if DEBUG
-        // SECURITY: Cryptographic implementation details redacted
-        if !isValid {
-            print("🔒 JWT: Token validation failed")
-        } else {
-            print("🔒 JWT: Token validation successful")
-        }
-        #endif
         
         return isValid
     }

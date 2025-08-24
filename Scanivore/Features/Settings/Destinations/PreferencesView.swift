@@ -231,7 +231,6 @@ public struct PreferencesFeature {
             case let .syncToBackendResponse(.failure(error)):
                 state.isSaving = false
                 // Backend sync failed, but local save succeeded
-                print("Failed to sync preferences to backend: \(error)")
                 // Still dismiss and notify since local save worked
                 return .run { send in
                     await send(.delegate(.preferencesUpdated))

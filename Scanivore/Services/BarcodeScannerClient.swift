@@ -172,24 +172,15 @@ class BarcodeScanner: NSObject, ObservableObject {
         onBarcodeDetected: @escaping (String) -> Void,
         onError: @escaping (ScannerError) -> Void
     ) throws {
-        #if DEBUG
-        print("📸 BarcodeScanner: Starting scanning session")
-        #endif
         
         self.onBarcodeDetected = onBarcodeDetected
         self.onError = onError
         self.isDetectionActive = true
         
         guard let captureDevice = AVCaptureDevice.default(for: .video) else {
-            #if DEBUG
-            print("📸 BarcodeScanner: No camera device available")
-            #endif
             throw ScannerError.cameraUnavailable
         }
         
-        #if DEBUG
-        print("📸 BarcodeScanner: Camera device found")
-        #endif
         
         let captureSession = AVCaptureSession()
         self.captureSession = captureSession
@@ -217,34 +208,22 @@ class BarcodeScanner: NSObject, ObservableObject {
             
             captureDevice.unlockForConfiguration()
         } catch {
-            #if DEBUG
-            print("📸 BarcodeScanner: Failed to configure capture device: \(error)")
-            #endif
         }
         
         do {
             let input = try AVCaptureDeviceInput(device: captureDevice)
             if captureSession.canAddInput(input) {
                 captureSession.addInput(input)
-                #if DEBUG
-                print("📸 BarcodeScanner: Camera input added successfully")
-                #endif
             } else {
                 throw ScannerError.scanningFailed("Failed to add camera input")
             }
         } catch {
-            #if DEBUG
-            print("📸 BarcodeScanner: Failed to create camera input: \(error)")
-            #endif
             throw ScannerError.scanningFailed("Failed to create camera input: \(error.localizedDescription)")
         }
         
         let captureMetadataOutput = AVCaptureMetadataOutput()
         if captureSession.canAddOutput(captureMetadataOutput) {
             captureSession.addOutput(captureMetadataOutput)
-            #if DEBUG
-            print("📸 BarcodeScanner: Metadata output added successfully")
-            #endif
         } else {
             throw ScannerError.scanningFailed("Failed to add metadata output")
         }
@@ -261,31 +240,19 @@ class BarcodeScanner: NSObject, ObservableObject {
         let centerRect = CGRect(x: 0.1, y: 0.1, width: 0.8, height: 0.8)
         captureMetadataOutput.rectOfInterest = centerRect
         
-        #if DEBUG
-        print("📸 BarcodeScanner: Detection area configured")
-        #endif
         
         // Create preview layer
         let previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
         previewLayer.videoGravity = .resizeAspectFill
         self.previewLayer = previewLayer
         
-        #if DEBUG
-        print("📸 BarcodeScanner: Preview layer created")
-        #endif
         
         // Start the capture session on a background queue
         DispatchQueue.global(qos: .userInitiated).async { [weak self, weak captureSession] in
             captureSession?.startRunning()
-            #if DEBUG
-            print("📸 BarcodeScanner: Capture session started running")
-            #endif
             
             // Notify that preview layer is ready
             DispatchQueue.main.async {
-                #if DEBUG
-                print("📸 BarcodeScanner: Notifying preview layer is ready")
-                #endif
                 NotificationCenter.default.post(
                     name: .scannerPreviewLayerReady,
                     object: previewLayer
@@ -295,9 +262,6 @@ class BarcodeScanner: NSObject, ObservableObject {
     }
     
     func stopScanning() {
-        #if DEBUG
-        print("📸 BarcodeScanner: Stopping scanning session")
-        #endif
         isDetectionActive = false
         
         DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -316,16 +280,10 @@ class BarcodeScanner: NSObject, ObservableObject {
     
     func pauseDetection() {
         isDetectionActive = false
-        #if DEBUG
-        print("📸 BarcodeScanner: Detection paused")
-        #endif
     }
     
     func resumeDetection() {
         isDetectionActive = true
-        #if DEBUG
-        print("📸 BarcodeScanner: Detection resumed")
-        #endif
     }
     
     func getPreviewLayer() -> AVCaptureVideoPreviewLayer? {
@@ -352,19 +310,9 @@ extension BarcodeScanner: AVCaptureMetadataOutputObjectsDelegate {
             return
         }
         
-        #if DEBUG && ENABLE_VERBOSE_BARCODE_LOGGING
-        // SECURITY: Barcode values redacted to prevent PII logging
-        print("🔍 BARCODE DETECTED: [REDACTED] (\(readableObject.type.rawValue))")
-        print("🔍 BARCODE LENGTH: \(stringValue.count) digits")
-        print("🔍 BARCODE TYPE: \(readableObject.type.rawValue)")
-        #endif
         
         // Validate checksum on original format
         if isValidBarcodeChecksum(stringValue) {
-            #if DEBUG && ENABLE_VERBOSE_BARCODE_LOGGING
-            // SECURITY: Barcode value redacted to prevent PII logging
-            print("✅ Valid checksum verified")
-            #endif
             
             // Process barcode based on actual type and length - NO AUTOMATIC CONVERSION
             var processedValue = stringValue
@@ -372,15 +320,7 @@ extension BarcodeScanner: AVCaptureMetadataOutputObjectsDelegate {
             // Only convert 13-digit EAN-13 codes starting with 0 to 12-digit UPC-A
             if readableObject.type == .ean13 && stringValue.hasPrefix("0") && stringValue.count == 13 {
                 processedValue = String(stringValue.dropFirst())
-                #if DEBUG && ENABLE_VERBOSE_BARCODE_LOGGING
-                // SECURITY: Barcode values redacted to prevent PII logging
-                print("📸 EAN-13 to UPC-A conversion: [REDACTED] → [REDACTED]")
-                #endif
             } else {
-                #if DEBUG && ENABLE_VERBOSE_BARCODE_LOGGING
-                // SECURITY: Barcode value redacted to prevent PII logging
-                print("📸 Using barcode as-is: [REDACTED] (no conversion needed)")
-                #endif
             }
             
             // Debounce: Ignore if same barcode detected within 1 second (reduced from 1.5s)
@@ -389,9 +329,6 @@ extension BarcodeScanner: AVCaptureMetadataOutputObjectsDelegate {
                let lastTime = lastDetectionTime,
                lastBarcode == processedValue,
                now.timeIntervalSince(lastTime) < 1.0 {
-                #if DEBUG
-                print("📸 BarcodeScanner: Ignoring duplicate barcode (debounce)")
-                #endif
                 return
             }
             
@@ -401,10 +338,6 @@ extension BarcodeScanner: AVCaptureMetadataOutputObjectsDelegate {
             // Pause detection temporarily to prevent multiple triggers
             pauseDetection()
             
-            #if DEBUG && ENABLE_VERBOSE_BARCODE_LOGGING
-            // SECURITY: Barcode value redacted to prevent PII logging
-            print("🎯 PRODUCT CODE FOR LOOKUP: [REDACTED]")
-            #endif
             
             // Call the handler
             onBarcodeDetected?(processedValue)
@@ -414,10 +347,6 @@ extension BarcodeScanner: AVCaptureMetadataOutputObjectsDelegate {
                 self?.resumeDetection()
             }
         } else {
-            #if DEBUG && ENABLE_VERBOSE_BARCODE_LOGGING
-            // SECURITY: Barcode value redacted to prevent PII logging
-            print("📸 Invalid checksum, skipping barcode")
-            #endif
         }
     }
     
@@ -447,10 +376,6 @@ extension BarcodeScanner: AVCaptureMetadataOutputObjectsDelegate {
             let isValid = checksum == digits.last
             
             if !isValid {
-                #if DEBUG && ENABLE_VERBOSE_BARCODE_LOGGING
-                // SECURITY: Barcode value redacted to prevent PII logging
-                print("📸 Checksum debug: sum=\(sum), calculated=\(checksum), expected=\(digits.last ?? -1)")
-                #endif
             }
             
             return isValid

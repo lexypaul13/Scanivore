@@ -76,7 +76,6 @@ struct HistoryFeatureDomain {
             case let .historyLoaded(products):
                 state.isLoading = false
                 state.savedProducts = products
-                print("📱 History: Loaded \(products.count) saved products")
                 return .none
                 
             case let .searchTextChanged(text):

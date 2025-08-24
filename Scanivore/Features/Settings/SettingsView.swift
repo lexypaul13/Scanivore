@@ -297,7 +297,6 @@ public struct SettingsFeature {
         .ifLet(\.$destination, action: \.destination) {
             Destination.body
         }
-        ._printChanges()
     }
 }
 

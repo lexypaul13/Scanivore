@@ -143,9 +143,9 @@ public struct SecureLogger {
     public static func logBarcode(_ message: String, barcode: String? = nil) {
         #if DEBUG
         if SecurityConfiguration.verboseBarcodeLoggingEnabled, let barcode = barcode {
-            print("🔍 BARCODE: \(message) - \(barcode)")
+            // Barcode logging removed for production
         } else {
-            print("🔍 BARCODE: \(message) - [REDACTED]")
+            // Barcode logging removed for production
         }
         #endif
     }
@@ -154,7 +154,7 @@ public struct SecureLogger {
     public static func logAuth(_ message: String) {
         #if DEBUG
         if SecurityConfiguration.authLoggingEnabled {
-            print("🔒 AUTH: \(message)")
+            // Auth logging removed for production
         }
         #endif
     }
@@ -163,7 +163,7 @@ public struct SecureLogger {
     public static func logAPI(_ message: String) {
         #if DEBUG
         if SecurityConfiguration.apiLoggingEnabled {
-            print("🌐 API: \(message)")
+            // API logging removed for production
         }
         #endif
     }

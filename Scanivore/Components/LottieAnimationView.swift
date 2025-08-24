@@ -61,7 +61,6 @@ struct LottieViewRepresentable: UIViewRepresentable {
         
         // Check if animation loaded successfully
         guard animationView.animation != nil else {
-            print("Warning: Lottie animation '\(animationName)' not found")
             return view
         }
         

@@ -48,30 +48,13 @@ public class HealthAssessmentCache {
                     
                     // Check if cache is still valid
                     if Date().timeIntervalSince(cacheEntry.timestamp) < self.cacheTTL {
-                        #if DEBUG
-                        let ageInHours = Date().timeIntervalSince(cacheEntry.timestamp) / 3600
-                        if APIConfiguration.shouldLogAPIResponses {
-                            print("🚀 Cache HIT (cached \(String(format: "%.1f", ageInHours))h ago)")
-                            print("⚡ INSTANT response vs network call")
-                            
-                            // Track cache performance benefits
-                            let savedTimeMs = 5000
-                            print("⏱️ Cache saved ~\(savedTimeMs)ms response time")
-                        }
-                        #endif
                         continuation.resume(returning: (assessment: cacheEntry.assessment, fromCache: true))
                     } else {
                         // Cache expired, remove file
-                        #if DEBUG
-                        print("📱 Cache EXPIRED for product")
-                        #endif
                         try? FileManager.default.removeItem(at: cacheFile)
                         continuation.resume(returning: nil)
                     }
                 } catch {
-                    #if DEBUG
-                    print("📱 Cache READ error: \(error)")
-                    #endif
                     // Remove corrupted cache file
                     try? FileManager.default.removeItem(at: cacheFile)
                     continuation.resume(returning: nil)
@@ -100,13 +83,8 @@ public class HealthAssessmentCache {
                 do {
                     let data = try JSONEncoder().encode(cacheEntry)
                     try data.write(to: cacheFile)
-                    #if DEBUG
-                    print("📱 Cache STORED for product")
-                    #endif
                 } catch {
-                    #if DEBUG
-                    print("📱 Cache WRITE error: \(error)")
-                    #endif
+                    // Handle write errors silently
                 }
                 
                 continuation.resume()
@@ -123,16 +101,11 @@ public class HealthAssessmentCache {
                 if let creationDate = try? file.resourceValues(forKeys: [.creationDateKey]).creationDate {
                     if Date().timeIntervalSince(creationDate) > cacheTTL {
                         try? FileManager.default.removeItem(at: file)
-                        #if DEBUG
-                        print("📱 Removed expired cache file")
-                        #endif
                     }
                 }
             }
         } catch {
-            #if DEBUG
-            print("📱 Cache cleanup error: \(error)")
-            #endif
+            // Handle cleanup errors silently
         }
     }
     
@@ -143,13 +116,8 @@ public class HealthAssessmentCache {
             for file in files {
                 try FileManager.default.removeItem(at: file)
             }
-            #if DEBUG
-            print("📱 Cleared all cached assessments")
-            #endif
         } catch {
-            #if DEBUG
-            print("📱 Error clearing cache: \(error)")
-            #endif
+            // Handle clear cache errors silently
         }
     }
     

@@ -99,10 +99,6 @@ extension AuthGateway: DependencyKey {
                 
             } catch {
                 // Continue with local logout even if server logout fails
-                #if DEBUG
-                // SECURITY: Error details redacted to prevent information leakage
-                print("Server logout failed: \(type(of: error))")
-                #endif
             }
             
             // Always clear local token

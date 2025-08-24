@@ -184,7 +184,6 @@ struct ProductDetailFeatureDomain {
                 // Check if we already have the assessment (from history) or if it needs refresh
                 guard state.healthAssessment == nil else {
                     // Already have assessment from saved history - no network call needed
-                    print("📱 ProductDetail: Using local health assessment for \(state.productCode)")
                     return Effect<Action>.none 
                 }
                 
@@ -193,9 +192,6 @@ struct ProductDetailFeatureDomain {
                     return .run { [productCode = state.productCode] send in
                         if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: productCode) {
                             await send(.healthAssessmentReceived(.success(cacheResult.assessment)))
-                            if cacheResult.fromCache {
-                                print("💾 ProductDetail: Using cached assessment for \(productCode)")
-                            }
                         } else {
                             // Cache miss - proceed with network fetch
                             await send(.loadHealthAssessment)
@@ -203,7 +199,6 @@ struct ProductDetailFeatureDomain {
                     }
                 } else {
                     // History item without assessment (old version) - try network as fallback
-                    print("⚠️ ProductDetail: History item missing assessment, fetching from network")
                     return .run { send in
                         await send(.loadHealthAssessment)
                     }
@@ -241,10 +236,8 @@ struct ProductDetailFeatureDomain {
                     return .run { [productCode = state.productCode] _ in
                         let savedProduct = assessment.toSavedProduct(barcode: productCode)
                         await scannedProducts.save(savedProduct)
-                        print("💾 ProductDetail: Saved scanned product \(productCode) to history")
                     }
                 } else {
-                    print("👁️ ProductDetail: Product \(state.productCode) viewed from \(state.context) - not saving to scan history")
                     return .none
                 }
                 
@@ -333,7 +326,6 @@ struct ProductDetailFeatureDomain {
                 return .none
             }
         }
-        ._printChanges()
     }
 }
 

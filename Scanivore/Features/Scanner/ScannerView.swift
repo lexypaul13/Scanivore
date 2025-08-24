@@ -95,9 +95,6 @@ struct ScannerFeatureDomain {
                 
                 return .run { send in
                     let permissionStatus = await barcodeScanner.requestCameraPermission()
-                    #if DEBUG
-                    print("🔍 Scanner: Permission status: \(permissionStatus)")
-                    #endif
                     await send(.permissionReceived(permissionStatus))
                 }
                 
@@ -114,9 +111,6 @@ struct ScannerFeatureDomain {
                 switch status {
                 case .granted:
                     state.scanState = .preparing
-                    #if DEBUG
-                    print("🔍 Scanner: Permission granted, starting session")
-                    #endif
                     
                     return .run { send in
                         // Small delay to show preparing state
@@ -127,16 +121,9 @@ struct ScannerFeatureDomain {
                         for await event in AsyncStream<ScannerEvent> { continuation in
                             barcodeScanner.startScanning(
                                 { barcode in
-                                    #if DEBUG && ENABLE_VERBOSE_BARCODE_LOGGING
-                                    // SECURITY: Barcode value redacted to prevent PII logging
-                                    print("🔍 Scanner: Barcode detected: [REDACTED]")
-                                    #endif
                                     continuation.yield(.barcodeDetected(barcode))
                                 },
                                 { error in
-                                    #if DEBUG
-                                    print("🔍 Scanner: Error occurred: \(error)")
-                                    #endif
                                     continuation.yield(.scanFailed(error))
                                 }
                             )
@@ -157,25 +144,21 @@ struct ScannerFeatureDomain {
                     
                 case .denied, .restricted:
                     state.scanState = .error("Camera permission is required to scan barcodes. Please enable camera access in Settings.")
-                    print("🔍 Scanner: Permission denied or restricted")
                     return .none
                     
                 case .notRequested:
                     state.scanState = .idle
-                    print("🔍 Scanner: Permission not requested")
                     return .none
                 }
                 
             case .sessionStarted:
                 state.scanState = .scanning
                 state.isSessionActive = true
-                print("🔍 Scanner: Session started, ready to scan")
                 return .none
                 
             case .barcodeDetected(let barcode):
                 // Don't stop scanning - keep session active for next scan
                 state.scanState = .processing(barcode: barcode)
-                print("🔍 Scanner: Processing barcode: \(barcode)")
                 
                 // Show product detail directly with barcode - let health assessment handle everything
                 state.destination = .productDetail(
@@ -185,7 +168,6 @@ struct ScannerFeatureDomain {
                     )
                 )
                 state.scanState = .scanning
-                print("🔍 Scanner: Barcode detected, presenting detail for: \(barcode)")
                 return .none
                 
             case .scanFailed(let error):
@@ -226,7 +208,6 @@ struct ScannerFeatureDomain {
             }
         }
         .ifLet(\.$destination, action: \.destination)
-        ._printChanges()
     }
 }
 
