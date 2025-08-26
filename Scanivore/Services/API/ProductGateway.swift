@@ -555,26 +555,7 @@ extension HealthAssessmentResponse {
                 recommendation: "Higher sodium content - monitor intake"
             )
         ],
-        citations: [
-            Citation(
-                id: 1,
-                title: "Health Effects of Processed Meat Preservatives",
-                source: "FDA",
-                year: "2024", url: nil
-            ),
-            Citation(
-                id: 2,
-                title: "Sodium Intake Recommendations for Heart Health",
-                source: "NIH",
-                year: "2024", url: nil
-            ),
-            Citation(
-                id: 3,
-                title: "Natural Flavors in Food: Safety and Regulation",
-                source: "Mayo Clinic",
-                year: "2024", url: nil
-            )
-        ],
+        citations: [], // Only real citations from backend API - no mock data for App Store compliance
         meta: ResponseMetadata(
             product: "Mock Ground Turkey",
             generated: "2024-01-15T10:30:00Z"
