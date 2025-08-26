@@ -333,6 +333,12 @@ struct EnhancedIngredientDetailSheet: View {
 // MARK: - Citation Card with Enhanced Web Browsing
 struct CitationCard: View {
     let citation: Citation
+    @State private var showingSafari = false
+    
+    var citationURL: URL? {
+        guard let urlString = citation.url, !urlString.isEmpty else { return nil }
+        return URL(string: urlString)
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
@@ -354,15 +360,36 @@ struct CitationCard: View {
                 
                 Spacer()
                 
-                // Show source icon for App Store medical citation compliance
-                Image(systemName: "doc.text")
-                    .font(DesignSystem.Typography.small)
-                    .foregroundColor(DesignSystem.Colors.primaryRed)
+                // Show appropriate icon and tap instruction based on URL availability
+                if citationURL != nil {
+                    HStack(spacing: 4) {
+                        Image(systemName: "link")
+                            .font(DesignSystem.Typography.small)
+                            .foregroundColor(DesignSystem.Colors.primaryRed)
+                        Text("Tap to read")
+                            .font(DesignSystem.Typography.small)
+                            .foregroundColor(DesignSystem.Colors.primaryRed)
+                    }
+                } else {
+                    Image(systemName: "doc.text")
+                        .font(DesignSystem.Typography.small)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
             }
         }
         .padding(DesignSystem.Spacing.sm)
-        .background(DesignSystem.Colors.backgroundSecondary)
+        .background(citationURL != nil ? DesignSystem.Colors.backgroundSecondary : DesignSystem.Colors.backgroundSecondary.opacity(0.5))
         .cornerRadius(DesignSystem.CornerRadius.md)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                .stroke(citationURL != nil ? DesignSystem.Colors.primaryRed.opacity(0.3) : Color.clear, lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard let url = citationURL else { return }
+            showingSafari = true
+        }
+        .safariView(isPresented: $showingSafari, url: citationURL)
     }
 }
 

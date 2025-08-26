@@ -264,6 +264,7 @@ public struct Citation: Codable, Equatable {
     let title: String
     let source: String
     let year: String
+    let url: String?  // Optional URL for clickable citations
 }
 
 // MARK: - User Models
