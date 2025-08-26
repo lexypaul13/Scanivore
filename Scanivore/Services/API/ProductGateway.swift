@@ -38,7 +38,10 @@ public struct ProductGateway: Sendable {
 
 // MARK: - Dependency Key Conformance
 extension ProductGateway: DependencyKey {
-    public static let liveValue: Self = .init(
+    // Temporarily use mock data while Railway is down
+    public static let liveValue: Self = previewValue
+    
+    public static let productionValue: Self = .init(
         getProduct: { barcode in
             let headers = try await createAuthHeaders()
             let url = "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)"
@@ -558,12 +561,21 @@ extension HealthAssessmentResponse {
         citations: [
             Citation(
                 id: 1,
-                title: "Health Effects of Processed Meat Preservatives in",
-                authors: "Johnson, M. et al.",
-                journal: "Food Safety Journal",
-                year: 2023,
-                doi: "10.1234/fsj.2023.002",
-                url: "https://example.com/citation1"
+                title: "Health Effects of Processed Meat Preservatives",
+                source: "FDA",
+                year: "2024"
+            ),
+            Citation(
+                id: 2,
+                title: "Sodium Intake Recommendations for Heart Health",
+                source: "NIH",
+                year: "2024"
+            ),
+            Citation(
+                id: 3,
+                title: "Natural Flavors in Food: Safety and Regulation",
+                source: "Mayo Clinic",
+                year: "2024"
             )
         ],
         meta: ResponseMetadata(

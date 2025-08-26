@@ -262,11 +262,8 @@ public struct NutritionInsight: Codable, Equatable {
 public struct Citation: Codable, Equatable {
     let id: Int
     let title: String
-    let authors: String?
-    let journal: String?
-    let year: Int?
-    let doi: String?
-    let url: String?
+    let source: String
+    let year: String
 }
 
 // MARK: - User Models

@@ -333,14 +333,6 @@ struct EnhancedIngredientDetailSheet: View {
 // MARK: - Citation Card with Enhanced Web Browsing
 struct CitationCard: View {
     let citation: Citation
-    @State private var showingSafari = false
-    @State private var isLoading = false
-    @State private var showingError = false
-    
-    private var citationURL: URL? {
-        guard let urlString = citation.url else { return nil }
-        return URL(string: urlString)
-    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
@@ -351,78 +343,26 @@ struct CitationCard: View {
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
             
-            if let authors = citation.authors {
-                Text(authors)
+            HStack {
+                Text(citation.source)
                     .font(DesignSystem.Typography.small)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-            
-            HStack {
-                if let journal = citation.journal {
-                    Text(journal)
-                        .font(DesignSystem.Typography.small)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
                 
-                if let year = citation.year {
-                    Text("(\(year))")
-                        .font(DesignSystem.Typography.small)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
+                Text("(\(citation.year))")
+                    .font(DesignSystem.Typography.small)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
                 
                 Spacer()
                 
-                // Show loading, link icon, or error state
-                if isLoading {
-                    ProgressView()
-                        .scaleEffect(0.6)
-                        .progressViewStyle(CircularProgressViewStyle(tint: DesignSystem.Colors.primaryRed))
-                } else if citationURL != nil {
-                    Image(systemName: "link")
-                        .font(DesignSystem.Typography.small)
-                        .foregroundColor(DesignSystem.Colors.primaryRed)
-                } else {
-                    Image(systemName: "link.badge.plus")
-                        .font(DesignSystem.Typography.small)
-                        .foregroundColor(DesignSystem.Colors.textSecondary)
-                }
+                // Show source icon for App Store medical citation compliance
+                Image(systemName: "doc.text")
+                    .font(DesignSystem.Typography.small)
+                    .foregroundColor(DesignSystem.Colors.primaryRed)
             }
         }
         .padding(DesignSystem.Spacing.sm)
         .background(DesignSystem.Colors.backgroundSecondary)
         .cornerRadius(DesignSystem.CornerRadius.md)
-        .opacity(citationURL != nil ? 1.0 : 0.7) // Visual feedback for non-clickable citations
-        .onTapGesture {
-            handleCitationTap()
-        }
-        .safariView(isPresented: $showingSafari, url: citationURL)
-        .alert("Unable to Open Link", isPresented: $showingError) {
-            Button("OK") { }
-        } message: {
-            Text("This citation link is not available or invalid.")
-        }
-    }
-    
-    private func handleCitationTap() {
-        guard let url = citationURL else {
-            showingError = true
-            return
-        }
-        
-        // Add haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
-        
-        // Show loading state briefly for visual feedback
-        isLoading = true
-        
-        // Delay to show loading animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            isLoading = false
-            showingSafari = true
-        }
     }
 }
 

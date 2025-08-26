@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - API Configuration
 public struct APIConfiguration {
-    public static let baseURL = "https://clear-meat-api-production.up.railway.app"
+    public static let baseURL = "https://clearmeat-production.up.railway.app"
     public static let apiVersion = "v1"
     
     // ⚡ PERFORMANCE OPTIMIZATIONS (2025-08-07)
@@ -63,7 +63,7 @@ public enum APIEnvironment {
         case .development:
             return "http://localhost:8000"
         case .production:
-            return "https://clear-meat-api-production.up.railway.app"
+            return "https://clearmeat-production.up.railway.app"
         }
     }
     
