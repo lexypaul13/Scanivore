@@ -296,6 +296,12 @@ struct ExploreFeatureDomain {
                 )
                 return .none
                 
+            case .productDetail(.presented(.delegate(.requestAccountCreation))):
+                // Handle request to create account from rate limit screen
+                // Dismiss the product detail and user can navigate to Settings tab to create account
+                state.productDetail = nil
+                return .none
+                
             case .productDetail:
                 return .none
                     
