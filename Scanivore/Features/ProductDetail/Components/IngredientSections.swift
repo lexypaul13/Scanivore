@@ -277,9 +277,6 @@ struct EnhancedIngredientDetailSheet: View {
                                 .font(DesignSystem.Typography.heading3)
                                 .foregroundColor(DesignSystem.Colors.textPrimary)
                             
-                            // AI Disclaimer for Citations
-                            AIDisclaimerCard()
-                            
                             VStack(spacing: DesignSystem.Spacing.sm) {
                                 ForEach(citations.prefix(3), id: \.id) { citation in
                                     CitationCard(citation: citation)
@@ -292,6 +289,9 @@ struct EnhancedIngredientDetailSheet: View {
                                     .foregroundColor(DesignSystem.Colors.textSecondary)
                                     .padding(.top, DesignSystem.Spacing.xs)
                             }
+                            
+                            // AI Disclaimer for Citations (below the citations)
+                            AIDisclaimerCard()
                         } else {
                             // Disclaimer when citations are not available
                             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
