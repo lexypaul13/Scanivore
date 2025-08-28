@@ -263,7 +263,7 @@ struct EnhancedIngredientDetailSheet: View {
                             .font(DesignSystem.Typography.heading3)
                             .foregroundColor(DesignSystem.Colors.textPrimary)
                         
-                        Text(ingredient.overview ?? ingredient.microReport)
+                        Text(cleanAnalysisText(ingredient.overview ?? ingredient.microReport))
                             .font(DesignSystem.Typography.body)
                             .foregroundColor(DesignSystem.Colors.textPrimary)
                             .lineSpacing(4)
@@ -464,4 +464,28 @@ struct AIDisclaimerCard: View {
         )
         .cornerRadius(DesignSystem.CornerRadius.md)
     }
+}
+
+// MARK: - Helper Functions
+private func cleanAnalysisText(_ text: String) -> String {
+    var cleanedText = text
+    
+    // Remove messy source patterns like "(Sources: , , , )" or "(Sources:,,,)"
+    cleanedText = cleanedText.replacingOccurrences(
+        of: #"\(Sources?:\s*,+\s*\)"#,
+        with: "",
+        options: .regularExpression
+    )
+    
+    // Remove other empty source patterns
+    cleanedText = cleanedText.replacingOccurrences(
+        of: #"\(Sources?:[^)]*\)"#,
+        with: "",
+        options: .regularExpression
+    )
+    
+    // Clean up extra whitespace and line breaks
+    cleanedText = cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
+    
+    return cleanedText
 }
