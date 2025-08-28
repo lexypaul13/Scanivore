@@ -118,9 +118,19 @@ struct SignInFeatureDomain {
                 if let apiError = error as? APIError {
                     switch apiError.statusCode {
                     case 401:
-                        state.errorMessage = "Invalid email or password. Please try again."
+                        // Provide more helpful error message based on API response
+                        if apiError.detail.lowercased().contains("user not found") || 
+                           apiError.detail.lowercased().contains("does not exist") {
+                            state.errorMessage = "No account found with this email. Please check your email or create a new account."
+                        } else if apiError.detail.lowercased().contains("password") {
+                            state.errorMessage = "Incorrect password. Please try again or reset your password."
+                        } else {
+                            state.errorMessage = "Invalid email or password. Please check your credentials and try again."
+                        }
                     case 400:
                         state.errorMessage = apiError.detail
+                    case 404:
+                        state.errorMessage = "No account found with this email. Please check your email or create a new account."
                     default:
                         state.errorMessage = "Sign in failed: \(apiError.detail)"
                     }
