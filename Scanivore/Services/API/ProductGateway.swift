@@ -11,12 +11,34 @@ import Dependencies
 import ComposableArchitecture
 
 // MARK: - Alamofire Session Configuration
-// Shared session with standard SSL validation
+// Shared session with Railway-compatible SSL validation
 private let sharedOptimizedSession: Session = {
     let configuration = URLSessionConfiguration.default
     configuration.timeoutIntervalForRequest = APIConfiguration.timeout
     configuration.timeoutIntervalForResource = APIConfiguration.healthAssessmentTimeout
-    return Session(configuration: configuration)
+    
+    // Enhanced SSL configuration for Railway/Let's Encrypt certificates
+    configuration.tlsMinimumSupportedProtocolVersion = .TLSv12
+    configuration.tlsMaximumSupportedProtocolVersion = .TLSv13
+    configuration.urlCache = URLCache.shared
+    configuration.requestCachePolicy = .useProtocolCachePolicy
+    
+    // Allow HTTP/2 which Railway supports
+    configuration.multipathServiceType = .none
+    configuration.httpMaximumConnectionsPerHost = 6
+    
+    // Create ServerTrustManager for Railway's domain
+    // This uses default evaluation which properly handles Let's Encrypt certificates
+    let serverTrustManager = ServerTrustManager(evaluators: [
+        "clear-meat-api-production.up.railway.app": DefaultTrustEvaluator(
+            validateHost: true
+        )
+    ])
+    
+    return Session(
+        configuration: configuration,
+        serverTrustManager: serverTrustManager
+    )
 }()
 
 private func createOptimizedSession() -> Session {
