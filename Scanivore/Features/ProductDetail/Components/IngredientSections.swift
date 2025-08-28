@@ -269,9 +269,17 @@ struct EnhancedIngredientDetailSheet: View {
                             .lineSpacing(4)
                     }
                     
-                    // Citations Section with graceful degradation
+                    // Citations Section with header and graceful degradation
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
                         if !citations.isEmpty {
+                            // Citations Section Header
+                            Text("Citations")
+                                .font(DesignSystem.Typography.heading3)
+                                .foregroundColor(DesignSystem.Colors.textPrimary)
+                            
+                            // AI Disclaimer for Citations
+                            AIDisclaimerCard()
+                            
                             VStack(spacing: DesignSystem.Spacing.sm) {
                                 ForEach(citations.prefix(3), id: \.id) { citation in
                                     CitationCard(citation: citation)
@@ -334,6 +342,7 @@ struct EnhancedIngredientDetailSheet: View {
 struct CitationCard: View {
     let citation: Citation
     @State private var showingSafari = false
+    @State private var isPressed = false
     
     var citationURL: URL? {
         guard let urlString = citation.url, !urlString.isEmpty else { return nil }
@@ -351,11 +360,11 @@ struct CitationCard: View {
             
             HStack {
                 Text(citation.source)
-                    .font(DesignSystem.Typography.small)
+                    .font(DesignSystem.Typography.caption)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                 
                 Text("(\(citation.year))")
-                    .font(DesignSystem.Typography.small)
+                    .font(DesignSystem.Typography.caption)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                 
                 Spacer()
@@ -364,30 +373,53 @@ struct CitationCard: View {
                 if citationURL != nil {
                     HStack(spacing: 4) {
                         Image(systemName: "link")
-                            .font(DesignSystem.Typography.small)
+                            .font(DesignSystem.Typography.caption)
                             .foregroundColor(DesignSystem.Colors.primaryRed)
                         Text("Tap to read")
-                            .font(DesignSystem.Typography.small)
+                            .font(DesignSystem.Typography.captionMedium)
                             .foregroundColor(DesignSystem.Colors.primaryRed)
                     }
                 } else {
                     Image(systemName: "doc.text")
-                        .font(DesignSystem.Typography.small)
+                        .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                 }
             }
         }
         .padding(DesignSystem.Spacing.sm)
-        .background(citationURL != nil ? DesignSystem.Colors.backgroundSecondary : DesignSystem.Colors.backgroundSecondary.opacity(0.5))
+        .background(DesignSystem.Colors.backgroundSecondary)
         .cornerRadius(DesignSystem.CornerRadius.md)
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
                 .stroke(citationURL != nil ? DesignSystem.Colors.primaryRed.opacity(0.3) : Color.clear, lineWidth: 1)
         )
+        .shadow(
+            color: DesignSystem.Shadow.medium,
+            radius: DesignSystem.Shadow.radiusMedium,
+            x: 0,
+            y: DesignSystem.Shadow.offsetMedium.height
+        )
+        .scaleEffect(isPressed ? 0.95 : 1.0)
+        .animation(.easeInOut(duration: 0.1), value: isPressed)
         .contentShape(Rectangle())
         .onTapGesture {
             guard let url = citationURL else { return }
-            showingSafari = true
+            
+            // Add haptic feedback for interactive citations
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
+            
+            // Brief press animation
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isPressed = true
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    isPressed = false
+                }
+                showingSafari = true
+            }
         }
         .safariView(isPresented: $showingSafari, url: citationURL)
     }
@@ -400,5 +432,35 @@ struct IngredientDetailSheet: View {
     
     var body: some View {
         EnhancedIngredientDetailSheet(ingredient: ingredient, citations: [])
+    }
+}
+
+// MARK: - AI Disclaimer Card
+struct AIDisclaimerCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+            HStack {
+                Image(systemName: "info.circle.fill")
+                    .font(DesignSystem.Typography.small)
+                    .foregroundColor(DesignSystem.Colors.warning)
+                
+                Text("AI-Generated Citations")
+                    .font(DesignSystem.Typography.captionMedium)
+                    .fontWeight(.semibold)
+                    .foregroundColor(DesignSystem.Colors.warning)
+            }
+            
+            Text("These citations are AI-generated from reliable medical sources. Always consult healthcare professionals for medical advice.")
+                .font(DesignSystem.Typography.caption)
+                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .lineSpacing(2)
+        }
+        .padding(DesignSystem.Spacing.sm)
+        .background(DesignSystem.Colors.warning.opacity(0.1))
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                .stroke(DesignSystem.Colors.warning.opacity(0.3), lineWidth: 1)
+        )
+        .cornerRadius(DesignSystem.CornerRadius.md)
     }
 }
