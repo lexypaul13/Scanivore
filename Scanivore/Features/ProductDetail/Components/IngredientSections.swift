@@ -292,6 +292,7 @@ struct EnhancedIngredientDetailSheet: View {
                             
                             // AI Disclaimer for Citations (below the citations)
                             AIDisclaimerCard()
+                                .padding(.top)
                         } else {
                             // Disclaimer when citations are not available
                             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
@@ -442,24 +443,24 @@ struct AIDisclaimerCard: View {
             HStack {
                 Image(systemName: "info.circle.fill")
                     .font(DesignSystem.Typography.small)
-                    .foregroundColor(DesignSystem.Colors.warning)
+                    .foregroundColor(DesignSystem.Colors.primaryRed)
                 
                 Text("AI-Generated Citations")
                     .font(DesignSystem.Typography.captionMedium)
                     .fontWeight(.semibold)
-                    .foregroundColor(DesignSystem.Colors.warning)
+                    .foregroundColor(DesignSystem.Colors.primaryRed)
             }
             
             Text("These citations are AI-generated from reliable medical sources. Always consult healthcare professionals for medical advice.")
                 .font(DesignSystem.Typography.caption)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
+                .foregroundColor(DesignSystem.Colors.primaryRed.opacity(0.9))
                 .lineSpacing(2)
         }
         .padding(DesignSystem.Spacing.sm)
-        .background(DesignSystem.Colors.warning.opacity(0.1))
+        .background(DesignSystem.Colors.primaryRed.opacity(0.1))
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                .stroke(DesignSystem.Colors.warning.opacity(0.3), lineWidth: 1)
+                .stroke(DesignSystem.Colors.primaryRed.opacity(0.3), lineWidth: 1)
         )
         .cornerRadius(DesignSystem.CornerRadius.md)
     }
