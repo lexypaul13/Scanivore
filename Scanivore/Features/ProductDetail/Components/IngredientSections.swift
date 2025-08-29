@@ -339,7 +339,130 @@ struct EnhancedIngredientDetailSheet: View {
     }
 }
 
-// MARK: - Citation Card with Enhanced Web Browsing
+// MARK: - Medical Authority Mapper
+struct MedicalAuthorityMapper {
+    private static let medicalAuthorities: [String: String] = [
+        // Tier 1: Federal Health Agencies
+        "fda.gov": "U.S. Food & Drug Administration",
+        "nih.gov": "National Institutes of Health",
+        "cdc.gov": "Centers for Disease Control and Prevention",
+        "usda.gov": "U.S. Department of Agriculture",
+        "who.int": "World Health Organization",
+        
+        // Tier 2: Major Medical Organizations
+        "mayoclinic.org": "Mayo Clinic",
+        "heart.org": "American Heart Association",
+        "cancer.org": "American Cancer Society",
+        "diabetes.org": "American Diabetes Association",
+        "kidney.org": "National Kidney Foundation",
+        "lung.org": "American Lung Association",
+        
+        // Tier 3: Medical Research Institutions
+        "harvard.edu": "Harvard Medical School",
+        "johnshopkins.edu": "Johns Hopkins Medicine",
+        "stanford.edu": "Stanford Medicine",
+        "ucsf.edu": "UC San Francisco",
+        "mountsinai.org": "Mount Sinai Health System",
+        "clevelandclinic.org": "Cleveland Clinic",
+        
+        // Tier 4: Specialized Medical Organizations
+        "pcrm.org": "Physicians Committee for Responsible Medicine",
+        "nutrition.org": "American Society for Nutrition",
+        "acsh.org": "American Council on Science and Health",
+        "hsph.harvard.edu": "Harvard T.H. Chan School of Public Health",
+        "ncbi.nlm.nih.gov": "National Center for Biotechnology Information",
+        "pubmed.ncbi.nlm.nih.gov": "PubMed - National Library of Medicine",
+        "cochranelibrary.com": "Cochrane Library",
+        "bmj.com": "BMJ (British Medical Journal)",
+        "thelancet.com": "The Lancet",
+        "nejm.org": "New England Journal of Medicine"
+    ]
+    
+    static func getAuthorityName(from urlString: String) -> String {
+        guard let url = URL(string: urlString),
+              let host = url.host?.lowercased() else {
+            return extractFallbackSource(from: urlString)
+        }
+        
+        // Try exact match first
+        if let authority = medicalAuthorities[host] {
+            return authority
+        }
+        
+        // Try partial matches for subdomains
+        for (domain, authority) in medicalAuthorities {
+            if host.contains(domain) || domain.contains(host) {
+                return authority
+            }
+        }
+        
+        // Return formatted domain name as fallback
+        return formatDomainName(host)
+    }
+    
+    private static func extractFallbackSource(from urlString: String) -> String {
+        // Handle malformed URLs or extract domain-like patterns
+        let patterns = [
+            "https?://(?:www\\.)?([^/]+)",
+            "([a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})"
+        ]
+        
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern),
+               let match = regex.firstMatch(in: urlString, options: [], range: NSRange(location: 0, length: urlString.count)),
+               let range = Range(match.range(at: 1), in: urlString) {
+                let domain = String(urlString[range]).lowercased()
+                return formatDomainName(domain)
+            }
+        }
+        
+        return "Medical Authority"
+    }
+    
+    private static func formatDomainName(_ domain: String) -> String {
+        let cleanDomain = domain.replacingOccurrences(of: "www.", with: "")
+        let parts = cleanDomain.components(separatedBy: ".")
+        
+        if let mainPart = parts.first {
+            // Capitalize first letter and handle common abbreviations
+            let formatted = mainPart.prefix(1).capitalized + mainPart.dropFirst()
+            
+            // Handle common patterns
+            switch formatted.lowercased() {
+            case "pubmed": return "PubMed"
+            case "ncbi": return "NCBI"
+            case "webmd": return "WebMD"
+            case "healthline": return "Healthline"
+            case "medicalnewstoday": return "Medical News Today"
+            default: return formatted
+            }
+        }
+        
+        return cleanDomain.capitalized
+    }
+    
+    static func isValidMedicalURL(_ urlString: String?) -> Bool {
+        guard let urlString = urlString,
+              let url = URL(string: urlString),
+              let scheme = url.scheme else {
+            return false
+        }
+        
+        // Must be HTTP/HTTPS
+        guard scheme == "http" || scheme == "https" else {
+            return false
+        }
+        
+        // Must have a valid host
+        guard let host = url.host, !host.isEmpty else {
+            return false
+        }
+        
+        return true
+    }
+}
+
+// MARK: - Citation Card with Enhanced Medical Authority Display
 struct CitationCard: View {
     let citation: Citation
     @State private var showingSafari = false
@@ -357,6 +480,17 @@ struct CitationCard: View {
                urlString.contains("grounding-api-redirect")
     }
     
+    private var medicalAuthorityName: String {
+        if let urlString = citation.url {
+            return MedicalAuthorityMapper.getAuthorityName(from: urlString)
+        }
+        return citation.source
+    }
+    
+    private var isValidURL: Bool {
+        MedicalAuthorityMapper.isValidMedicalURL(citation.url)
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             Text(citation.title)
@@ -367,18 +501,22 @@ struct CitationCard: View {
                 .fixedSize(horizontal: false, vertical: true)
             
             HStack {
-                Text(citation.source)
-                    .font(DesignSystem.Typography.caption)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                
-                Text("(\(citation.year))")
-                    .font(DesignSystem.Typography.caption)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                // Display medical authority name instead of generic source
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(medicalAuthorityName)
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .fontWeight(.medium)
+                    
+                    Text("(\(citation.year))")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
                 
                 Spacer()
                 
-                // Show appropriate icon and tap instruction based on URL availability
-                if citationURL != nil {
+                // Show appropriate icon and tap instruction based on URL validity
+                if isValidURL {
                     HStack(spacing: 4) {
                         Image(systemName: "link")
                             .font(DesignSystem.Typography.caption)
@@ -399,7 +537,7 @@ struct CitationCard: View {
         .cornerRadius(DesignSystem.CornerRadius.md)
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                .stroke(citationURL != nil ? DesignSystem.Colors.primaryRed.opacity(0.3) : Color.clear, lineWidth: 1)
+                .stroke(isValidURL ? DesignSystem.Colors.primaryRed.opacity(0.3) : Color.clear, lineWidth: 1)
         )
         .shadow(
             color: DesignSystem.Shadow.medium,
@@ -411,7 +549,8 @@ struct CitationCard: View {
         .animation(.easeInOut(duration: 0.1), value: isPressed)
         .contentShape(Rectangle())
         .onTapGesture {
-            guard let url = citationURL else { return }
+            // Only allow tap if URL is valid
+            guard isValidURL, let url = citationURL else { return }
             
             // Add haptic feedback for interactive citations
             let impactFeedback = UIImpactFeedbackGenerator(style: .light)
