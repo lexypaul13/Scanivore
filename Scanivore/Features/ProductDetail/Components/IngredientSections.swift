@@ -375,7 +375,24 @@ struct MedicalAuthorityMapper {
         "cochranelibrary.com": "Cochrane Library",
         "bmj.com": "BMJ (British Medical Journal)",
         "thelancet.com": "The Lancet",
-        "nejm.org": "New England Journal of Medicine"
+        "nejm.org": "New England Journal of Medicine",
+        
+        // Tier 5: Additional Trustworthy Medical Sources (newly added)
+        "aicr.org": "American Institute for Cancer Research",
+        "cancercouncil.com.au": "Cancer Council Australia",
+        "cancerresearchuk.org": "Cancer Research UK",
+        "diabetesjournals.org": "American Diabetes Association Journals",
+        "healthline.com": "Healthline Medical Review Board",
+        "medicalnewstoday.com": "Medical News Today",
+        "webmd.com": "WebMD Medical Reference",
+        "verywellhealth.com": "Verywell Health",
+        "everydayhealth.com": "Everyday Health",
+        "nutrition.gov": "Nutrition.gov",
+        "foodsafety.gov": "FoodSafety.gov",
+        "extension.org": "Extension Publications",
+        "nutritionsource.hsph.harvard.edu": "Harvard Nutrition Source",
+        "health.harvard.edu": "Harvard Health Publishing",
+        "medlineplus.gov": "MedlinePlus"
     ]
     
     static func getAuthorityName(from urlString: String) -> String {
