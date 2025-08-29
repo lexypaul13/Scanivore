@@ -218,6 +218,18 @@ struct ProductDetailFeatureDomain {
                 state.isLoading = false
                 state.healthAssessment = assessment
                 
+                // Debug citations in health assessment response
+                print("🔍 [iOS Debug] Health assessment received successfully")
+                print("🔍 [iOS Debug] Assessment citations: \(assessment.citations?.count ?? 0)")
+                if let citations = assessment.citations {
+                    for (index, citation) in citations.enumerated() {
+                        print("🔍 [iOS Debug] Citation \(index + 1): \(citation.source) - \(citation.title)")
+                        print("🔍 [iOS Debug] Citation URL: \(citation.url ?? "NO URL")")
+                    }
+                } else {
+                    print("🔍 [iOS Debug] ❌ No citations in assessment response")
+                }
+                
                 // Update product info from health assessment response if available
                 if let productInfo = assessment.product_info {
                     if state.productName == nil && productInfo.name != nil {
@@ -302,6 +314,14 @@ struct ProductDetailFeatureDomain {
                 return .none
                 
             case let .ingredientTappedWithCitations(ingredient, citations):
+                // Debug citation data flow
+                print("🔍 [iOS Debug] Ingredient tapped: \(ingredient.name ?? "Unknown")")
+                print("🔍 [iOS Debug] Citations received: \(citations.count)")
+                for (index, citation) in citations.enumerated() {
+                    print("🔍 [iOS Debug] Citation \(index + 1): \(citation.source) - \(citation.title)")
+                    print("🔍 [iOS Debug] Citation URL: \(citation.url ?? "NO URL")")
+                }
+                
                 state.selectedIngredient = ingredient
                 state.selectedIngredientCitations = citations
                 state.showingIngredientSheet = true

@@ -271,6 +271,10 @@ struct EnhancedIngredientDetailSheet: View {
                     
                     // Citations Section with header and graceful degradation
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                        // Debug citation display
+                        let _ = print("🔍 [iOS Debug] Citation section - citations count: \(citations.count)")
+                        let _ = print("🔍 [iOS Debug] Citations empty check: \(citations.isEmpty)")
+                        
                         if !citations.isEmpty {
                             // Citations Section Header
                             Text("Citations")
