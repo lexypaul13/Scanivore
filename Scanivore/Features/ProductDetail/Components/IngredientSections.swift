@@ -350,6 +350,13 @@ struct CitationCard: View {
         return URL(string: urlString)
     }
     
+    // Check if this is a Google grounding redirect URL
+    var isGroundingRedirectURL: Bool {
+        guard let urlString = citation.url else { return false }
+        return urlString.contains("vertexaisearch.cloud.google.com") || 
+               urlString.contains("grounding-api-redirect")
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
             Text(citation.title)
