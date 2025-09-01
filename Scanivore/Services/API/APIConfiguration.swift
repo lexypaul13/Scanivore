@@ -28,6 +28,7 @@ public struct APIConfiguration {
         public static let userProfile = "/api/v1/users/me"
         public static let products = "/api/v1/products"
         public static let healthAssessment = "/api/v1/products/{barcode}/health-assessment-mcp"
+        public static let ingredientAnalysis = "/api/v1/ingredients/{ingredient}/analysis"
         public static let alternatives = "/api/v1/products/{barcode}/alternatives"
         public static let recommendations = "/api/v1/products/recommendations"
         public static let search = "/api/v1/products/search"

@@ -11,24 +11,19 @@ import Dependencies
 import ComposableArchitecture
 
 // MARK: - Alamofire Session Configuration
-// Shared session with Railway-compatible SSL validation
 private let sharedOptimizedSession: Session = {
     let configuration = URLSessionConfiguration.default
     configuration.timeoutIntervalForRequest = APIConfiguration.timeout
     configuration.timeoutIntervalForResource = APIConfiguration.healthAssessmentTimeout
     
-    // Enhanced SSL configuration for Railway/Let's Encrypt certificates
     configuration.tlsMinimumSupportedProtocolVersion = .TLSv12
     configuration.tlsMaximumSupportedProtocolVersion = .TLSv13
     configuration.urlCache = URLCache.shared
     configuration.requestCachePolicy = .useProtocolCachePolicy
     
-    // Allow HTTP/2 which Railway supports
     configuration.multipathServiceType = .none
     configuration.httpMaximumConnectionsPerHost = 6
-    
-    // Create ServerTrustManager for Railway's domain
-    // This uses default evaluation which properly handles Let's Encrypt certificates
+
     let serverTrustManager = ServerTrustManager(evaluators: [
         "clear-meat-api-production.up.railway.app": DefaultTrustEvaluator(
             validateHost: true
@@ -42,7 +37,6 @@ private let sharedOptimizedSession: Session = {
 }()
 
 private func createOptimizedSession() -> Session {
-    // Return the shared session to prevent sessionDeinitialized errors
     return sharedOptimizedSession
 }
 
@@ -52,7 +46,7 @@ public struct ProductGateway: Sendable {
     public var getProduct: @Sendable (String) async throws -> Product
     public var getHealthAssessment: @Sendable (String) async throws -> HealthAssessmentResponse
     public var getMeatScanFromBarcode: @Sendable (String) async throws -> MeatScan
-    // getAlternatives removed - feature disabled
+    public var getIndividualIngredientAnalysis: @Sendable (String, String?) async throws -> IndividualIngredientAnalysisResponse
     public var searchProducts: @Sendable (String) async throws -> SearchResponse
     public var getRecommendations: @Sendable (Int, Int) async throws -> ExploreResponse
     public var getExploreRecommendations: @Sendable (Int, Int) async throws -> ExploreResponse
@@ -60,13 +54,14 @@ public struct ProductGateway: Sendable {
 
 // MARK: - Dependency Key Conformance
 extension ProductGateway: DependencyKey {
-    public static let liveValue: Self = .init(
-        getProduct: { barcode in
+    public static let liveValue: ProductGateway = ProductGateway(
+        getProduct: { (barcode: String) async throws -> Product in
             let headers = try await createAuthHeaders()
             let url = "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)"
             
             
-            let response = try await sharedOptimizedSession.request(
+            let session = createOptimizedSession()
+            let response = try await session.request(
                 url,
                 method: .get,
                 headers: headers
@@ -113,13 +108,11 @@ extension ProductGateway: DependencyKey {
             )
         },
         
-        getHealthAssessment: { barcode in
-            // Check cache first with performance-aware feedback (async to avoid main thread blocking)
+        getHealthAssessment: { (barcode: String) async throws -> HealthAssessmentResponse in
             if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: barcode) {
                 return cacheResult.assessment
             }
             
-            // Cache miss - fetch from optimized backend (~5s)
             let headers = try await createAuthHeaders()
             let url = "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)/health-assessment-mcp?format=\(APIConfiguration.ResponseFormat.mobile)"
             
@@ -127,16 +120,14 @@ extension ProductGateway: DependencyKey {
             let startTime = Date()
             var lastError: Error?
             let maxRetries = 2
-            
-            // Retry logic for timeout errors
             for attempt in 0...maxRetries {
                 do {
                     if attempt > 0 {
-                        // Exponential backoff: 1s, 2s
                         try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
                     }
                     
-                    let response = try await sharedOptimizedSession.request(
+                    let session = createOptimizedSession()
+                    let response = try await session.request(
                         url,
                         method: .get,
                         headers: headers
@@ -177,19 +168,15 @@ extension ProductGateway: DependencyKey {
                         if attempt < maxRetries {
                             // Wait longer between retries for timeout issues
                             try await Task.sleep(nanoseconds: UInt64((attempt + 1) * 2) * 1_000_000_000) // 2s, 4s
-                            continue // Try again
+                            continue
                         }
                     }
-                    
-                    // For non-timeout errors, don't retry
                     break
                 }
             }
             
-            // If we got here, all retries failed
             if let error = lastError {
                 
-                // Check for timeout error first - handle both direct URLError and AFError wrapped cases
                 var isTimeoutError = false
                 
                 if let urlError = error as? URLError, urlError.code == .timedOut {
@@ -235,18 +222,17 @@ extension ProductGateway: DependencyKey {
                     }
                 }
                 
-                // Re-throw the original error for other cases
                 throw error
             }
             
-            // This should never be reached, but provide a fallback
             throw APIError(detail: "Unexpected error during health assessment", statusCode: -1)
         },
         
-        getMeatScanFromBarcode: { barcode in
+        getMeatScanFromBarcode: { (barcode: String) async throws -> MeatScan in
             let headers = try await createAuthHeaders()
             
-            let healthAssessment = try await sharedOptimizedSession.request(
+            let session = createOptimizedSession()
+            let healthAssessment = try await session.request(
                 "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)/health-assessment-mcp?format=\(APIConfiguration.ResponseFormat.mobile)",
                 method: .get,
                 headers: headers
@@ -259,12 +245,33 @@ extension ProductGateway: DependencyKey {
             return healthAssessment.toMeatScan(barcode: barcode)
         },
         
-        // getAlternatives implementation removed to fix 404 errors
+        getIndividualIngredientAnalysis: { (ingredientName: String, context: String?) async throws -> IndividualIngredientAnalysisResponse in
+            let headers = try await createAuthHeaders()
+            let encodedIngredientName = ingredientName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ingredientName
+            let url = "\(APIConfiguration.baseURL)/api/v1/ingredients/\(encodedIngredientName)/analysis"
+            
+            var parameters: [String: String] = [:]
+            if let context = context {
+                parameters["context"] = context
+            }
+            
+            let session = createOptimizedSession()
+            return try await session.request(
+                url,
+                method: .get,
+                parameters: parameters.isEmpty ? nil : parameters,
+                headers: headers
+            )
+            .validate()
+            .serializingDecodable(IndividualIngredientAnalysisResponse.self)
+            .value
+        },
         
-        searchProducts: { query in
+        searchProducts: { (query: String) async throws -> SearchResponse in
             let headers = try await createAuthHeaders()
             
-            let searchResponse = try await sharedOptimizedSession.request(
+            let session = createOptimizedSession()
+            let searchResponse = try await session.request(
                 "\(APIConfiguration.baseURL)/api/v1/products/search",
                 method: .get,
                 parameters: ["q": query],
@@ -273,8 +280,6 @@ extension ProductGateway: DependencyKey {
             .validate()
             .serializingDecodable(SearchResponse.self)
             .value
-            
-            // Strip image_data from search results to prevent massive memory usage
             let optimizedProducts = searchResponse.products.map { product in
                 Product(
                     code: product.code,
@@ -315,10 +320,11 @@ extension ProductGateway: DependencyKey {
              )
         },
         
-        getRecommendations: { offset, pageSize in
+        getRecommendations: { (offset: Int, pageSize: Int) async throws -> ExploreResponse in
             let headers = try await createAuthHeaders()
             
-            let exploreResponse = try await sharedOptimizedSession.request(
+            let session = createOptimizedSession()
+            let exploreResponse = try await session.request(
                 "\(APIConfiguration.baseURL)/api/v1/products/recommendations",
                 method: .get,
                 parameters: ["offset": offset, "page_size": pageSize],
@@ -328,7 +334,6 @@ extension ProductGateway: DependencyKey {
             .serializingDecodable(ExploreResponse.self)
             .value
             
-            // Strip image_data from recommendations to prevent massive memory usage and debug logs
             let optimizedRecommendations = exploreResponse.recommendations.map { item in
                 let optimizedProduct = Product(
                     code: item.product.code,
@@ -374,12 +379,13 @@ extension ProductGateway: DependencyKey {
             )
         },
         
-        getExploreRecommendations: { offset, limit in
+        getExploreRecommendations: { (offset: Int, limit: Int) async throws -> ExploreResponse in
             let headers = try await createAuthHeaders()
             
             
             do {
-                let userExploreResponse = try await sharedOptimizedSession.request(
+                let session = createOptimizedSession()
+                let userExploreResponse = try await session.request(
                     "\(APIConfiguration.baseURL)/api/v1/users/explore",
                     method: .get,
                     parameters: ["offset": offset, "limit": limit],
@@ -388,9 +394,6 @@ extension ProductGateway: DependencyKey {
                 .validate()
                 .serializingDecodable(UserExploreResponse.self)
                 .value
-                
-                
-                // Strip image_data from user explore results to prevent massive memory usage
                 let optimizedProducts = userExploreResponse.recommendations.map { product in
                 Product(
                     code: product.code,
@@ -444,16 +447,14 @@ extension ProductGateway: DependencyKey {
         }
     )
     
-    public static let testValue = Self()
-    
-    public static let previewValue: Self = .init(
-        getProduct: { _ in .mock },
-        getHealthAssessment: { _ in .mockHealthAssessment },
-        getMeatScanFromBarcode: { barcode in .mockMeatScan(barcode: barcode) },
-        // getAlternatives removed
-        searchProducts: { _ in .mockSearchResponse },
-        getRecommendations: { _, _ in .mockExploreResponse },
-        getExploreRecommendations: { _, _ in .mockExploreResponse }
+    public static let previewValue: ProductGateway = ProductGateway(
+        getProduct: { (_: String) async throws -> Product in .mock },
+        getHealthAssessment: { (_: String) async throws -> HealthAssessmentResponse in .mockHealthAssessment },
+        getMeatScanFromBarcode: { (barcode: String) async throws -> MeatScan in .mockMeatScan(barcode: barcode) },
+        getIndividualIngredientAnalysis: { (ingredientName: String, _: String?) async throws -> IndividualIngredientAnalysisResponse in .mockIndividualAnalysis(for: ingredientName) },
+        searchProducts: { (_: String) async throws -> SearchResponse in .mockSearchResponse },
+        getRecommendations: { (_: Int, _: Int) async throws -> ExploreResponse in .mockExploreResponse },
+        getExploreRecommendations: { (_: Int, _: Int) async throws -> ExploreResponse in .mockExploreResponse }
     )
 }
 
@@ -532,15 +533,15 @@ extension HealthAssessmentResponse {
         color: "Yellow",
         ingredientsAssessment: IngredientsAssessment(
             highRisk: [
-                IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", overview: "Preservatives are chemical compounds added to foods to prevent spoilage and extend shelf life. While they serve an important function in food safety, some preservatives have been linked to adverse health effects including allergic reactions, hyperactivity in children, and potential carcinogenic properties with long-term exposure.", riskLevel: "high")
+                IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", overview: "Preservatives are chemical compounds added to foods to prevent spoilage and extend shelf life. While they serve an important function in food safety, some preservatives have been linked to adverse health effects including allergic reactions, hyperactivity in children, and potential carcinogenic properties with long-term exposure.", riskLevel: "high", citations: [])
             ],
             moderateRisk: [
-                IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", overview: "Salt (sodium chloride) is an essential mineral used for flavor enhancement and preservation. While necessary for bodily functions, excessive intake is linked to high blood pressure, heart disease, and stroke. The American Heart Association recommends limiting sodium intake to 2,300mg per day.", riskLevel: "moderate"),
-                IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", overview: "Natural flavors are derived from plant or animal sources and used to enhance taste. While generally recognized as safe, they can contain undisclosed ingredients and may trigger allergic reactions in sensitive individuals. The exact composition is often proprietary.", riskLevel: "moderate")
+                IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", overview: "Salt (sodium chloride) is an essential mineral used for flavor enhancement and preservation. While necessary for bodily functions, excessive intake is linked to high blood pressure, heart disease, and stroke. The American Heart Association recommends limiting sodium intake to 2,300mg per day.", riskLevel: "moderate", citations: []),
+                IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", overview: "Natural flavors are derived from plant or animal sources and used to enhance taste. While generally recognized as safe, they can contain undisclosed ingredients and may trigger allergic reactions in sensitive individuals. The exact composition is often proprietary.", riskLevel: "moderate", citations: [])
             ],
             lowRisk: [
-                IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", overview: "", riskLevel: "low"),
-                IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", overview: "", riskLevel: "low")
+                IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", overview: "", riskLevel: "low", citations: []),
+                IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", overview: "", riskLevel: "low", citations: [])
             ]
         ),
         nutrition: [
@@ -584,15 +585,15 @@ extension HealthAssessmentResponse {
         ), product_info: nil,
         // Direct API fields matching actual response structure
         high_risk: [
-            IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", overview: nil, riskLevel: "high")
+            IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", overview: nil, riskLevel: "high", citations: [])
         ],
         moderate_risk: [
-            IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", overview: "", riskLevel: "moderate"),
-            IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", overview: "", riskLevel: "moderate")
+            IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", overview: "", riskLevel: "moderate", citations: []),
+            IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", overview: "", riskLevel: "moderate", citations: [])
         ],
         low_risk: [
-            IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", overview: "", riskLevel: "low"),
-            IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", overview: "", riskLevel: "low")
+            IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", overview: "", riskLevel: "low", citations: []),
+            IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", overview: "", riskLevel: "low", citations: [])
         ]
     )
 }
@@ -647,3 +648,5 @@ extension SearchResponse {
         products: [.mock]
     )
 }
+
+

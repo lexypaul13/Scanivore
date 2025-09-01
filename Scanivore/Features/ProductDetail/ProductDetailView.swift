@@ -41,6 +41,11 @@ struct ProductDetailFeatureDomain {
         var expandedSections: Set<String> = []
         var selectedIngredientCitations: [Citation] = []
         
+        // Individual ingredient analysis state
+        var individualIngredientAnalysis: [String: IndividualIngredientAnalysisResponse] = [:]
+        var loadingIndividualAnalysis: Set<String> = []
+        var individualAnalysisErrors: [String: String] = [:]
+        
         // Computed properties  
         var safetyGrade: SafetyGrade {
             // PRIORITY 1: Use original OpenFoodFacts risk_rating for consistency
@@ -167,6 +172,13 @@ struct ProductDetailFeatureDomain {
         // New actions for collapsible sections
         case toggleIngredientSection(String)
         case ingredientTappedWithCitations(IngredientRisk, [Citation])
+        
+        // Individual ingredient analysis actions (proper past/present tense)
+        case loadIndividualIngredientAnalysis(String) // Present tense - user action
+        case individualIngredientAnalysisReceived(String, TaskResult<IndividualIngredientAnalysisResponse>) // Past tense - effect response
+        case openCitationInSafari(URL) // Present tense - user action
+        case citationSafariOpened(Bool) // Past tense - effect response
+        
         case delegate(Delegate)
         
         enum Delegate: Equatable {
@@ -176,6 +188,8 @@ struct ProductDetailFeatureDomain {
     
     @Dependency(\.scannedProducts) var scannedProducts
     @Dependency(\.productGateway) var productGateway
+    @Dependency(\.safariService) var safariService
+    @Dependency(\.hapticFeedback) var hapticFeedback
     
     var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -265,7 +279,6 @@ struct ProductDetailFeatureDomain {
                     state.error = "Health assessment currently unavailable. Basic product info available."
                 }
                 
-                // Health assessment failed - try to load basic product data as fallback
                 return .run { [productCode = state.productCode] send in
                      await send(.basicProductReceived(
                         TaskResult { try await productGateway.getProduct(productCode) }
@@ -302,14 +315,6 @@ struct ProductDetailFeatureDomain {
                 return .none
                 
             case let .ingredientTappedWithCitations(ingredient, citations):
-                // Debug citation data flow
-                print("🔍 [iOS Debug] Ingredient tapped: \(ingredient.name ?? "Unknown")")
-                print("🔍 [iOS Debug] Citations received: \(citations.count)")
-                for (index, citation) in citations.enumerated() {
-                    print("🔍 [iOS Debug] Citation \(index + 1): \(citation.source) - \(citation.title)")
-                    print("🔍 [iOS Debug] Citation URL: \(citation.url ?? "NO URL")")
-                }
-                
                 state.selectedIngredient = ingredient
                 state.selectedIngredientCitations = citations
                 state.showingIngredientSheet = true
@@ -329,6 +334,59 @@ struct ProductDetailFeatureDomain {
                 
             case .createAccountFromRateLimit:
                 return .send(.delegate(.requestAccountCreation))
+                
+            case let .loadIndividualIngredientAnalysis(ingredientName):
+                // Prevent duplicate requests
+                guard !state.loadingIndividualAnalysis.contains(ingredientName) else {
+                    return .none
+                }
+                
+                state.loadingIndividualAnalysis.insert(ingredientName)
+                state.individualAnalysisErrors.removeValue(forKey: ingredientName)
+                
+                return .run { [productCode = state.productCode] send in
+                    await send(.individualIngredientAnalysisReceived(
+                        ingredientName,
+                        TaskResult {
+                            try await productGateway.getIndividualIngredientAnalysis(
+                                ingredientName,
+                                "in product \(productCode)"
+                            )
+                        }
+                    ))
+                }
+                .cancellable(id: "individual-analysis-\(ingredientName)")
+                
+            case let .individualIngredientAnalysisReceived(ingredientName, result):
+                state.loadingIndividualAnalysis.remove(ingredientName)
+                
+                switch result {
+                case let .success(analysis):
+                    state.individualIngredientAnalysis[ingredientName] = analysis
+                    state.individualAnalysisErrors.removeValue(forKey: ingredientName)
+                    
+                case let .failure(error):
+                    state.individualAnalysisErrors[ingredientName] = error.localizedDescription
+                }
+                
+                return .none
+                
+            case let .openCitationInSafari(url):
+                return .run { send in
+                    // Add haptic feedback for citation taps
+                    await hapticFeedback.impact(.light)
+                    
+                    // Open URL in Safari
+                    let success = await safariService.openURL(url)
+                    await send(.citationSafariOpened(success))
+                }
+                
+            case let .citationSafariOpened(success):
+                // Handle Safari open result if needed (e.g., show error if failed)
+                if !success {
+                    // Could show error state or fallback behavior
+                }
+                return .none
                 
             case .delegate:
                 return .none
@@ -368,9 +426,10 @@ struct ProductDetailView: View {
                     set: { _ in store.send(.dismissIngredientSheet) }
                 )) {
                     if let ingredient = store.selectedIngredient {
-                        EnhancedIngredientDetailSheet(
+                        EnhancedIndividualIngredientAnalysisView(
+                            store: store,
                             ingredient: ingredient,
-                            citations: store.selectedIngredientCitations
+                            fallbackCitations: store.selectedIngredientCitations
                         )
                         .presentationDetents([.large])
                         .presentationDragIndicator(.visible)

@@ -157,7 +157,6 @@ extension AuthGateway: DependencyKey {
         }
     )
     
-    public static let testValue = Self()
     
     public static let previewValue: Self = .init(
         register: { _, _, _ in .mockSuccess },

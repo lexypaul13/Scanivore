@@ -32,7 +32,7 @@ struct CollapsibleIngredientSections: View {
                         isExpanded: store.expandedSections.contains("high-risk"),
                         onToggle: { store.send(.toggleIngredientSection("high-risk")) },
                         onIngredientTap: { ingredient in
-                            store.send(.ingredientTappedWithCitations(ingredient, assessment.citations ?? []))
+                            store.send(.ingredientTappedWithCitations(ingredient, ingredient.citations ?? []))
                         }
                     )
                 }
@@ -47,7 +47,7 @@ struct CollapsibleIngredientSections: View {
                         isExpanded: store.expandedSections.contains("moderate-risk"),
                         onToggle: { store.send(.toggleIngredientSection("moderate-risk")) },
                         onIngredientTap: { ingredient in
-                            store.send(.ingredientTappedWithCitations(ingredient, assessment.citations ?? []))
+                            store.send(.ingredientTappedWithCitations(ingredient, ingredient.citations ?? []))
                         }
                     )
                 }
@@ -62,7 +62,7 @@ struct CollapsibleIngredientSections: View {
                         isExpanded: store.expandedSections.contains("low-risk"),
                         onToggle: { store.send(.toggleIngredientSection("low-risk")) },
                         onIngredientTap: { ingredient in
-                            store.send(.ingredientTappedWithCitations(ingredient, assessment.citations ?? []))
+                            store.send(.ingredientTappedWithCitations(ingredient, ingredient.citations ?? []))
                         }
                     )
                 }
@@ -279,7 +279,15 @@ struct EnhancedIngredientDetailSheet: View {
                             
                             VStack(spacing: DesignSystem.Spacing.sm) {
                                 ForEach(citations.prefix(3), id: \.id) { citation in
-                                    CitationCard(citation: citation)
+                                    CitationCard(citation: citation) {
+                                        // Handle citation tap with TCA-compliant approach
+                                        if let urlString = citation.url,
+                                           let url = URL(string: urlString),
+                                           MedicalAuthorityMapper.isValidMedicalURL(urlString) {
+                                            // For now, fallback to the sheet-based approach
+                                            // This will be enhanced when we have access to store
+                                        }
+                                    }
                                 }
                             }
                             
@@ -482,8 +490,14 @@ struct MedicalAuthorityMapper {
 // MARK: - Citation Card with Enhanced Medical Authority Display
 struct CitationCard: View {
     let citation: Citation
+    let onTap: (() -> Void)?
     @State private var showingSafari = false
     @State private var isPressed = false
+    
+    init(citation: Citation, onTap: (() -> Void)? = nil) {
+        self.citation = citation
+        self.onTap = onTap
+    }
     
     var citationURL: URL? {
         guard let urlString = citation.url, !urlString.isEmpty else { return nil }
@@ -567,11 +581,7 @@ struct CitationCard: View {
         .contentShape(Rectangle())
         .onTapGesture {
             // Only allow tap if URL is valid
-            guard isValidURL, let url = citationURL else { return }
-            
-            // Add haptic feedback for interactive citations
-            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-            impactFeedback.impactOccurred()
+            guard isValidURL else { return }
             
             // Brief press animation
             withAnimation(.easeInOut(duration: 0.1)) {
@@ -582,7 +592,13 @@ struct CitationCard: View {
                 withAnimation(.easeInOut(duration: 0.1)) {
                     isPressed = false
                 }
-                showingSafari = true
+                
+                // Use callback if provided, otherwise fallback to sheet
+                if let onTap = onTap {
+                    onTap()
+                } else {
+                    showingSafari = true
+                }
             }
         }
         .safariView(isPresented: $showingSafari, url: citationURL)

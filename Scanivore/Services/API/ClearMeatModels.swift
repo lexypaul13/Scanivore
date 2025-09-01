@@ -213,6 +213,7 @@ public struct IngredientRisk: Codable, Equatable {
     let risk: String?  // Made optional to handle missing field
     let overview: String?
     let riskLevel: String?
+    let citations: [Citation]?  // Ingredient-specific citations
     
     // Computed property for backward compatibility with default value
     var microReport: String {
@@ -229,6 +230,7 @@ public struct IngredientRisk: Codable, Equatable {
         case risk = "risk"
         case overview = "overview"
         case riskLevel = "risk_level"
+        case citations = "citations"
     }
 }
 
@@ -265,6 +267,55 @@ public struct Citation: Codable, Equatable {
     let source: String
     let year: String
     let url: String?  // Optional URL for clickable citations
+}
+
+// MARK: - Individual Ingredient Analysis Models
+public struct IndividualIngredientAnalysisRequest: Codable, Equatable {
+    let ingredientName: String
+    let context: String?  // Optional context from product (e.g., "in ground turkey")
+    
+    enum CodingKeys: String, CodingKey {
+        case ingredientName = "ingredient_name"
+        case context
+    }
+}
+
+public struct IndividualIngredientAnalysisResponse: Codable, Equatable {
+    let ingredientName: String
+    let analysisText: String
+    let riskLevel: String
+    let riskScore: Double
+    let healthEffects: [HealthEffect]?
+    let recommendedIntake: String?
+    let alternatives: [String]?
+    let citations: [Citation]
+    let lastUpdated: String
+    
+    enum CodingKeys: String, CodingKey {
+        case ingredientName = "ingredient_name"
+        case analysisText = "analysis_text"
+        case riskLevel = "risk_level"
+        case riskScore = "risk_score"
+        case healthEffects = "health_effects"
+        case recommendedIntake = "recommended_intake"
+        case alternatives
+        case citations
+        case lastUpdated = "last_updated"
+    }
+}
+
+public struct HealthEffect: Codable, Equatable {
+    let category: String
+    let effect: String
+    let severity: String
+    let evidenceLevel: String
+    
+    enum CodingKeys: String, CodingKey {
+        case category
+        case effect
+        case severity
+        case evidenceLevel = "evidence_level"
+    }
 }
 
 // MARK: - User Models
@@ -569,6 +620,35 @@ public extension HealthAssessmentResponse {
             meatScan: meatScan,
             healthAssessment: self, // Store full assessment for offline viewing
             version: 2
+        )
+    }
+}
+
+// MARK: - Individual Ingredient Analysis Mock Extensions
+extension IndividualIngredientAnalysisResponse {
+    static func mockIndividualAnalysis(for ingredientName: String) -> IndividualIngredientAnalysisResponse {
+        return IndividualIngredientAnalysisResponse(
+            ingredientName: ingredientName,
+            analysisText: "Mock analysis for \(ingredientName). This ingredient is commonly used in food processing and may have various health implications depending on the amount consumed.",
+            riskLevel: "MODERATE",
+            riskScore: 0.5,
+            healthEffects: [
+                HealthEffect(
+                    category: "Digestive",
+                    effect: "Potential sensitivity",
+                    severity: "LOW",
+                    evidenceLevel: "LIMITED"
+                )
+            ],
+            recommendedIntake: "Moderate consumption recommended",
+            alternatives: ["Natural \(ingredientName) alternative"],
+            citations: [
+                Citation(
+                    id: 1, title: "Mock Research Study on \(ingredientName)", source: "PubMed",
+                    year: "2023", url: "https://example.com/mock-study"
+                )
+            ],
+            lastUpdated: "2024-01-01T00:00:00Z"
         )
     }
 }
