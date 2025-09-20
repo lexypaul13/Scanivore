@@ -256,9 +256,6 @@ struct ExploreFeatureDomain {
                 }
                 state.isLoadingNextPage = false
 
-                // Debug: Log pagination state after processing
-                print("🔎 [Explore] Processed page: uniqueAdded=\(uniqueCount), pageSize=\(pageSize), totalLoaded=\(state.recommendations.count), totalMatches=\(state.totalItems), hasMorePages=\(state.hasMorePages)")
-                
                 return .none
                 
             case let .searchSubmitted(query):
@@ -340,11 +337,7 @@ struct ExploreFeatureDomain {
                 return .none
                     
             case .loadMoreRecommendations:
-                guard !state.isSearchActive && state.canLoadMore else {
-                    print("🔎 [Explore] loadMoreRecommendations blocked: isSearchActive=\(state.isSearchActive), canLoadMore=\(state.canLoadMore), hasMorePages=\(state.hasMorePages), isLoadingNextPage=\(state.isLoadingNextPage)")
-                    return .none
-                }
-                print("🔎 [Explore] loadMoreRecommendations starting: currentCount=\(state.recommendations.count), offset=\(state.recommendations.count)")
+                guard !state.isSearchActive && state.canLoadMore else { return .none }
                 state.isLoadingNextPage = true
                 state.currentPage += 1
                 let offset = state.recommendations.count
@@ -689,7 +682,6 @@ struct ExploreView: View {
                     let nearEnd = itemsFromEnd <= 3
                     let canLoadRecommendations = !store.isSearchActive && store.canLoadMore
                     let canLoadSearch = store.isSearchActive && store.searchHasMorePages && !store.isLoadingSearchNextPage
-                    print("🔎 [Explore] Cell onAppear index=\(index), total=\(totalItems), itemsFromEnd=\(itemsFromEnd), nearEnd=\(nearEnd), canLoadRecommendations=\(canLoadRecommendations), canLoadSearch=\(canLoadSearch)")
                     if nearEnd {
                         if canLoadRecommendations {
                             store.send(.loadMoreRecommendations)

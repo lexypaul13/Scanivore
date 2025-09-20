@@ -628,15 +628,9 @@ extension ProductGateway: DependencyKey {
                 .serializingData()
                 .value
                 
-                // Debug: Print raw JSON response
-                if let jsonString = String(data: userExploreResponse, encoding: .utf8) {
-                    print("🔍 [DEBUG] Raw JSON Response (first 1000 chars):")
-                    print(String(jsonString.prefix(1000)))
-                }
                 
                 let decodedResponse = try JSONDecoder().decode(UserExploreResponse.self, from: userExploreResponse)
 
-                print("🔍 [ProductGateway] Decoded totalMatches: \(decodedResponse.totalMatches), recommendations: \(decodedResponse.recommendations.count)")
                 
                 
                 let optimizedRecommendations = decodedResponse.recommendations.map { item in
