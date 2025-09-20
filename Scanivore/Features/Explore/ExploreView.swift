@@ -239,6 +239,9 @@ struct ExploreFeatureDomain {
                 state.totalItems = response.totalMatches
                 state.hasMorePages = response.hasMore ?? (state.recommendations.count < response.totalMatches)
                 state.isLoadingNextPage = false
+
+                // Debug: Log pagination state after processing
+                print("🔎 [Explore] Processed page: appended=\(newRecommendations.count), totalLoaded=\(state.recommendations.count), totalMatches=\(state.totalItems), hasMorePages=\(state.hasMorePages)")
                 
                 return .none
                 
@@ -321,7 +324,11 @@ struct ExploreFeatureDomain {
                 return .none
                     
             case .loadMoreRecommendations:
-                guard !state.isSearchActive && state.canLoadMore else { return .none }
+                guard !state.isSearchActive && state.canLoadMore else {
+                    print(\"🔎 [Explore] loadMoreRecommendations blocked: isSearchActive=\\(state.isSearchActive), canLoadMore=\\(state.canLoadMore), hasMorePages=\\(state.hasMorePages), isLoadingNextPage=\\(state.isLoadingNextPage)\")
+                    return .none
+                }
+                print(\"🔎 [Explore] loadMoreRecommendations starting: currentCount=\\(state.recommendations.count), offset=\\(state.recommendations.count)\")
                 state.isLoadingNextPage = true
                 state.currentPage += 1
                 let offset = state.recommendations.count
@@ -338,7 +345,8 @@ struct ExploreFeatureDomain {
                 .cancellable(id: "explore-more-recommendations")
 
             case .loadMoreSearchResults:
-                guard state.isSearchActive && state.canLoadMore else { return .none }
+                // Use dedicated search pagination flags
+                guard state.isSearchActive && state.searchHasMorePages && !state.isLoadingSearchNextPage else { return .none }
                 state.isLoadingSearchNextPage = true
                 state.searchCurrentPage += 1
                 let offset = state.searchResults.count
@@ -660,15 +668,17 @@ struct ExploreView: View {
                 )
                 .padding(.horizontal, DesignSystem.Spacing.screenPadding)
                 .onAppear {
-                    if store.canLoadMore {
-                        let totalItems = store.displayedProducts.count
-                        let itemsFromEnd = totalItems - index
-                        if itemsFromEnd <= 3 {
-                            if store.isSearchActive {
-                                store.send(.loadMoreSearchResults)
-                            } else {
-                                store.send(.loadMoreRecommendations)
-                            }
+                    let totalItems = store.displayedProducts.count
+                    let itemsFromEnd = totalItems - index
+                    let nearEnd = itemsFromEnd <= 3
+                    let canLoadRecommendations = !store.isSearchActive && store.canLoadMore
+                    let canLoadSearch = store.isSearchActive && store.searchHasMorePages && !store.isLoadingSearchNextPage
+                    print("🔎 [Explore] Cell onAppear index=\(index), total=\(totalItems), itemsFromEnd=\(itemsFromEnd), nearEnd=\(nearEnd), canLoadRecommendations=\(canLoadRecommendations), canLoadSearch=\(canLoadSearch)")
+                    if nearEnd {
+                        if canLoadRecommendations {
+                            store.send(.loadMoreRecommendations)
+                        } else if canLoadSearch {
+                            store.send(.loadMoreSearchResults)
                         }
                     }
                 }
