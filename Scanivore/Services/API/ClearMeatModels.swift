@@ -33,6 +33,7 @@ public struct AuthResponse: Codable, Equatable {
 
 // MARK: - Product Models
 public struct Product: Codable, Equatable {
+    let id: String?
     let code: String?
     let name: String?
     let brand: String?
@@ -63,7 +64,7 @@ public struct Product: Codable, Equatable {
     let _relevance_score: Double?
     
     enum CodingKeys: String, CodingKey {
-        case code, name, brand, categories, ingredients
+        case id, code, name, brand, categories, ingredients
         case nutritionFacts = "nutrition_facts"
         case image_url, image_data, risk_rating
         case description, ingredients_text, calories, protein, fat, carbohydrates, salt, meat_type
@@ -125,55 +126,72 @@ public struct ProductInfo: Codable, Equatable {
 // MARK: - Health Assessment Models  
 public struct HealthAssessmentResponse: Codable, Equatable {
     let summary: String
+    let risk_summary: RiskSummary?
+    let ingredients_assessment: IngredientsAssessment?
+    let nutrition_insights: [NutritionInsight]?
+    let citations: [Citation]?
+    let metadata: ResponseMetadata?
+    
+    // Backward compatibility properties (legacy fields)
     let grade: String?
     let color: String?
-    let ingredientsAssessment: IngredientsAssessment?
     let nutrition: [NutritionInsight]?
-    let citations: [Citation]?
-    let meta: ResponseMetadata?
     let product_info: ProductInfo?
     
-    // Direct API fields to match actual response structure
+    // Direct API fields for old structure compatibility
     let high_risk: [IngredientRisk]?
     let moderate_risk: [IngredientRisk]?
     let low_risk: [IngredientRisk]?
     
     // Computed properties for backward compatibility
-    var riskSummary: RiskSummary? {
-        return RiskSummary(grade: grade, color: color, score: nil)
+    var computedRiskSummary: RiskSummary? {
+        return risk_summary ?? RiskSummary(grade: grade, color: color, score: nil)
     }
     
     var highRisk: [IngredientRisk]? {
-        return ingredientsAssessment?.highRisk
+        return ingredients_assessment?.highRisk ?? high_risk
     }
     
     var moderateRisk: [IngredientRisk]? {
-        return ingredientsAssessment?.moderateRisk
+        return ingredients_assessment?.moderateRisk ?? moderate_risk
     }
     
     var lowRisk: [IngredientRisk]? {
-        return ingredientsAssessment?.lowRisk
+        return ingredients_assessment?.lowRisk ?? low_risk
     }
     
     var nutritionInsights: [NutritionInsight]? {
-        return nutrition
+        return nutrition_insights ?? nutrition
     }
     
     var lastUpdated: String? {
-        return meta?.generated
+        return metadata?.generated
+    }
+    
+    // Computed properties for backward compatibility with legacy field names
+    var ingredientsAssessment: IngredientsAssessment? {
+        return ingredients_assessment
+    }
+    
+    var meta: ResponseMetadata? {
+        return metadata
     }
     
     enum CodingKeys: String, CodingKey {
         case summary
+        case risk_summary
+        case ingredients_assessment
+        case nutrition_insights  
+        case citations
+        case metadata
+        
+        // Backward compatibility
         case grade
         case color
-        case ingredientsAssessment = "ingredients_assessment"
         case nutrition = "nutrition"
-        case citations
-        case meta = "metadata"
         case product_info = "product_info"
         
-        // Direct API fields
+        // Direct API fields for old structure
         case high_risk = "high_risk"
         case moderate_risk = "moderate_risk" 
         case low_risk = "low_risk"
@@ -213,7 +231,7 @@ public struct IngredientRisk: Codable, Equatable {
     let risk: String?  // Made optional to handle missing field
     let overview: String?
     let riskLevel: String?
-    let citations: [Citation]?  // Ingredient-specific citations
+    let citationIds: [Int]?  // Server now returns citation ID references
     
     // Computed property for backward compatibility with default value
     var microReport: String {
@@ -227,37 +245,87 @@ public struct IngredientRisk: Codable, Equatable {
     
     enum CodingKeys: String, CodingKey {
         case name
-        case risk = "risk"
+        case risk = "micro_report"
         case overview = "overview"
         case riskLevel = "risk_level"
-        case citations = "citations"
+        case citationIds = "citations"
+    }
+    
+    public init(
+        name: String,
+        risk: String?,
+        overview: String?,
+        riskLevel: String?,
+        citationIds: [Int]?
+    ) {
+        self.name = name
+        self.risk = risk
+        self.overview = overview
+        self.riskLevel = riskLevel
+        self.citationIds = citationIds
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        risk = try container.decodeIfPresent(String.self, forKey: .risk)
+        overview = try container.decodeIfPresent(String.self, forKey: .overview)
+        riskLevel = try container.decodeIfPresent(String.self, forKey: .riskLevel)
+        
+        // Server returns citation IDs, but cached data may still store full objects
+        if let ids = try container.decodeIfPresent([Int].self, forKey: .citationIds) {
+            citationIds = ids
+        } else if let citationObjects = try? container.decodeIfPresent([Citation].self, forKey: .citationIds) {
+            citationIds = citationObjects.map(\.id)
+        } else {
+            citationIds = nil
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(risk, forKey: .risk)
+        try container.encodeIfPresent(overview, forKey: .overview)
+        try container.encodeIfPresent(riskLevel, forKey: .riskLevel)
+        try container.encodeIfPresent(citationIds, forKey: .citationIds)
+    }
+    
+    func resolvedCitations(from allCitations: [Citation]) -> [Citation] {
+        guard let citationIds else { return [] }
+        let citationLookup = Dictionary(uniqueKeysWithValues: allCitations.map { ($0.id, $0) })
+        return citationIds.compactMap { citationLookup[$0] }
     }
 }
 
 public struct NutritionInsight: Codable, Equatable {
     let nutrient: String
-    let amount: String
+    let amount: String?
     let eval: String
     let comment: String?
     let dailyValue: String?
     let recommendation: String?
-    
-    // Computed properties for backward compatibility
-    var amountPerServing: String {
-        return amount
-    }
-    
-    var evaluation: String {
-        return eval
-    }
-    
+
+    // Server response fields
+    let aiCommentary: String?
+
     enum CodingKeys: String, CodingKey {
         case nutrient
-        case amount = "amount"
-        case eval = "eval"
-        case comment = "comment"
+        case amount = "amount_per_serving"  // Map server field to iOS property
+        case eval = "evaluation"           // Map server field to iOS property
+        case comment
         case dailyValue = "daily_value"
         case recommendation
+        case aiCommentary = "ai_commentary"
+    }
+
+    // Computed properties for backward compatibility
+    var amountPerServing: String {
+        return amount ?? "N/A"
+    }
+
+    var evaluation: String {
+        return eval
     }
 }
 
@@ -265,8 +333,72 @@ public struct Citation: Codable, Equatable {
     let id: Int
     let title: String
     let source: String
-    let year: String
+    let year: Int  // Changed from String to Int to match server response
     let url: String?  // Optional URL for clickable citations
+
+    // Computed property for UI display (if needed as string)
+    var yearString: String {
+        return String(year)
+    }
+}
+
+// MARK: - Product Response Wrapper Models
+public struct ProductResponse: Codable, Equatable {
+    let product: Product
+    let criteria: ProductCriteria?
+    let health: ProductHealth?
+    let environment: ProductEnvironment?
+    let metadata: ProductMetadata?
+}
+
+public struct ProductCriteria: Codable, Equatable {
+    let riskRating: String?
+    let additives: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case riskRating = "risk_rating"
+        case additives
+    }
+}
+
+public struct ProductHealth: Codable, Equatable {
+    let nutrition: ProductNutrition?
+    let healthConcerns: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case nutrition
+        case healthConcerns = "health_concerns"
+    }
+}
+
+public struct ProductNutrition: Codable, Equatable {
+    let calories: Double?
+    let protein: Double?
+    let fat: Double?
+    let carbohydrates: Double?
+    let salt: Double?
+}
+
+public struct ProductEnvironment: Codable, Equatable {
+    let impact: String?
+    let details: String?
+    let sustainabilityPractices: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case impact
+        case details
+        case sustainabilityPractices = "sustainability_practices"
+    }
+}
+
+public struct ProductMetadata: Codable, Equatable {
+    let lastUpdated: String?
+    let createdAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case lastUpdated = "last_updated"
+        case createdAt = "created_at"
+    }
 }
 
 // MARK: - Individual Ingredient Analysis Models
@@ -281,26 +413,66 @@ public struct IndividualIngredientAnalysisRequest: Codable, Equatable {
 }
 
 public struct IndividualIngredientAnalysisResponse: Codable, Equatable {
-    let ingredientName: String
+    let ingredient: String
     let analysisText: String
-    let riskLevel: String
-    let riskScore: Double
+    let riskLevel: String?
+    let riskScore: Double?
     let healthEffects: [HealthEffect]?
     let recommendedIntake: String?
     let alternatives: [String]?
     let citations: [Citation]
-    let lastUpdated: String
-    
+    let metadata: AnalysisMetadata?
+
+    // Computed property for backward compatibility
+    var ingredientName: String {
+        return ingredient
+    }
+
     enum CodingKeys: String, CodingKey {
-        case ingredientName = "ingredient_name"
-        case analysisText = "analysis_text"
+        case ingredient = "ingredient"
+        case analysisText = "analysis"
         case riskLevel = "risk_level"
         case riskScore = "risk_score"
         case healthEffects = "health_effects"
         case recommendedIntake = "recommended_intake"
         case alternatives
         case citations
-        case lastUpdated = "last_updated"
+        case metadata
+    }
+}
+
+public struct AnalysisMetadata: Codable, Equatable {
+    let aiModel: String
+    let citationSource: String
+    
+    enum CodingKeys: String, CodingKey {
+        case aiModel = "ai_model"
+        case citationSource = "citation_source"
+    }
+}
+
+// Wrapper struct that includes ingredient name for UI display
+public struct IndividualIngredientAnalysisResponseWithName: Codable, Equatable {
+    let ingredientName: String
+    let analysisText: String
+    let riskLevel: String?
+    let riskScore: Double?
+    let healthEffects: [HealthEffect]?
+    let recommendedIntake: String?
+    let alternatives: [String]?
+    let citations: [Citation]
+    let metadata: AnalysisMetadata?
+
+    enum CodingKeys: String, CodingKey {
+        case ingredientName = "ingredient"  // Server sends "ingredient"
+        case analysisText = "analysis"      // Server sends "analysis"
+        case riskLevel = "risk_level"
+        case riskScore = "risk_score"
+        case healthEffects = "health_effects"
+        case recommendedIntake = "recommended_intake"
+        case alternatives
+        case citations
+        case metadata
     }
 }
 
@@ -401,8 +573,8 @@ public struct APIError: Codable, Equatable, Error {
 
 // Backend response format (products directly)
 public struct UserExploreResponse: Codable, Equatable {
-    let recommendations: [Product]
-    let totalMatches: Int
+    let recommendations: [RecommendationItem]
+    let totalMatches: Int?
     let hasMore: Bool?
     let offset: Int?
     let limit: Int?
@@ -455,9 +627,9 @@ public extension HealthAssessmentResponse {
     /// Convert API response to app's MeatScan model
     func toMeatScan(barcode: String) -> MeatScan {
         let meatType = determineMeatType(from: summary)
-        let grade = riskSummary?.grade ?? "C"
+        let grade = computedRiskSummary?.grade ?? "C"
         let quality = QualityRating(
-            score: riskSummary?.score ?? gradeToScore(grade),
+            score: computedRiskSummary?.score ?? gradeToScore(grade),
             grade: grade
         )
         let freshness = determineFreshness(from: grade)
@@ -625,9 +797,9 @@ public extension HealthAssessmentResponse {
 }
 
 // MARK: - Individual Ingredient Analysis Mock Extensions
-extension IndividualIngredientAnalysisResponse {
-    static func mockIndividualAnalysis(for ingredientName: String) -> IndividualIngredientAnalysisResponse {
-        return IndividualIngredientAnalysisResponse(
+extension IndividualIngredientAnalysisResponseWithName {
+    static func mockIndividualAnalysis(for ingredientName: String) -> IndividualIngredientAnalysisResponseWithName {
+        return IndividualIngredientAnalysisResponseWithName(
             ingredientName: ingredientName,
             analysisText: "Mock analysis for \(ingredientName). This ingredient is commonly used in food processing and may have various health implications depending on the amount consumed.",
             riskLevel: "MODERATE",
@@ -645,10 +817,10 @@ extension IndividualIngredientAnalysisResponse {
             citations: [
                 Citation(
                     id: 1, title: "Mock Research Study on \(ingredientName)", source: "PubMed",
-                    year: "2023", url: "https://example.com/mock-study"
+                    year: 202, url: "https://example.com/mock-study"
                 )
             ],
-            lastUpdated: "2024-01-01T00:00:00Z"
+            metadata: AnalysisMetadata(aiModel: "mock-model", citationSource: "mock")
         )
     }
 }

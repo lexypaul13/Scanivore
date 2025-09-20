@@ -9,12 +9,14 @@ import Foundation
 import Alamofire
 import Dependencies
 import ComposableArchitecture
+import Network
 
 // MARK: - Alamofire Session Configuration
 private let sharedOptimizedSession: Session = {
     let configuration = URLSessionConfiguration.default
-    configuration.timeoutIntervalForRequest = APIConfiguration.timeout
+    configuration.timeoutIntervalForRequest = 60.0  // Increased from 15s to prevent premature timeouts
     configuration.timeoutIntervalForResource = APIConfiguration.healthAssessmentTimeout
+    configuration.waitsForConnectivity = true  // Wait for network connectivity
     
     configuration.tlsMinimumSupportedProtocolVersion = .TLSv12
     configuration.tlsMaximumSupportedProtocolVersion = .TLSv13
@@ -46,7 +48,7 @@ public struct ProductGateway: Sendable {
     public var getProduct: @Sendable (String) async throws -> Product
     public var getHealthAssessment: @Sendable (String) async throws -> HealthAssessmentResponse
     public var getMeatScanFromBarcode: @Sendable (String) async throws -> MeatScan
-    public var getIndividualIngredientAnalysis: @Sendable (String, String?) async throws -> IndividualIngredientAnalysisResponse
+    public var getIndividualIngredientAnalysis: @Sendable (String, String?) async throws -> IndividualIngredientAnalysisResponseWithName
     public var searchProducts: @Sendable (String) async throws -> SearchResponse
     public var getRecommendations: @Sendable (Int, Int) async throws -> ExploreResponse
     public var getExploreRecommendations: @Sendable (Int, Int) async throws -> ExploreResponse
@@ -69,16 +71,26 @@ extension ProductGateway: DependencyKey {
             .validate()
             .serializingData()
             .value
-            
-            
+
+            print("🔍 [Product] Request successful! Response size: \(response.count) bytes")
+            if let responseString = String(data: response, encoding: .utf8) {
+                print("🔍 [Product] FULL JSON RESPONSE:")
+                print(responseString)
+                print("🔍 [Product] END JSON RESPONSE")
+            }
+
             // Decode JSON on background queue to avoid main thread blocking
-            let product = try await Task.detached(priority: .userInitiated) {
+            let productResponse = try await Task.detached(priority: .userInitiated) {
                 let decoder = JSONDecoder()
-                return try decoder.decode(Product.self, from: response)
+                return try decoder.decode(ProductResponse.self, from: response)
             }.value
+
+            // Extract the nested product from the response
+            let product = productResponse.product
             
             // Strip image_data to prevent massive memory usage (keep only image_url)
             return Product(
+                id: product.id,
                 code: product.code,
                 name: product.name,
                 brand: product.brand,
@@ -109,12 +121,31 @@ extension ProductGateway: DependencyKey {
         },
         
         getHealthAssessment: { (barcode: String) async throws -> HealthAssessmentResponse in
+            print("🔍 [HealthAssessment] Starting health assessment for barcode: \(barcode)")
+
             if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: barcode) {
+                print("🔍 [HealthAssessment] Using cached result for barcode: \(barcode)")
                 return cacheResult.assessment
             }
-            
+
             let headers = try await createAuthHeaders()
             let url = "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)/health-assessment-mcp?format=\(APIConfiguration.ResponseFormat.mobile)"
+
+            print("🔍 [HealthAssessment] Making API request to: \(url)")
+            print("🔍 [HealthAssessment] Headers count: \(headers.count)")
+            for header in headers {
+                if header.name.lowercased() == "authorization" {
+                    let authValue = header.value
+                    if authValue.hasPrefix("Bearer ") {
+                        let token = String(authValue.dropFirst(7))
+                        print("🔍 [HealthAssessment] Auth: Bearer token present")
+                    } else {
+                        print("🔍 [HealthAssessment] Auth: \(authValue)")
+                    }
+                } else {
+                    print("🔍 [HealthAssessment] Header: \(header.name) = \(header.value)")
+                }
+            }
             
             
             let startTime = Date()
@@ -123,9 +154,12 @@ extension ProductGateway: DependencyKey {
             for attempt in 0...maxRetries {
                 do {
                     if attempt > 0 {
+                        print("🔍 [HealthAssessment] Retry attempt \(attempt) for barcode: \(barcode)")
                         try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
                     }
-                    
+
+                    print("🔍 [HealthAssessment] Making HTTP request (attempt \(attempt + 1))")
+
                     let session = createOptimizedSession()
                     let response = try await session.request(
                         url,
@@ -135,12 +169,23 @@ extension ProductGateway: DependencyKey {
                     .validate(statusCode: 200..<300)
                     .serializingData()
                     .value
+
+                    print("🔍 [HealthAssessment] Request successful! Response size: \(response.count) bytes")
+                    if let responseString = String(data: response, encoding: .utf8) {
+                        print("🔍 [HealthAssessment] FULL JSON RESPONSE:")
+                        print(responseString)
+                        print("🔍 [HealthAssessment] END JSON RESPONSE")
+                    }
                 
                     
                     // Decode JSON on background queue to avoid main thread blocking
                     let decodedResponse = try await Task.detached(priority: .userInitiated) {
                         let decoder = JSONDecoder()
-                        return try decoder.decode(HealthAssessmentResponse.self, from: response)
+                        let result = try decoder.decode(HealthAssessmentResponse.self, from: response)
+                        
+                        // Debug: Print decoded response structure
+                        
+                        return result
                     }.value
                     
                     
@@ -151,6 +196,37 @@ extension ProductGateway: DependencyKey {
                     
                 } catch {
                     lastError = error
+
+                    print("🔍 [HealthAssessment] Request failed with error: \(error)")
+                    print("🔍 [HealthAssessment] Error type: \(type(of: error))")
+
+                    if let afError = error as? AFError {
+                        print("🔍 [HealthAssessment] AFError: \(afError)")
+                        switch afError {
+                        case .responseValidationFailed(let reason):
+                            print("🔍 [HealthAssessment] Validation failed: \(reason)")
+                            if case .unacceptableStatusCode(let code) = reason {
+                                print("🔍 [HealthAssessment] HTTP Status Code: \(code)")
+                                if code == 400 {
+                                    print("🔍 [HealthAssessment] 400 BAD REQUEST - Guest mode issue detected!")
+                                }
+                            }
+                        case .responseSerializationFailed(let reason):
+                            print("🔍 [HealthAssessment] Serialization failed: \(reason)")
+                        default:
+                            print("🔍 [HealthAssessment] Other AFError: \(afError)")
+                        }
+
+                        // Try to get response data for 400 errors
+                        switch afError {
+                        case .responseValidationFailed(let reason):
+                            if case .dataFileNil = reason {
+                                print("🔍 [HealthAssessment] No response data available")
+                            }
+                        default:
+                            print("🔍 [HealthAssessment] Unable to extract response data from AFError")
+                        }
+                    }
                     
                     // Check for timeout errors - handle both direct URLError and AFError wrapped cases
                     var isTimeoutError = false
@@ -189,10 +265,35 @@ extension ProductGateway: DependencyKey {
                 }
                 
                 if isTimeoutError {
-                    throw APIError(
-                        detail: "Health assessment is taking longer than usual. Please try again or check your network connection.",
-                        statusCode: -1001
-                    )
+                    // Check network connectivity and provide specific error messages
+                    let networkMonitor = await NetworkMonitor.shared
+                    let elapsed = Date().timeIntervalSince(startTime)
+                    
+                    if elapsed < 60 {
+                        // Quick timeout - likely network issue
+                        if await !networkMonitor.isConnected {
+                            throw APIError(
+                                detail: "No internet connection. Please check your network settings and try again.",
+                                statusCode: -1001
+                            )
+                        } else if await networkMonitor.isConnectedViaCellular {
+                            throw APIError(
+                                detail: "Slow cellular connection. Try switching to WiFi or move to an area with better signal.",
+                                statusCode: -1001
+                            )
+                        } else {
+                            throw APIError(
+                                detail: "Network connection issue. Please check your internet connection and try again.",
+                                statusCode: -1001
+                            )
+                        }
+                    } else {
+                        // Long timeout - likely server processing issue
+                        throw APIError(
+                            detail: "Health assessment is taking longer than usual. Our AI is analyzing complex ingredient interactions and gathering medical citations. Please wait or try again.",
+                            statusCode: -1001
+                        )
+                    }
                 }
                 
                 // If it's a validation error, try to get more specific error information
@@ -245,26 +346,137 @@ extension ProductGateway: DependencyKey {
             return healthAssessment.toMeatScan(barcode: barcode)
         },
         
-        getIndividualIngredientAnalysis: { (ingredientName: String, context: String?) async throws -> IndividualIngredientAnalysisResponse in
+        getIndividualIngredientAnalysis: { (ingredientName: String, context: String?) async throws -> IndividualIngredientAnalysisResponseWithName in
             let headers = try await createAuthHeaders()
-            let encodedIngredientName = ingredientName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ingredientName
+            
+            // Sanitize ingredient name by replacing problematic characters
+            let sanitizedIngredient = ingredientName
+                .replacingOccurrences(of: "/", with: " ")
+                .replacingOccurrences(of: "\\", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // Then URL encode the sanitized name
+            let encodedIngredientName = sanitizedIngredient.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? sanitizedIngredient
             let url = "\(APIConfiguration.baseURL)/api/v1/ingredients/\(encodedIngredientName)/analysis"
+            
+            #if DEBUG
+            // Force enable logging for debugging this specific issue
+            print("🔍 [Individual Ingredient Analysis] Original: '\(ingredientName)'")
+            print("🔍 [Individual Ingredient Analysis] Sanitized: '\(sanitizedIngredient)'")
+            print("🔍 [Individual Ingredient Analysis] Making request to: \(url)")
+            print("🔍 [Individual Ingredient Analysis] Context: '\(context ?? "nil")'")
+            #endif
             
             var parameters: [String: String] = [:]
             if let context = context {
                 parameters["context"] = context
             }
             
+            #if DEBUG
+            if APIConfiguration.shouldLogAPIResponses {
+                print("🔍 [Individual Ingredient Analysis] Parameters: \(parameters)")
+            }
+            #endif
+            
             let session = createOptimizedSession()
-            return try await session.request(
-                url,
-                method: .get,
-                parameters: parameters.isEmpty ? nil : parameters,
-                headers: headers
-            )
-            .validate()
-            .serializingDecodable(IndividualIngredientAnalysisResponse.self)
-            .value
+            
+            #if DEBUG
+            print("🔍 [Individual Ingredient Analysis] Starting request...")
+            print("🔍 [Individual Ingredient Analysis] URL: \(url)")
+            print("🔍 [Individual Ingredient Analysis] Headers: \(headers)")
+            print("🔍 [Individual Ingredient Analysis] Parameters: \(parameters)")
+            #endif
+            
+            do {
+                let response = try await session.request(
+                    url,
+                    method: .get,
+                    parameters: parameters.isEmpty ? nil : parameters,
+                    headers: headers
+                )
+                .validate()
+                .serializingData()
+                .value
+                
+                #if DEBUG
+                print("🔍 [Individual Ingredient Analysis] Request completed successfully")
+                #endif
+                
+                print("🔍 [Individual Ingredient Analysis] Response received, size: \(response.count) bytes")
+
+                if let responseString = String(data: response, encoding: .utf8) {
+                    print("🔍 [Individual Ingredient Analysis] FULL JSON RESPONSE:")
+                    print(responseString)
+                    print("🔍 [Individual Ingredient Analysis] END JSON RESPONSE")
+                } else {
+                    print("🔍 [Individual Ingredient Analysis] Response body: Unable to decode as UTF-8")
+                }
+                
+                let decoder = JSONDecoder()
+                var result: IndividualIngredientAnalysisResponse
+                
+                do {
+                    result = try decoder.decode(IndividualIngredientAnalysisResponse.self, from: response)
+                    #if DEBUG
+                    if APIConfiguration.shouldLogAPIResponses {
+                        print("🔍 [Individual Ingredient Analysis] Successfully decoded response")
+                    }
+                    #endif
+                } catch {
+                    #if DEBUG
+                    // Force enable logging for debugging this specific issue
+                    print("🔍 [Individual Ingredient Analysis] JSON DECODING ERROR: \(error)")
+                    if let decodingError = error as? DecodingError {
+                        switch decodingError {
+                        case .dataCorrupted(let context):
+                            print("🔍 [Individual Ingredient Analysis] Data corrupted: \(context)")
+                        case .keyNotFound(let key, let context):
+                            print("🔍 [Individual Ingredient Analysis] Key not found: \(key), context: \(context)")
+                        case .typeMismatch(let type, let context):
+                            print("🔍 [Individual Ingredient Analysis] Type mismatch: \(type), context: \(context)")
+                        case .valueNotFound(let type, let context):
+                            print("🔍 [Individual Ingredient Analysis] Value not found: \(type), context: \(context)")
+                        @unknown default:
+                            print("🔍 [Individual Ingredient Analysis] Unknown decoding error")
+                        }
+                    }
+                    #endif
+                    throw error
+                }
+                
+                // Create a new struct with the ingredient name included since API doesn't return it
+                let responseWithName = IndividualIngredientAnalysisResponseWithName(
+                    ingredientName: ingredientName,
+                    analysisText: result.analysisText,
+                    riskLevel: result.riskLevel,
+                    riskScore: result.riskScore,
+                    healthEffects: result.healthEffects,
+                    recommendedIntake: result.recommendedIntake,
+                    alternatives: result.alternatives,
+                    citations: result.citations,
+                    metadata: result.metadata
+                )
+                
+                return responseWithName
+                
+            } catch {
+                #if DEBUG
+                // Force enable logging for debugging this specific issue
+                print("🔍 [Individual Ingredient Analysis] REQUEST FAILED with error: \(error)")
+                if let afError = error as? AFError {
+                    print("🔍 [Individual Ingredient Analysis] AFError details: \(afError)")
+                    switch afError {
+                    case .responseValidationFailed(let reason):
+                        print("🔍 [Individual Ingredient Analysis] Validation failed: \(reason)")
+                    case .sessionTaskFailed(let underlyingError):
+                        print("🔍 [Individual Ingredient Analysis] Session task failed: \(underlyingError)")
+                    default:
+                        print("🔍 [Individual Ingredient Analysis] Other AFError: \(afError)")
+                    }
+                }
+                #endif
+                throw error
+            }
         },
         
         searchProducts: { (query: String) async throws -> SearchResponse in
@@ -282,6 +494,7 @@ extension ProductGateway: DependencyKey {
             .value
             let optimizedProducts = searchResponse.products.map { product in
                 Product(
+                    id: product.id,
                     code: product.code,
                     name: product.name,
                     brand: product.brand,
@@ -336,6 +549,7 @@ extension ProductGateway: DependencyKey {
             
             let optimizedRecommendations = exploreResponse.recommendations.map { item in
                 let optimizedProduct = Product(
+                    id: item.product.id,
                     code: item.product.code,
                     name: item.product.name,
                     brand: item.product.brand,
@@ -380,68 +594,126 @@ extension ProductGateway: DependencyKey {
         },
         
         getExploreRecommendations: { (offset: Int, limit: Int) async throws -> ExploreResponse in
+            print("🔍 [ExploreRecommendations] Starting request - offset: \(offset), limit: \(limit)")
+
             let headers = try await createAuthHeaders()
-            
+
+            // Smart endpoint routing based on authentication status
+            let exploreURL: String
+            let isAuthenticated = (try? await TokenManager.shared.getToken()) != nil
+
+            if isAuthenticated {
+                // Authenticated user - personalized recommendations
+                exploreURL = "\(APIConfiguration.baseURL)\(APIConfiguration.Endpoints.explore)"
+                print("🔍 [ExploreRecommendations] AUTH MODE: Using personalized explore endpoint")
+            } else {
+                // Guest user - public generic recommendations
+                exploreURL = "\(APIConfiguration.baseURL)\(APIConfiguration.Endpoints.publicExplore)"
+                print("🔍 [ExploreRecommendations] GUEST MODE: Using public explore endpoint")
+            }
+
+            print("🔍 [ExploreRecommendations] Making request to: \(exploreURL)")
+            print("🔍 [ExploreRecommendations] Parameters: offset=\(offset), limit=\(limit)")
+            print("🔍 [ExploreRecommendations] Authentication: \(isAuthenticated ? "AUTHENTICATED" : "GUEST")")
             
             do {
                 let session = createOptimizedSession()
                 let userExploreResponse = try await session.request(
-                    "\(APIConfiguration.baseURL)/api/v1/users/explore",
+                    exploreURL,
                     method: .get,
                     parameters: ["offset": offset, "limit": limit],
                     headers: headers
                 )
                 .validate()
-                .serializingDecodable(UserExploreResponse.self)
+                .serializingData()
                 .value
-                let optimizedProducts = userExploreResponse.recommendations.map { product in
-                Product(
-                    code: product.code,
-                    name: product.name,
-                    brand: product.brand,
-                    categories: product.categories,
-                    ingredients: product.ingredients,
-                    nutritionFacts: product.nutritionFacts,
-                    image_url: product.image_url,
-                    image_data: nil,  // Remove massive base64 data
-                    risk_rating: product.risk_rating,
-                    description: product.description,
-                    ingredients_text: product.ingredients_text,
-                    calories: product.calories,
-                    protein: product.protein,
-                    fat: product.fat,
-                    carbohydrates: product.carbohydrates,
-                    salt: product.salt,
-                    meat_type: product.meat_type,
-                    contains_nitrites: product.contains_nitrites,
-                    contains_phosphates: product.contains_phosphates,
-                    contains_preservatives: product.contains_preservatives,
-                    antibiotic_free: product.antibiotic_free,
-                    hormone_free: product.hormone_free,
-                    pasture_raised: product.pasture_raised,
-                    last_updated: product.last_updated,
-                    created_at: product.created_at,
-                    _relevance_score: product._relevance_score
-                )
-            }
-            
-            // Convert Products to RecommendationItems for UI compatibility
-            let recommendationItems = optimizedProducts.map { product in
-                RecommendationItem(
-                    product: product,
-                    matchDetails: MatchDetails(matches: [], concerns: []),
-                    matchScore: nil
-                )
-            }
+                
+                // Debug: Print raw JSON response
+                if let jsonString = String(data: userExploreResponse, encoding: .utf8) {
+                    print("🔍 [DEBUG] Raw JSON Response (first 1000 chars):")
+                    print(String(jsonString.prefix(1000)))
+                }
+                
+                let decodedResponse = try JSONDecoder().decode(UserExploreResponse.self, from: userExploreResponse)
+                
+                
+                let optimizedRecommendations = decodedResponse.recommendations.map { item in
+                    let optimizedProduct = Product(
+                        id: item.product.id,
+                        code: item.product.code,
+                        name: item.product.name,
+                        brand: item.product.brand,
+                        categories: item.product.categories,
+                        ingredients: item.product.ingredients,
+                        nutritionFacts: item.product.nutritionFacts,
+                        image_url: item.product.image_url,
+                        image_data: nil,  // Remove massive base64 data
+                        risk_rating: item.product.risk_rating,
+                        description: item.product.description,
+                        ingredients_text: item.product.ingredients_text,
+                        calories: item.product.calories,
+                        protein: item.product.protein,
+                        fat: item.product.fat,
+                        carbohydrates: item.product.carbohydrates,
+                        salt: item.product.salt,
+                        meat_type: item.product.meat_type,
+                        contains_nitrites: item.product.contains_nitrites,
+                        contains_phosphates: item.product.contains_phosphates,
+                        contains_preservatives: item.product.contains_preservatives,
+                        antibiotic_free: item.product.antibiotic_free,
+                        hormone_free: item.product.hormone_free,
+                        pasture_raised: item.product.pasture_raised,
+                        last_updated: item.product.last_updated,
+                        created_at: item.product.created_at,
+                        _relevance_score: item.product._relevance_score
+                    )
+                    
+                    return RecommendationItem(
+                        product: optimizedProduct,
+                        matchDetails: item.matchDetails,
+                        matchScore: item.matchScore
+                    )
+                }
             
                 return ExploreResponse(
-                    recommendations: recommendationItems,
-                    totalMatches: userExploreResponse.totalMatches,
-                    hasMore: userExploreResponse.hasMore,
-                    offset: userExploreResponse.offset,
-                    limit: userExploreResponse.limit
+                    recommendations: optimizedRecommendations,
+                    totalMatches: decodedResponse.totalMatches ?? optimizedRecommendations.count, // Fallback to actual count
+                    hasMore: decodedResponse.hasMore,
+                    offset: decodedResponse.offset,
+                    limit: decodedResponse.limit
                 )
             } catch {
+                print("🔍 [ExploreRecommendations] Request failed with error: \(error)")
+                print("🔍 [ExploreRecommendations] Error type: \(type(of: error))")
+
+                if let afError = error as? AFError {
+                    print("🔍 [ExploreRecommendations] AFError: \(afError)")
+                    switch afError {
+                    case .responseValidationFailed(let reason):
+                        print("🔍 [ExploreRecommendations] Validation failed: \(reason)")
+                        if case .unacceptableStatusCode(let code) = reason {
+                            print("🔍 [ExploreRecommendations] HTTP Status Code: \(code)")
+                            if code == 400 {
+                                print("🔍 [ExploreRecommendations] 400 BAD REQUEST - Check endpoint: \(exploreURL)")
+                            } else if code == 401 && isAuthenticated {
+                                print("🔍 [ExploreRecommendations] 401 UNAUTHORIZED - Token may be expired")
+                            }
+                        }
+                    default:
+                        print("🔍 [ExploreRecommendations] Other AFError: \(afError)")
+                    }
+
+                    // Try to get response data for 400 errors
+                    switch afError {
+                    case .responseValidationFailed(let reason):
+                        if case .dataFileNil = reason {
+                            print("🔍 [ExploreRecommendations] No response data available")
+                        }
+                    default:
+                        print("🔍 [ExploreRecommendations] Unable to extract response data from AFError")
+                    }
+                }
+
                 throw error
             }
         }
@@ -451,7 +723,7 @@ extension ProductGateway: DependencyKey {
         getProduct: { (_: String) async throws -> Product in .mock },
         getHealthAssessment: { (_: String) async throws -> HealthAssessmentResponse in .mockHealthAssessment },
         getMeatScanFromBarcode: { (barcode: String) async throws -> MeatScan in .mockMeatScan(barcode: barcode) },
-        getIndividualIngredientAnalysis: { (ingredientName: String, _: String?) async throws -> IndividualIngredientAnalysisResponse in .mockIndividualAnalysis(for: ingredientName) },
+        getIndividualIngredientAnalysis: { (ingredientName: String, _: String?) async throws -> IndividualIngredientAnalysisResponseWithName in .mockIndividualAnalysis(for: ingredientName) },
         searchProducts: { (_: String) async throws -> SearchResponse in .mockSearchResponse },
         getRecommendations: { (_: Int, _: Int) async throws -> ExploreResponse in .mockExploreResponse },
         getExploreRecommendations: { (_: Int, _: Int) async throws -> ExploreResponse in .mockExploreResponse }
@@ -473,17 +745,26 @@ extension DependencyValues {
 private func createAuthHeaders() async throws -> HTTPHeaders {
     var headers = HTTPHeaders()
     headers.add(.contentType("application/json"))
-    
+
+    print("🔍 [Auth] Creating auth headers...")
+
     if let token = try await TokenManager.shared.getToken() {
+        print("🔍 [Auth] Token found - User is AUTHENTICATED")
         headers.add(.authorization(bearerToken: token))
+    } else {
+        print("🔍 [Auth] No token found - User is in GUEST MODE")
+        print("🔍 [Auth] Request will be sent WITHOUT authorization header")
     }
-    
+
+    print("🔍 [Auth] Final headers count: \(headers.count)")
+
     return headers
 }
 
 // MARK: - Mock Data
 extension Product {
     static let mock = Product(
+        id: "mock_product_id_123",
         code: "mock_barcode_123",
         name: "Mock Beef Product",
         brand: "Mock Brand",
@@ -529,29 +810,29 @@ extension Product {
 extension HealthAssessmentResponse {
     static let mockHealthAssessment = HealthAssessmentResponse(
         summary: "Ground Turkey contains high-risk preservatives requiring caution. Moderate consumption recommended.",
-        grade: "C",
-        color: "Yellow",
-        ingredientsAssessment: IngredientsAssessment(
+        risk_summary: RiskSummary(grade: "C", color: "Yellow", score: nil),
+        ingredients_assessment: IngredientsAssessment(
             highRisk: [
-                IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", overview: "Preservatives are chemical compounds added to foods to prevent spoilage and extend shelf life. While they serve an important function in food safety, some preservatives have been linked to adverse health effects including allergic reactions, hyperactivity in children, and potential carcinogenic properties with long-term exposure.", riskLevel: "high", citations: [])
+                IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", overview: "Preservatives are chemical compounds added to foods to prevent spoilage and extend shelf life. While they serve an important function in food safety, some preservatives have been linked to adverse health effects including allergic reactions, hyperactivity in children, and potential carcinogenic properties with long-term exposure.", riskLevel: "high", citationIds: [])
             ],
             moderateRisk: [
-                IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", overview: "Salt (sodium chloride) is an essential mineral used for flavor enhancement and preservation. While necessary for bodily functions, excessive intake is linked to high blood pressure, heart disease, and stroke. The American Heart Association recommends limiting sodium intake to 2,300mg per day.", riskLevel: "moderate", citations: []),
-                IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", overview: "Natural flavors are derived from plant or animal sources and used to enhance taste. While generally recognized as safe, they can contain undisclosed ingredients and may trigger allergic reactions in sensitive individuals. The exact composition is often proprietary.", riskLevel: "moderate", citations: [])
+                IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", overview: "Salt (sodium chloride) is an essential mineral used for flavor enhancement and preservation. While necessary for bodily functions, excessive intake is linked to high blood pressure, heart disease, and stroke. The American Heart Association recommends limiting sodium intake to 2,300mg per day.", riskLevel: "moderate", citationIds: []),
+                IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", overview: "Natural flavors are derived from plant or animal sources and used to enhance taste. While generally recognized as safe, they can contain undisclosed ingredients and may trigger allergic reactions in sensitive individuals. The exact composition is often proprietary.", riskLevel: "moderate", citationIds: [])
             ],
             lowRisk: [
-                IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", overview: "", riskLevel: "low", citations: []),
-                IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", overview: "", riskLevel: "low", citations: [])
+                IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", overview: "", riskLevel: "low", citationIds: []),
+                IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", overview: "", riskLevel: "low", citationIds: [])
             ]
         ),
-        nutrition: [
+        nutrition_insights: [
             NutritionInsight(
                 nutrient: "Protein",
                 amount: "22g",
                 eval: "excellent",
                 comment: "Great source of lean protein",
                 dailyValue: "44%",
-                recommendation: "Great source of lean protein"
+                recommendation: "Great source of lean protein",
+                aiCommentary: "Excellent protein source providing essential amino acids"
             ),
             NutritionInsight(
                 nutrient: "Calories",
@@ -559,7 +840,8 @@ extension HealthAssessmentResponse {
                 eval: "good",
                 comment: "Low calorie option for weight management",
                 dailyValue: "6%",
-                recommendation: "Low calorie option for weight management"
+                recommendation: "Low calorie option for weight management",
+                aiCommentary: "Low calorie content supports weight management goals"
             ),
             NutritionInsight(
                 nutrient: "Fat",
@@ -567,7 +849,8 @@ extension HealthAssessmentResponse {
                 eval: "moderate",
                 comment: "Moderate fat content",
                 dailyValue: "12%",
-                recommendation: "Moderate fat content"
+                recommendation: "Moderate fat content",
+                aiCommentary: "Moderate fat levels within healthy dietary guidelines"
             ),
             NutritionInsight(
                 nutrient: "Sodium",
@@ -575,25 +858,30 @@ extension HealthAssessmentResponse {
                 eval: "high",
                 comment: "Higher sodium content - monitor intake",
                 dailyValue: "16%",
-                recommendation: "Higher sodium content - monitor intake"
+                recommendation: "Higher sodium content - monitor intake",
+                aiCommentary: "Higher sodium content requires moderation for heart health"
             )
         ],
         citations: [], // Only real citations from backend API - no mock data for App Store compliance
-        meta: ResponseMetadata(
+        metadata: ResponseMetadata(
             product: "Mock Ground Turkey",
             generated: "2024-01-15T10:30:00Z"
-        ), product_info: nil,
+        ),
+        grade: "C",
+        color: "Yellow",
+        nutrition: nil,
+        product_info: nil,
         // Direct API fields matching actual response structure
         high_risk: [
-            IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", overview: nil, riskLevel: "high", citations: [])
+            IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", overview: nil, riskLevel: "high", citationIds: [])
         ],
         moderate_risk: [
-            IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", overview: "", riskLevel: "moderate", citations: []),
-            IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", overview: "", riskLevel: "moderate", citations: [])
+            IngredientRisk(name: "Salt", risk: "Moderate sodium content. Consider portion control for heart health.", overview: "", riskLevel: "moderate", citationIds: []),
+            IngredientRisk(name: "Natural Flavors", risk: "Added flavoring that may contain allergens. Generally safe for most people.", overview: "", riskLevel: "moderate", citationIds: [])
         ],
         low_risk: [
-            IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", overview: "", riskLevel: "low", citations: []),
-            IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", overview: "", riskLevel: "low", citations: [])
+            IngredientRisk(name: "Turkey", risk: "High-quality lean protein source with essential amino acids.", overview: "", riskLevel: "low", citationIds: []),
+            IngredientRisk(name: "Water", risk: "Used for processing. Safe and necessary for food preparation.", overview: "", riskLevel: "low", citationIds: [])
         ]
     )
 }
@@ -648,5 +936,4 @@ extension SearchResponse {
         products: [.mock]
     )
 }
-
 

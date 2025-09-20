@@ -12,18 +12,28 @@ import SafariServices
 // MARK: - Collapsible Ingredient Sections
 struct CollapsibleIngredientSections: View {
     @Bindable var store: StoreOf<ProductDetailFeatureDomain>
-    let assessment: HealthAssessmentResponse
     
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
-            Text("Ingredients Analysis")
-                .font(DesignSystem.Typography.heading2)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-                .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+        guard let assessment = store.healthAssessment else {
+            return AnyView(
+                Text("No ingredient analysis available")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+            )
+        }
+        
+        let allCitations = assessment.citations ?? []
+        return AnyView(
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
+                Text("Ingredients Analysis")
+                    .font(DesignSystem.Typography.heading2)
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .padding(.horizontal, DesignSystem.Spacing.screenPadding)
             
             VStack(spacing: DesignSystem.Spacing.base) {
-                // High Risk Ingredients - using direct API fields
-                if let highRisk = assessment.high_risk, !highRisk.isEmpty {
+                // High Risk Ingredients - using computed properties
+                if let highRisk = assessment.highRisk, !highRisk.isEmpty {
                     CollapsibleIngredientSection(
                         sectionId: "high-risk",
                         title: "High Risk",
@@ -32,13 +42,15 @@ struct CollapsibleIngredientSections: View {
                         isExpanded: store.expandedSections.contains("high-risk"),
                         onToggle: { store.send(.toggleIngredientSection("high-risk")) },
                         onIngredientTap: { ingredient in
-                            store.send(.ingredientTappedWithCitations(ingredient, ingredient.citations ?? []))
+                            let resolvedCitations = ingredient.resolvedCitations(from: allCitations)
+                            let fallback = resolvedCitations.isEmpty ? allCitations : resolvedCitations
+                            store.send(.ingredientTappedWithCitations(ingredient, fallback))
                         }
                     )
                 }
                 
-                // Moderate Risk Ingredients - using direct API fields
-                if let moderateRisk = assessment.moderate_risk, !moderateRisk.isEmpty {
+                // Moderate Risk Ingredients - using computed properties
+                if let moderateRisk = assessment.moderateRisk, !moderateRisk.isEmpty {
                     CollapsibleIngredientSection(
                         sectionId: "moderate-risk",
                         title: "Moderate Risk",
@@ -47,13 +59,15 @@ struct CollapsibleIngredientSections: View {
                         isExpanded: store.expandedSections.contains("moderate-risk"),
                         onToggle: { store.send(.toggleIngredientSection("moderate-risk")) },
                         onIngredientTap: { ingredient in
-                            store.send(.ingredientTappedWithCitations(ingredient, ingredient.citations ?? []))
+                            let resolvedCitations = ingredient.resolvedCitations(from: allCitations)
+                            let fallback = resolvedCitations.isEmpty ? allCitations : resolvedCitations
+                            store.send(.ingredientTappedWithCitations(ingredient, fallback))
                         }
                     )
                 }
                 
-                // Low Risk Ingredients - using direct API fields
-                if let lowRisk = assessment.low_risk, !lowRisk.isEmpty {
+                // Low Risk Ingredients - using computed properties
+                if let lowRisk = assessment.lowRisk, !lowRisk.isEmpty {
                     CollapsibleIngredientSection(
                         sectionId: "low-risk",
                         title: "Low Risk",
@@ -62,23 +76,26 @@ struct CollapsibleIngredientSections: View {
                         isExpanded: store.expandedSections.contains("low-risk"),
                         onToggle: { store.send(.toggleIngredientSection("low-risk")) },
                         onIngredientTap: { ingredient in
-                            store.send(.ingredientTappedWithCitations(ingredient, ingredient.citations ?? []))
+                            let resolvedCitations = ingredient.resolvedCitations(from: allCitations)
+                            let fallback = resolvedCitations.isEmpty ? allCitations : resolvedCitations
+                            store.send(.ingredientTappedWithCitations(ingredient, fallback))
                         }
                     )
                 }
                 
                 // Show message if no risk ingredients found
-                if (assessment.high_risk?.isEmpty ?? true) &&
-                   (assessment.moderate_risk?.isEmpty ?? true) &&
-                   (assessment.low_risk?.isEmpty ?? true) {
+                if (assessment.highRisk?.isEmpty ?? true) &&
+                   (assessment.moderateRisk?.isEmpty ?? true) &&
+                   (assessment.lowRisk?.isEmpty ?? true) {
                     Text("Ingredient analysis not available for this product")
                         .font(DesignSystem.Typography.body)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                         .padding(.horizontal, DesignSystem.Spacing.screenPadding)
                 }
+                }
+                .padding(.horizontal, DesignSystem.Spacing.screenPadding)
             }
-            .padding(.horizontal, DesignSystem.Spacing.screenPadding)
-        }
+        )
     }
 }
 
