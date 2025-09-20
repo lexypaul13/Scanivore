@@ -191,6 +191,7 @@ struct AppFeature {
                     // Save the current state to persistence (prevents race conditions)
                     await authState.save(currentState)
                 }
+                .merge(with: .send(.explore(.authStateChanged(true))))
                 
             case .createAccount(.delegate(.navigateBack)):
                 state.authFlow = .login
@@ -210,6 +211,7 @@ struct AppFeature {
                     @Dependency(\.authState) var authState
                     await authState.markLoggedIn(true)
                 }
+                .merge(with: .send(.explore(.authStateChanged(true))))
                 
             case .signIn(.delegate(.navigateBack)):
                 state.authFlow = .login
@@ -261,6 +263,7 @@ struct AppFeature {
                     @Dependency(\.authState) var authState
                     await authState.markLoggedIn(false)
                 }
+                .merge(with: .send(.explore(.authStateChanged(false))))
                 
             case .settings(.delegate(.preferencesUpdated)):
                 // Handle preferences update - add delay to ensure backend processes the update

@@ -35,6 +35,7 @@ public struct APIConfiguration {
         public static let favorites = "/api/v1/users/favorites"
         public static let history = "/api/v1/users/history"
         public static let explore = "/api/v1/users/explore"
+        public static let publicExplore = "/api/v1/products/explore"
     }
     
     // Response Format Options

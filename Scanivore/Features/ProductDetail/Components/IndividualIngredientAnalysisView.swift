@@ -15,7 +15,7 @@ struct EnhancedIndividualIngredientAnalysisView: View {
     let fallbackCitations: [Citation]
     @Environment(\.dismiss) private var dismiss
     
-    private var individualAnalysis: IndividualIngredientAnalysisResponse? {
+    private var individualAnalysis: IndividualIngredientAnalysisResponseWithName? {
         store.individualIngredientAnalysis[ingredient.name]
     }
     
@@ -110,13 +110,12 @@ struct EnhancedIndividualIngredientAnalysisView: View {
             }
             
             // Risk Score Badge (if available from individual analysis)
-            if let analysis = individualAnalysis {
+            if let analysis = individualAnalysis, let risk = analysis.riskScore {
                 HStack {
                     Image(systemName: "chart.bar.fill")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.primaryRed)
-                    
-                    Text("Risk Score: \(String(format: "%.1f", analysis.riskScore))/10")
+                    Text("Risk Score: \(String(format: "%.1f", risk))/10")
                         .font(DesignSystem.Typography.caption)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                 }
@@ -183,7 +182,7 @@ struct EnhancedIndividualIngredientAnalysisView: View {
     
     // MARK: - Recommendations Section
     @ViewBuilder
-    private func recommendationsSection(_ analysis: IndividualIngredientAnalysisResponse) -> some View {
+    private func recommendationsSection(_ analysis: IndividualIngredientAnalysisResponseWithName) -> some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
             Text("Recommendations")
                 .font(DesignSystem.Typography.heading3)
@@ -273,55 +272,6 @@ struct EnhancedIndividualIngredientAnalysisView: View {
 }
 
 // MARK: - Supporting Views
-
-struct LoadingAnalysisCard: View {
-    var body: some View {
-        HStack {
-            ProgressView()
-                .scaleEffect(0.8)
-            Text("Loading detailed analysis...")
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-        }
-        .padding(DesignSystem.Spacing.md)
-        .background(DesignSystem.Colors.backgroundSecondary)
-        .cornerRadius(DesignSystem.CornerRadius.md)
-    }
-}
-
-struct ErrorAnalysisCard: View {
-    let error: String
-    let onRetry: () -> Void
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-            HStack {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(DesignSystem.Colors.warning)
-                Text("Analysis Unavailable")
-                    .font(DesignSystem.Typography.bodyMedium)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-            }
-            
-            Text(error)
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.textSecondary)
-            
-            Button("Try Again") {
-                onRetry()
-            }
-            .font(DesignSystem.Typography.bodyMedium)
-            .foregroundColor(DesignSystem.Colors.primaryRed)
-        }
-        .padding(DesignSystem.Spacing.md)
-        .background(DesignSystem.Colors.warning.opacity(0.1))
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                .stroke(DesignSystem.Colors.warning.opacity(0.3), lineWidth: 1)
-        )
-        .cornerRadius(DesignSystem.CornerRadius.md)
-    }
-}
 
 struct HealthEffectCard: View {
     let effect: HealthEffect

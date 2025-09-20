@@ -42,7 +42,7 @@ struct ProductDetailFeatureDomain {
         var selectedIngredientCitations: [Citation] = []
         
         // Individual ingredient analysis state
-        var individualIngredientAnalysis: [String: IndividualIngredientAnalysisResponse] = [:]
+        var individualIngredientAnalysis: [String: IndividualIngredientAnalysisResponseWithName] = [:]
         var loadingIndividualAnalysis: Set<String> = []
         var individualAnalysisErrors: [String: String] = [:]
         
@@ -60,7 +60,7 @@ struct ProductDetailFeatureDomain {
             
             // PRIORITY 3: Fallback to deriving from assessment content
             if let assessment = healthAssessment {
-                if let score = assessment.riskSummary?.score {
+                if let score = assessment.computedRiskSummary?.score {
                     return scoreToSafetyGrade(score)
                 }
                 
@@ -175,7 +175,7 @@ struct ProductDetailFeatureDomain {
         
         // Individual ingredient analysis actions (proper past/present tense)
         case loadIndividualIngredientAnalysis(String) // Present tense - user action
-        case individualIngredientAnalysisReceived(String, TaskResult<IndividualIngredientAnalysisResponse>) // Past tense - effect response
+        case individualIngredientAnalysisReceived(String, TaskResult<IndividualIngredientAnalysisResponseWithName>) // Past tense - effect response
         case openCitationInSafari(URL) // Present tense - user action
         case citationSafariOpened(Bool) // Past tense - effect response
         
@@ -463,7 +463,7 @@ struct ProductDetailContentView: View {
                     AIHealthSummary(assessment: assessment)
                     
                     // Collapsible Ingredient Risk Sections
-                    CollapsibleIngredientSections(store: store, assessment: assessment)
+                    CollapsibleIngredientSections(store: store)
                     
                     // Horizontal Nutrition Scroll
                     NutritionScrollView(assessment: assessment)

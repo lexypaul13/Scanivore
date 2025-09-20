@@ -49,7 +49,7 @@ public struct ProductGateway: Sendable {
     public var getHealthAssessment: @Sendable (String) async throws -> HealthAssessmentResponse
     public var getMeatScanFromBarcode: @Sendable (String) async throws -> MeatScan
     public var getIndividualIngredientAnalysis: @Sendable (String, String?) async throws -> IndividualIngredientAnalysisResponseWithName
-    public var searchProducts: @Sendable (String) async throws -> SearchResponse
+    public var searchProducts: @Sendable (String, Int, Int) async throws -> SearchResponse
     public var getRecommendations: @Sendable (Int, Int) async throws -> ExploreResponse
     public var getExploreRecommendations: @Sendable (Int, Int) async throws -> ExploreResponse
 }
@@ -479,14 +479,14 @@ extension ProductGateway: DependencyKey {
             }
         },
         
-        searchProducts: { (query: String) async throws -> SearchResponse in
+        searchProducts: { (query: String, offset: Int, limit: Int) async throws -> SearchResponse in
             let headers = try await createAuthHeaders()
-            
+
             let session = createOptimizedSession()
             let searchResponse = try await session.request(
                 "\(APIConfiguration.baseURL)/api/v1/products/search",
                 method: .get,
-                parameters: ["q": query],
+                parameters: ["q": query, "offset": offset, "limit": limit],
                 headers: headers
             )
             .validate()
@@ -724,7 +724,7 @@ extension ProductGateway: DependencyKey {
         getHealthAssessment: { (_: String) async throws -> HealthAssessmentResponse in .mockHealthAssessment },
         getMeatScanFromBarcode: { (barcode: String) async throws -> MeatScan in .mockMeatScan(barcode: barcode) },
         getIndividualIngredientAnalysis: { (ingredientName: String, _: String?) async throws -> IndividualIngredientAnalysisResponseWithName in .mockIndividualAnalysis(for: ingredientName) },
-        searchProducts: { (_: String) async throws -> SearchResponse in .mockSearchResponse },
+        searchProducts: { (_: String, _: Int, _: Int) async throws -> SearchResponse in .mockSearchResponse },
         getRecommendations: { (_: Int, _: Int) async throws -> ExploreResponse in .mockExploreResponse },
         getExploreRecommendations: { (_: Int, _: Int) async throws -> ExploreResponse in .mockExploreResponse }
     )

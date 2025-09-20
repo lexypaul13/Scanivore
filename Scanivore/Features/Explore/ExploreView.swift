@@ -25,14 +25,23 @@ struct ExploreFeatureDomain {
         var isSearchActive: Bool {
             !searchText.isEmpty
         }
-        
-        // Pagination state
+
+        // Search pagination state
+        var searchHasMorePages = true
+        var searchTotalItems = 0
+        var searchCurrentPage = 0
+        var isLoadingSearchNextPage = false
+
+        // Recommendations pagination state
         var isLoading = false
         var isLoadingNextPage = false
         var error: String?
         var hasMorePages = true
         var totalItems = 0
         var currentPage = 0
+
+        // Auth state tracking
+        var lastAuthState: Bool? = nil // Track if user was authenticated on last load
         
         // Auto-refresh timer state
         var timerActive = false
@@ -42,7 +51,11 @@ struct ExploreFeatureDomain {
         
         // Computed properties
         var canLoadMore: Bool {
-            !isLoadingNextPage && hasMorePages
+            if isSearchActive {
+                return !isLoadingSearchNextPage && searchHasMorePages
+            } else {
+                return !isLoadingNextPage && hasMorePages
+            }
         }
         
         var displayedProducts: IdentifiedArrayOf<ProductRecommendation> {
@@ -77,8 +90,14 @@ struct ExploreFeatureDomain {
         
         // Pagination actions
         case loadMoreRecommendations
+        case loadMoreSearchResults
         case recommendationsReceived(TaskResult<ExploreResponse>)
         case recommendationsProcessed(ExploreResponse)
+        case searchPaginationReceived(TaskResult<SearchResponse>)
+
+        // Auth state actions
+        case authStateChanged(Bool)
+        case clearExploreData
         
         // Product actions  
         case refreshRecommendations
@@ -180,30 +199,9 @@ struct ExploreFeatureDomain {
                     let result = await TaskResult {
                         let currentAuthState = await authState.load()
                         
-                        if currentAuthState.isLoggedIn {
-                            // Authenticated users get personalized recommendations
-                            return try await gateway.getExploreRecommendations(offset, 10)
-                        } else {
-                            // Guest users get generic product list
-                            let searchResponse = try await gateway.searchProducts("")
-                            
-                            // Convert SearchResponse to ExploreResponse format
-                            let recommendations = searchResponse.products.map { product in
-                                RecommendationItem(
-                                    product: product,
-                                    matchDetails: MatchDetails(matches: [], concerns: []),
-                                    matchScore: nil
-                                )
-                            }
-                            
-                            return ExploreResponse(
-                                recommendations: recommendations,
-                                totalMatches: searchResponse.totalResults,
-                                hasMore: false,
-                                offset: 0,
-                                limit: 10
-                            )
-                        }
+                        // For both authenticated and guest users, load recommendations
+                        // Avoid calling search with an empty query which causes 400 errors
+                        return try await gateway.getExploreRecommendations(offset, 10)
                     }
                     
                     await send(.recommendationsReceived(result))
@@ -245,31 +243,43 @@ struct ExploreFeatureDomain {
                 return .none
                 
             case let .searchSubmitted(query):
-                guard !query.isEmpty else { return .none }
-                
+                // Enforce minimum length to satisfy backend validation
+                let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard trimmed.count >= 2 else { return .none }
+
                 state.isSearching = true
                 state.searchError = nil
-                
+                // Reset search pagination for new search
+                state.searchResults = []
+                state.searchHasMorePages = true
+                state.searchTotalItems = 0
+                state.searchCurrentPage = 0
+                state.isLoadingSearchNextPage = false
+
                 return .run { send in
                     @Dependency(\.productGateway) var gateway
-                    
+
                     let result = await TaskResult {
-                        try await gateway.searchProducts(query)
+                        try await gateway.searchProducts(trimmed, 0, 10)
                     }
-                    
+
                     await send(.searchResponseReceived(result))
                 }
                 .cancellable(id: "search-request")
                 
             case let .searchResponseReceived(.success(searchResponse)):
                 state.isSearching = false
-                
+
                 // Convert Product array to ProductRecommendation array
                 let searchRecommendations = searchResponse.products.map { product in
                     ProductRecommendation.fromProduct(product)
                 }
-                
+
                 state.searchResults = IdentifiedArrayOf(uniqueElements: searchRecommendations)
+                // Update search pagination state
+                state.searchTotalItems = searchResponse.totalMatches
+                state.searchHasMorePages = searchResponse.hasMore ?? (state.searchResults.count < searchResponse.totalMatches)
+
                 return .none
                 
             case let .searchResponseReceived(.failure(error)):
@@ -282,8 +292,13 @@ struct ExploreFeatureDomain {
                 state.searchText = ""
                 state.searchResults = []
                 state.searchError = nil
+                state.searchHasMorePages = true
+                state.searchTotalItems = 0
+                state.searchCurrentPage = 0
+                state.isLoadingSearchNextPage = false
                 return .cancel(id: "search-debounce")
                     .merge(with: .cancel(id: "search-request"))
+                    .merge(with: .cancel(id: "search-pagination"))
                     
             case let .productTapped(recommendation):
                 state.productDetail = ProductDetailFeatureDomain.State(
@@ -306,21 +321,89 @@ struct ExploreFeatureDomain {
                 return .none
                     
             case .loadMoreRecommendations:
-                guard state.canLoadMore else { return .none }
+                guard !state.isSearchActive && state.canLoadMore else { return .none }
                 state.isLoadingNextPage = true
                 state.currentPage += 1
                 let offset = state.recommendations.count
-                
+
                 return .run { send in
                     @Dependency(\.productGateway) var gateway
-                    
+
                     let result = await TaskResult {
                         try await gateway.getExploreRecommendations(offset, 10)
                     }
-                    
+
                     await send(.recommendationsReceived(result))
                 }
                 .cancellable(id: "explore-more-recommendations")
+
+            case .loadMoreSearchResults:
+                guard state.isSearchActive && state.canLoadMore else { return .none }
+                state.isLoadingSearchNextPage = true
+                state.searchCurrentPage += 1
+                let offset = state.searchResults.count
+                let query = state.searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                return .run { send in
+                    @Dependency(\.productGateway) var gateway
+
+                    let result = await TaskResult {
+                        try await gateway.searchProducts(query, offset, 10)
+                    }
+
+                    await send(.searchPaginationReceived(result))
+                }
+                .cancellable(id: "search-pagination")
+
+            case let .searchPaginationReceived(.success(searchResponse)):
+                state.isLoadingSearchNextPage = false
+
+                // Convert and append new search results
+                let newSearchRecommendations = searchResponse.products.map { product in
+                    ProductRecommendation.fromProduct(product)
+                }
+
+                for recommendation in newSearchRecommendations {
+                    state.searchResults.updateOrAppend(recommendation)
+                }
+
+                // Update search pagination state
+                state.searchTotalItems = searchResponse.totalMatches
+                state.searchHasMorePages = searchResponse.hasMore ?? (state.searchResults.count < searchResponse.totalMatches)
+
+                return .none
+
+            case let .searchPaginationReceived(.failure(error)):
+                state.isLoadingSearchNextPage = false
+                state.searchError = "Failed to load more results: \(error.localizedDescription)"
+                return .none
+
+            case let .authStateChanged(isAuthenticated):
+                // Clear all explore data when auth state changes
+                if let lastAuth = state.lastAuthState, lastAuth != isAuthenticated {
+                    return .send(.clearExploreData)
+                }
+                state.lastAuthState = isAuthenticated
+                return .none
+
+            case .clearExploreData:
+                // Reset all explore state
+                state.recommendations = []
+                state.searchResults = []
+                state.hasMorePages = true
+                state.totalItems = 0
+                state.currentPage = 0
+                state.searchHasMorePages = true
+                state.searchTotalItems = 0
+                state.searchCurrentPage = 0
+                state.isLoading = false
+                state.isLoadingNextPage = false
+                state.isLoadingSearchNextPage = false
+                state.error = nil
+                state.searchError = nil
+
+                // Reload recommendations for new auth state
+                return .send(.loadRecommendations)
 
             }
         }
@@ -362,6 +445,12 @@ struct ExploreView: View {
                         GradeFilterView(store: store)
                     }
                     .onAppear {
+                        // Check auth state and clear data if needed
+                        @Dependency(\.authState) var authState
+                        Task {
+                            let currentAuthState = await authState.load()
+                            store.send(.authStateChanged(currentAuthState.isLoggedIn))
+                        }
                         store.send(.startAutoRefreshTimer)
                 }
                 .onDisappear {
@@ -571,17 +660,21 @@ struct ExploreView: View {
                 )
                 .padding(.horizontal, DesignSystem.Spacing.screenPadding)
                 .onAppear {
-                    if !store.isSearchActive && store.canLoadMore {
+                    if store.canLoadMore {
                         let totalItems = store.displayedProducts.count
                         let itemsFromEnd = totalItems - index
                         if itemsFromEnd <= 3 {
-                            store.send(.loadMoreRecommendations)
+                            if store.isSearchActive {
+                                store.send(.loadMoreSearchResults)
+                            } else {
+                                store.send(.loadMoreRecommendations)
+                            }
                         }
                     }
                 }
             }
             
-            if store.isLoadingNextPage {
+            if store.isLoadingNextPage || store.isLoadingSearchNextPage {
                 loadingMoreView
             }
         }
@@ -623,4 +716,3 @@ struct ExploreView: View {
         }
     )
 }
-

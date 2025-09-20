@@ -71,7 +71,7 @@ struct HealthAssessmentConverter {
     
     private static func extractQualityRating(from assessment: HealthAssessmentResponse) -> QualityRating {
         // Try to get score from risk summary
-        if let riskSummary = assessment.riskSummary,
+        if let riskSummary = assessment.computedRiskSummary,
            let score = riskSummary.score {
             return QualityRating(
                 score: score,
@@ -135,7 +135,7 @@ struct HealthAssessmentConverter {
         if let insights = assessment.nutrition {
             for insight in insights {
                 let nutrient = insight.nutrient.lowercased()
-                let amount = extractNumericValue(from: insight.amount)
+                let amount = extractNumericValue(from: insight.amount ?? "")
                 
                 switch nutrient {
                 case "energy", "calories":

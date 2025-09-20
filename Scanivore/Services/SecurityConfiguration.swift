@@ -137,34 +137,4 @@ public enum SecuritySeverity: String, CaseIterable {
 // MARK: - Secure Logging Helpers
 
 /// Secure logging utility that respects security configuration
-public struct SecureLogger {
-    
-    /// Log barcode-related information with automatic redaction
-    public static func logBarcode(_ message: String, barcode: String? = nil) {
-        #if DEBUG
-        if SecurityConfiguration.verboseBarcodeLoggingEnabled, let barcode = barcode {
-            // Barcode logging removed for production
-        } else {
-            // Barcode logging removed for production
-        }
-        #endif
-    }
-    
-    /// Log authentication events with automatic sanitization
-    public static func logAuth(_ message: String) {
-        #if DEBUG
-        if SecurityConfiguration.authLoggingEnabled {
-            // Auth logging removed for production
-        }
-        #endif
-    }
-    
-    /// Log API events with automatic sanitization
-    public static func logAPI(_ message: String) {
-        #if DEBUG
-        if SecurityConfiguration.apiLoggingEnabled {
-            // API logging removed for production
-        }
-        #endif
-    }
-}
+// NOTE: SecureLogger is defined in Scanivore/Utils/SecureLogger.swift
