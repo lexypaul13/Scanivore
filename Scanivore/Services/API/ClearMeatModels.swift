@@ -574,7 +574,7 @@ public struct APIError: Codable, Equatable, Error {
 // Backend response format (products directly)
 public struct UserExploreResponse: Codable, Equatable {
     let recommendations: [RecommendationItem]
-    let totalMatches: Int?
+    let totalMatches: Int
     let hasMore: Bool?
     let offset: Int?
     let limit: Int?

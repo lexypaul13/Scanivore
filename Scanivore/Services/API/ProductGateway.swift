@@ -677,7 +677,7 @@ extension ProductGateway: DependencyKey {
             
                 return ExploreResponse(
                     recommendations: optimizedRecommendations,
-                    totalMatches: decodedResponse.totalMatches ?? optimizedRecommendations.count, // Fallback to actual count
+                    totalMatches: decodedResponse.totalMatches,
                     hasMore: decodedResponse.hasMore,
                     offset: decodedResponse.offset,
                     limit: decodedResponse.limit
