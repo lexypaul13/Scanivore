@@ -277,8 +277,8 @@ struct ExploreFeatureDomain {
 
                 state.searchResults = IdentifiedArrayOf(uniqueElements: searchRecommendations)
                 // Update search pagination state
-                state.searchTotalItems = searchResponse.totalMatches
-                state.searchHasMorePages = searchResponse.hasMore ?? (state.searchResults.count < searchResponse.totalMatches)
+                state.searchTotalItems = searchResponse.totalResults
+                state.searchHasMorePages = state.searchResults.count < searchResponse.totalResults
 
                 return .none
                 
@@ -368,8 +368,8 @@ struct ExploreFeatureDomain {
                 }
 
                 // Update search pagination state
-                state.searchTotalItems = searchResponse.totalMatches
-                state.searchHasMorePages = searchResponse.hasMore ?? (state.searchResults.count < searchResponse.totalMatches)
+                state.searchTotalItems = searchResponse.totalResults
+                state.searchHasMorePages = state.searchResults.count < searchResponse.totalResults
 
                 return .none
 

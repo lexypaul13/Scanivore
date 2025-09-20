@@ -486,7 +486,7 @@ extension ProductGateway: DependencyKey {
             let searchResponse = try await session.request(
                 "\(APIConfiguration.baseURL)/api/v1/products/search",
                 method: .get,
-                parameters: ["q": query, "offset": offset, "limit": limit],
+                parameters: ["q": query, "skip": offset, "limit": limit],
                 headers: headers
             )
             .validate()
