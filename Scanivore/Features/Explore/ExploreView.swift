@@ -221,27 +221,43 @@ struct ExploreFeatureDomain {
                 
             case let .recommendationsProcessed(response):
                 // Convert to ProductRecommendation models
-                let newRecommendations = response.recommendations.map { 
+                let newRecommendations = response.recommendations.map {
                     ProductRecommendation.fromRecommendationItem($0)
                 }
-                
-                // For initial load
+
+                // Compute unique additions vs current state (by ID)
+                let existingIDs = Set(state.recommendations.map { $0.id })
+                let uniqueNew = newRecommendations.filter { !existingIDs.contains($0.id) }
+
+                // Append only unique to avoid replacing identical first page
                 if state.recommendations.isEmpty {
-                    state.recommendations = IdentifiedArrayOf(uniqueElements: newRecommendations)
+                    state.recommendations = IdentifiedArrayOf(uniqueElements: uniqueNew)
                 } else {
-                    // For pagination (append)
-                    for recommendation in newRecommendations {
+                    for recommendation in uniqueNew {
                         state.recommendations.updateOrAppend(recommendation)
                     }
                 }
-                
-                // Update pagination state
+
+                // Update pagination state (robust to missing/incorrect hasMore)
                 state.totalItems = response.totalMatches
-                state.hasMorePages = response.hasMore ?? (state.recommendations.count < response.totalMatches)
+                let pageSize = response.limit ?? 10
+                let uniqueCount = uniqueNew.count
+                if let hasMore = response.hasMore {
+                    state.hasMorePages = hasMore
+                } else {
+                    // If no new unique items arrived, stop pagination to avoid loops
+                    if uniqueCount == 0 {
+                        state.hasMorePages = false
+                    } else if state.recommendations.count < response.totalMatches {
+                        state.hasMorePages = true
+                    } else {
+                        state.hasMorePages = uniqueCount >= pageSize
+                    }
+                }
                 state.isLoadingNextPage = false
 
                 // Debug: Log pagination state after processing
-                print("🔎 [Explore] Processed page: appended=\(newRecommendations.count), totalLoaded=\(state.recommendations.count), totalMatches=\(state.totalItems), hasMorePages=\(state.hasMorePages)")
+                print("🔎 [Explore] Processed page: uniqueAdded=\(uniqueCount), pageSize=\(pageSize), totalLoaded=\(state.recommendations.count), totalMatches=\(state.totalItems), hasMorePages=\(state.hasMorePages)")
                 
                 return .none
                 

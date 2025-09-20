@@ -635,6 +635,8 @@ extension ProductGateway: DependencyKey {
                 }
                 
                 let decodedResponse = try JSONDecoder().decode(UserExploreResponse.self, from: userExploreResponse)
+
+                print("🔍 [ProductGateway] Decoded totalMatches: \(decodedResponse.totalMatches), recommendations: \(decodedResponse.recommendations.count)")
                 
                 
                 let optimizedRecommendations = decodedResponse.recommendations.map { item in
