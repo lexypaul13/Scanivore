@@ -581,7 +581,7 @@ public struct UserExploreResponse: Codable, Equatable {
     
     enum CodingKeys: String, CodingKey {
         case recommendations
-        case totalMatches = "totalMatches"
+        case totalMatches = "total_matches"
         case hasMore
         case offset
         case limit
@@ -598,7 +598,7 @@ public struct ExploreResponse: Codable, Equatable {
     
     enum CodingKeys: String, CodingKey {
         case recommendations
-        case totalMatches = "totalMatches"
+        case totalMatches = "total_matches"
         case hasMore
         case offset
         case limit
