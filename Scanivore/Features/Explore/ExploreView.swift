@@ -325,10 +325,10 @@ struct ExploreFeatureDomain {
                     
             case .loadMoreRecommendations:
                 guard !state.isSearchActive && state.canLoadMore else {
-                    print(\"🔎 [Explore] loadMoreRecommendations blocked: isSearchActive=\\(state.isSearchActive), canLoadMore=\\(state.canLoadMore), hasMorePages=\\(state.hasMorePages), isLoadingNextPage=\\(state.isLoadingNextPage)\")
+                    print("🔎 [Explore] loadMoreRecommendations blocked: isSearchActive=\(state.isSearchActive), canLoadMore=\(state.canLoadMore), hasMorePages=\(state.hasMorePages), isLoadingNextPage=\(state.isLoadingNextPage)")
                     return .none
                 }
-                print(\"🔎 [Explore] loadMoreRecommendations starting: currentCount=\\(state.recommendations.count), offset=\\(state.recommendations.count)\")
+                print("🔎 [Explore] loadMoreRecommendations starting: currentCount=\(state.recommendations.count), offset=\(state.recommendations.count)")
                 state.isLoadingNextPage = true
                 state.currentPage += 1
                 let offset = state.recommendations.count
