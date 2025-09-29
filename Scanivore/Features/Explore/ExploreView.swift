@@ -240,6 +240,12 @@ struct ExploreFeatureDomain {
 
                 // Update pagination state (robust to missing/incorrect hasMore)
                 state.totalItems = response.totalMatches
+
+                // Track proper page number based on server response
+                if let serverOffset = response.offset {
+                    state.currentPage = serverOffset / 10
+                }
+
                 let pageSize = response.limit ?? 10
                 let uniqueCount = uniqueNew.count
                 if let hasMore = response.hasMore {
@@ -340,7 +346,7 @@ struct ExploreFeatureDomain {
                 guard !state.isSearchActive && state.canLoadMore else { return .none }
                 state.isLoadingNextPage = true
                 state.currentPage += 1
-                let offset = state.recommendations.count
+                let offset = state.currentPage * 10  // Use proper pagination offset calculation
 
                 return .run { send in
                     @Dependency(\.productGateway) var gateway
@@ -396,15 +402,27 @@ struct ExploreFeatureDomain {
                 return .none
 
             case let .authStateChanged(isAuthenticated):
-                // Clear all explore data when auth state changes
-                if let lastAuth = state.lastAuthState, lastAuth != isAuthenticated {
-                    return .send(.clearExploreData)
+                print("🔄 [Explore] Auth state change detected: \(state.lastAuthState?.description ?? "nil") → \(isAuthenticated)")
+
+                // Clear all explore data when auth state actually changes
+                if let lastAuth = state.lastAuthState {
+                    if lastAuth != isAuthenticated {
+                        print("🔄 [Explore] Auth state changed, clearing explore data")
+                        state.lastAuthState = isAuthenticated
+                        return .send(.clearExploreData)
+                    }
+                } else {
+                    // First time setting auth state, record it but don't clear
+                    print("🔄 [Explore] Initial auth state: \(isAuthenticated)")
+                    state.lastAuthState = isAuthenticated
                 }
-                state.lastAuthState = isAuthenticated
+
                 return .none
 
             case .clearExploreData:
-                // Reset all explore state
+                print("🔄 [Explore] Clearing all explore data for auth state change")
+
+                // Reset all explore state completely
                 state.recommendations = []
                 state.searchResults = []
                 state.hasMorePages = true
@@ -416,11 +434,21 @@ struct ExploreFeatureDomain {
                 state.isLoading = false
                 state.isLoadingNextPage = false
                 state.isLoadingSearchNextPage = false
+                state.isSearching = false
                 state.error = nil
                 state.searchError = nil
 
-                // Reload recommendations for new auth state
-                return .send(.loadRecommendations)
+                // Reset auth tracking to prevent duplicate clears
+                state.lastAuthState = nil
+
+                // Cancel any in-flight requests to prevent stale data
+                return .merge(
+                    .cancel(id: "explore-recommendations"),
+                    .cancel(id: "explore-more-recommendations"),
+                    .cancel(id: "search-request"),
+                    .cancel(id: "search-pagination"),
+                    .send(.loadRecommendations)
+                )
 
             }
         }

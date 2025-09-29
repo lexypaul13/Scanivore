@@ -254,7 +254,15 @@ public struct SettingsFeature {
             case let .signOutResponse(.success(success)):
                 state.isLoading = false
                 if success {
-                    return .send(.delegate(.signOutRequested))
+                    // Update local state immediately to reflect sign-out
+                    state.isSignedIn = false
+                    state.userName = "Guest User"
+                    state.userEmail = nil
+
+                    return .merge(
+                        .send(.delegate(.signOutRequested)),
+                        .send(.loadUserInfo)  // Refresh user info to ensure consistency
+                    )
                 } else {
                     state.errorMessage = "Failed to sign out"
                     return .none
@@ -268,7 +276,15 @@ public struct SettingsFeature {
             case let .deleteAccountResponse(.success(success)):
                 state.isLoading = false
                 if success {
-                    return .send(.delegate(.signOutRequested))
+                    // Update local state immediately to reflect account deletion
+                    state.isSignedIn = false
+                    state.userName = "Guest User"
+                    state.userEmail = nil
+
+                    return .merge(
+                        .send(.delegate(.signOutRequested)),
+                        .send(.loadUserInfo)  // Refresh user info to ensure consistency
+                    )
                 } else {
                     state.errorMessage = "Failed to delete account"
                     return .none

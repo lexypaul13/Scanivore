@@ -54,10 +54,6 @@ struct EnhancedIndividualIngredientAnalysisView: View {
                             healthEffectsSection(healthEffects)
                         }
                         
-                        // Recommendations Section
-                        if let analysis = individualAnalysis {
-                            recommendationsSection(analysis)
-                        }
                         
                         // Citations Section
                         citationsSection
@@ -180,31 +176,6 @@ struct EnhancedIndividualIngredientAnalysisView: View {
         }
     }
     
-    // MARK: - Recommendations Section
-    @ViewBuilder
-    private func recommendationsSection(_ analysis: IndividualIngredientAnalysisResponseWithName) -> some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-            Text("Recommendations")
-                .font(DesignSystem.Typography.heading3)
-                .foregroundColor(DesignSystem.Colors.textPrimary)
-            
-            if let recommendedIntake = analysis.recommendedIntake {
-                RecommendationCard(
-                    title: "Recommended Intake",
-                    content: recommendedIntake,
-                    icon: "heart.fill"
-                )
-            }
-            
-            if let alternatives = analysis.alternatives, !alternatives.isEmpty {
-                RecommendationCard(
-                    title: "Alternatives",
-                    content: alternatives.joined(separator: ", "),
-                    icon: "arrow.triangle.2.circlepath"
-                )
-            }
-        }
-    }
     
     // MARK: - Citations Section
     @ViewBuilder
@@ -314,38 +285,6 @@ struct HealthEffectCard: View {
     }
 }
 
-struct RecommendationCard: View {
-    let title: String
-    let content: String
-    let icon: String
-    
-    var body: some View {
-        HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
-            Image(systemName: icon)
-                .font(DesignSystem.Typography.body)
-                .foregroundColor(DesignSystem.Colors.success)
-                .padding(.top, 2)
-            
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                Text(title)
-                    .font(DesignSystem.Typography.bodyMedium)
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-                
-                Text(content)
-                    .font(DesignSystem.Typography.body)
-                    .foregroundColor(DesignSystem.Colors.textSecondary)
-                    .lineSpacing(2)
-            }
-        }
-        .padding(DesignSystem.Spacing.sm)
-        .background(DesignSystem.Colors.success.opacity(0.05))
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                .stroke(DesignSystem.Colors.success.opacity(0.2), lineWidth: 1)
-        )
-        .cornerRadius(DesignSystem.CornerRadius.md)
-    }
-}
 
 struct EnhancedCitationCard: View {
     let citation: Citation
