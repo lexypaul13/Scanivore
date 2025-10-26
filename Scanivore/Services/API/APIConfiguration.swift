@@ -19,8 +19,6 @@ public struct APIConfiguration {
     public static let timeout: TimeInterval = 15.0  // Reduced from 30s for 94% faster backend
     public static let healthAssessmentTimeout: TimeInterval = 90.0  // Increased to 90s for mobile networks + AI generation with auto-retry
     
-    public static let jwtSecret = "REPLACE_WITH_ACTUAL_SERVER_SECRET_IN_PRODUCTION"
-    
     // API Endpoints
     public enum Endpoints {
         public static let register = "/api/v1/auth/register"

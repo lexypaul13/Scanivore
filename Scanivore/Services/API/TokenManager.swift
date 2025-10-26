@@ -7,8 +7,6 @@
 
 import Foundation
 import Security
-import CryptoKit
-
 // MARK: - Token Manager
 public final class TokenManager {
     public static let shared = TokenManager()
@@ -175,7 +173,7 @@ public final class TokenManager {
             }
         }
         
-        // Validate issuer if present
+        // Validate issuer if present (best-effort; backend remains source of truth)
         if let iss = payloadDict["iss"] as? String {
             guard iss == "clear-meat-api" else {
                 return false // Invalid issuer
@@ -183,48 +181,6 @@ public final class TokenManager {
         }
         
         return true
-    }
-    
-    private func verifyJWTSignature(header: String, payload: String, signature: String) -> Bool {
-        guard let signatureData = decodeBase64URLComponent(signature) else {
-            return false
-        }
-        
-        let message = "\(header).\(payload)"
-        guard let messageData = message.data(using: .utf8) else {
-            return false
-        }
-        
-        let jwtSecret = APIConfiguration.jwtSecret
-        guard jwtSecret != "REPLACE_WITH_ACTUAL_SERVER_SECRET_IN_PRODUCTION" else {
-            #if DEBUG
-            return true
-            #else
-            return false
-            #endif
-        }
-        
-        guard let secretData = jwtSecret.data(using: .utf8) else {
-            return false
-        }
-        
-        let key = SymmetricKey(data: secretData)
-        let computedSignature = HMAC<SHA256>.authenticationCode(for: messageData, using: key)
-        let computedSignatureData = Data(computedSignature)
-        let isValid = constantTimeEquals(computedSignatureData, signatureData)
-        
-        return isValid
-    }
-    
-    private func constantTimeEquals(_ lhs: Data, _ rhs: Data) -> Bool {
-        guard lhs.count == rhs.count else { return false }
-        
-        var result: UInt8 = 0
-        for i in 0..<lhs.count {
-            result |= lhs[i] ^ rhs[i]
-        }
-        
-        return result == 0
     }
     
     private func decodeBase64URLComponent(_ component: String) -> Data? {

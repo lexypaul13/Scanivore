@@ -67,11 +67,6 @@ public struct SecurityConfiguration {
         }
         #endif
         
-        // Check for hardcoded secrets
-        if APIConfiguration.jwtSecret == "REPLACE_WITH_ACTUAL_SERVER_SECRET_IN_PRODUCTION" {
-            issues.append(.defaultSecretInProduction)
-        }
-        
         return SecurityValidationResult(issues: issues)
     }
 }
@@ -98,7 +93,6 @@ public enum SecurityIssue: CaseIterable {
     case verboseLoggingInProduction
     case apiLoggingInProduction  
     case authLoggingInProduction
-    case defaultSecretInProduction
     
     public var description: String {
         switch self {
@@ -108,8 +102,6 @@ public enum SecurityIssue: CaseIterable {
             return "API logging enabled in production"
         case .authLoggingInProduction:
             return "Authentication logging enabled in production"
-        case .defaultSecretInProduction:
-            return "Default JWT secret found in production"
         }
     }
     
@@ -121,8 +113,6 @@ public enum SecurityIssue: CaseIterable {
             return .medium
         case .authLoggingInProduction:
             return .high
-        case .defaultSecretInProduction:
-            return .critical
         }
     }
 }
