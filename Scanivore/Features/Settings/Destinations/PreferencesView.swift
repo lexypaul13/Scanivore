@@ -1,9 +1,3 @@
-//
-//  PreferencesView.swift
-//  Scanivore
-//
-//  Dietary preferences management view
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -108,7 +102,6 @@ public struct PreferencesFeature {
                     state.preferences = preferences
                     state.originalPreferences = preferences
                 } else {
-                    // Initialize with default preferences if none exist
                     let defaultPreferences = OnboardingPreferences(
                         avoidPreservatives: false,
                         antibioticFree: false,
@@ -147,7 +140,6 @@ public struct PreferencesFeature {
                 
             case let .toggleMeatType(meatType):
                 if state.preferences.preferredMeatTypes.contains(meatType) {
-                    // Don't allow removing if it's the last one
                     if state.preferences.preferredMeatTypes.count > 1 {
                         state.preferences.preferredMeatTypes.remove(meatType)
                     }
@@ -161,7 +153,6 @@ public struct PreferencesFeature {
                 state.errorMessage = nil
                 
                 return .run { [preferences = state.preferences] send in
-                    // Save locally first
                     await send(.saveResponse(
                         await TaskResult {
                             await onboardingClient.save(preferences)
@@ -179,12 +170,9 @@ public struct PreferencesFeature {
                     return .none
                 }
                 
-                // Try to sync to backend if user is authenticated
                 return .run { [preferences = state.preferences] send in
-                    // Check if user is authenticated
                     if let currentUser = try? await authGateway.getCurrentUser(),
                        currentUser != nil {
-                        // Convert OnboardingPreferences to UserPreferences for backend
                         let userPreferences = UserPreferences(
                             nutritionFocus: preferences.lowerSodium == true ? "sodium" : "protein",
                             avoidPreservatives: preferences.avoidPreservatives ?? false,
@@ -205,7 +193,6 @@ public struct PreferencesFeature {
                             }
                         ))
                     } else {
-                        // Not authenticated, just complete the save
                         await send(.syncToBackendResponse(.success(true)))
                     }
                 }
@@ -218,7 +205,6 @@ public struct PreferencesFeature {
             case let .syncToBackendResponse(.success(success)):
                 state.isSaving = false
                 if success {
-                    // Notify the app that preferences have been updated
                     return .run { send in
                         await send(.delegate(.preferencesUpdated))
                         await dismiss()
@@ -230,8 +216,6 @@ public struct PreferencesFeature {
                 
             case let .syncToBackendResponse(.failure(error)):
                 state.isSaving = false
-                // Backend sync failed, but local save succeeded
-                // Still dismiss and notify since local save worked
                 return .run { send in
                     await send(.delegate(.preferencesUpdated))
                     await dismiss()

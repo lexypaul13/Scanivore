@@ -1,9 +1,3 @@
-//
-//  NetworkMonitor.swift
-//  Scanivore
-//
-//  Network connectivity monitoring for better error handling
-//
 
 import Foundation
 import Network

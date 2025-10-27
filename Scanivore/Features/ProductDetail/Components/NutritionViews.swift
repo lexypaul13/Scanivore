@@ -1,9 +1,3 @@
-//
-//  NutritionViews.swift
-//  Scanivore
-//
-//  Nutrition display components for ProductDetail
-//
 
 import SwiftUI
 
@@ -11,9 +5,7 @@ import SwiftUI
 struct NutritionScrollView: View {
     let assessment: HealthAssessmentResponse
     
-    // Get nutrition data from assessment
     private func getNutritionData() -> [NutritionInsight] {
-        // Try both access methods for backwards compatibility
         if let direct = assessment.nutrition, !direct.isEmpty {
             return direct
         } else if let computed = assessment.nutritionInsights, !computed.isEmpty {
@@ -35,12 +27,10 @@ struct NutritionScrollView: View {
                     let nutritionData = getNutritionData()
                     
                     if !nutritionData.isEmpty {
-                        // Map through the nutrition array dynamically
                         ForEach(Array(nutritionData.enumerated()), id: \.offset) { index, insight in
                             NutritionCard(insight: insight)
                         }
                     } else {
-                        // Show skeleton cards for missing nutrition data
                         ForEach(["Calories", "Protein", "Fat", "Sodium", "Fiber", "Sugar"], id: \.self) { nutrient in
                             SkeletonNutritionCard(nutrient: nutrient)
                         }
@@ -71,27 +61,23 @@ struct NutritionCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-            // Nutrient name
             Text(insight.nutrient)
                 .font(DesignSystem.Typography.bodyMedium)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
                 .lineLimit(1)
             
-            // Amount per serving
             Text(insight.amountPerServing)
                 .font(DesignSystem.Typography.heading3)
                 .fontWeight(.semibold)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
                 .lineLimit(1)
             
-            // Daily Value if available
             if let dailyValue = insight.dailyValue, !dailyValue.isEmpty {
                 Text(dailyValue + " DV")
                     .font(DesignSystem.Typography.small)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
             }
             
-            // AI Commentary - Full text without truncation
             if let comment = insight.comment, !comment.isEmpty {
                 Text(comment)
                     .font(DesignSystem.Typography.small)
@@ -102,7 +88,6 @@ struct NutritionCard: View {
             
             Spacer(minLength: DesignSystem.Spacing.xs)
             
-            // Evaluation badge
             HStack {
                 Circle()
                     .fill(evaluationColor)
@@ -136,26 +121,22 @@ struct SkeletonNutritionCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-            // Nutrient name
             Text(nutrient)
                 .font(DesignSystem.Typography.bodyMedium)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
                 .lineLimit(1)
             
-            // Placeholder amount
             Text("Not available")
                 .font(DesignSystem.Typography.heading3)
                 .fontWeight(.semibold)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
             
-            // Placeholder daily value
             Text("Data unavailable")
                 .font(DesignSystem.Typography.small)
                 .foregroundColor(DesignSystem.Colors.textSecondary)
             
             Spacer()
             
-            // Placeholder evaluation
             HStack {
                 Circle()
                     .fill(DesignSystem.Colors.textSecondary.opacity(0.3))

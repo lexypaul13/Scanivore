@@ -1,9 +1,3 @@
-//
-//  ClearMeatModels.swift
-//  Scanivore
-//
-//  API response models for Clear-Meat health assessment service
-//
 
 import Foundation
 
@@ -44,7 +38,6 @@ public struct Product: Codable, Equatable {
     let image_data: String?
     let risk_rating: String?
     
-    // Additional fields from NLP search response
     let description: String?
     let ingredients_text: String?
     let calories: Double?
@@ -71,6 +64,40 @@ public struct Product: Codable, Equatable {
         case contains_nitrites, contains_phosphates, contains_preservatives
         case antibiotic_free, hormone_free, pasture_raised
         case last_updated, created_at, _relevance_score
+    }
+}
+
+public extension Product {
+    func withoutImageData() -> Product {
+        Product(
+            id: id,
+            code: code,
+            name: name,
+            brand: brand,
+            categories: categories,
+            ingredients: ingredients,
+            nutritionFacts: nutritionFacts,
+            image_url: image_url,
+            image_data: nil,
+            risk_rating: risk_rating,
+            description: description,
+            ingredients_text: ingredients_text,
+            calories: calories,
+            protein: protein,
+            fat: fat,
+            carbohydrates: carbohydrates,
+            salt: salt,
+            meat_type: meat_type,
+            contains_nitrites: contains_nitrites,
+            contains_phosphates: contains_phosphates,
+            contains_preservatives: contains_preservatives,
+            antibiotic_free: antibiotic_free,
+            hormone_free: hormone_free,
+            pasture_raised: pasture_raised,
+            last_updated: last_updated,
+            created_at: created_at,
+            _relevance_score: _relevance_score
+        )
     }
 }
 
@@ -132,18 +159,15 @@ public struct HealthAssessmentResponse: Codable, Equatable {
     let citations: [Citation]?
     let metadata: ResponseMetadata?
     
-    // Backward compatibility properties (legacy fields)
     let grade: String?
     let color: String?
     let nutrition: [NutritionInsight]?
     let product_info: ProductInfo?
     
-    // Direct API fields for old structure compatibility
     let high_risk: [IngredientRisk]?
     let moderate_risk: [IngredientRisk]?
     let low_risk: [IngredientRisk]?
     
-    // Computed properties for backward compatibility
     var computedRiskSummary: RiskSummary? {
         return risk_summary ?? RiskSummary(grade: grade, color: color, score: nil)
     }
@@ -168,7 +192,6 @@ public struct HealthAssessmentResponse: Codable, Equatable {
         return metadata?.generated
     }
     
-    // Computed properties for backward compatibility with legacy field names
     var ingredientsAssessment: IngredientsAssessment? {
         return ingredients_assessment
     }
@@ -185,13 +208,11 @@ public struct HealthAssessmentResponse: Codable, Equatable {
         case citations
         case metadata
         
-        // Backward compatibility
         case grade
         case color
         case nutrition = "nutrition"
         case product_info = "product_info"
         
-        // Direct API fields for old structure
         case high_risk = "high_risk"
         case moderate_risk = "moderate_risk" 
         case low_risk = "low_risk"
@@ -233,12 +254,10 @@ public struct IngredientRisk: Codable, Equatable {
     let riskLevel: String?
     let citationIds: [Int]?  // Server now returns citation ID references
     
-    // Computed property for backward compatibility with default value
     var microReport: String {
         return risk ?? "Generally recognized as safe for consumption"
     }
     
-    // Computed property to always provide a risk description
     var riskDescription: String {
         return risk ?? overview ?? "Generally recognized as safe for consumption"
     }
@@ -272,7 +291,6 @@ public struct IngredientRisk: Codable, Equatable {
         overview = try container.decodeIfPresent(String.self, forKey: .overview)
         riskLevel = try container.decodeIfPresent(String.self, forKey: .riskLevel)
         
-        // Server returns citation IDs, but cached data may still store full objects
         if let ids = try container.decodeIfPresent([Int].self, forKey: .citationIds) {
             citationIds = ids
         } else if let citationObjects = try? container.decodeIfPresent([Citation].self, forKey: .citationIds) {
@@ -306,7 +324,6 @@ public struct NutritionInsight: Codable, Equatable {
     let dailyValue: String?
     let recommendation: String?
 
-    // Server response fields
     let aiCommentary: String?
 
     enum CodingKeys: String, CodingKey {
@@ -319,7 +336,6 @@ public struct NutritionInsight: Codable, Equatable {
         case aiCommentary = "ai_commentary"
     }
 
-    // Computed properties for backward compatibility
     var amountPerServing: String {
         return amount ?? "N/A"
     }
@@ -336,7 +352,6 @@ public struct Citation: Codable, Equatable {
     let year: Int  // Changed from String to Int to match server response
     let url: String?  // Optional URL for clickable citations
 
-    // Computed property for UI display (if needed as string)
     var yearString: String {
         return String(year)
     }
@@ -423,7 +438,6 @@ public struct IndividualIngredientAnalysisResponse: Codable, Equatable {
     let citations: [Citation]
     let metadata: AnalysisMetadata?
 
-    // Computed property for backward compatibility
     var ingredientName: String {
         return ingredient
     }
@@ -451,7 +465,6 @@ public struct AnalysisMetadata: Codable, Equatable {
     }
 }
 
-// Wrapper struct that includes ingredient name for UI display
 public struct IndividualIngredientAnalysisResponseWithName: Codable, Equatable {
     let ingredientName: String
     let analysisText: String
@@ -511,7 +524,6 @@ public struct UserPreferences: Codable, Equatable {
     let avoidPreservatives: Bool?
     let meatPreferences: [String]?
     
-    // New onboarding fields (May 2024)
     let prefer_no_preservatives: Bool?
     let prefer_antibiotic_free: Bool?
     let prefer_organic_or_grass_fed: Bool?
@@ -571,7 +583,6 @@ public struct APIError: Codable, Equatable, Error {
 
 // MARK: - Explore/Recommendations Models
 
-// Backend response format (products directly)
 public struct UserExploreResponse: Codable, Equatable {
     let recommendations: [RecommendationItem]
     let totalMatches: Int
@@ -588,7 +599,6 @@ public struct UserExploreResponse: Codable, Equatable {
     }
 }
 
-// App internal format (with RecommendationItems)
 public struct ExploreResponse: Codable, Equatable {
     let recommendations: [RecommendationItem]
     let totalMatches: Int
@@ -617,6 +627,16 @@ public struct RecommendationItem: Codable, Equatable {
     }
 }
 
+public extension RecommendationItem {
+    func withoutImageData() -> RecommendationItem {
+        RecommendationItem(
+            product: product.withoutImageData(),
+            matchDetails: matchDetails,
+            matchScore: matchScore
+        )
+    }
+}
+
 public struct MatchDetails: Codable, Equatable {
     let matches: [String]
     let concerns: [String]
@@ -624,7 +644,6 @@ public struct MatchDetails: Codable, Equatable {
 
 // MARK: - Model Extensions for App Integration
 public extension HealthAssessmentResponse {
-    /// Convert API response to app's MeatScan model
     func toMeatScan(barcode: String) -> MeatScan {
         let meatType = determineMeatType(from: summary)
         let grade = computedRiskSummary?.grade ?? "C"
@@ -742,14 +761,12 @@ public extension HealthAssessmentResponse {
         var warnings: [String] = []
         
         if let ingredientsAssessment = ingredientsAssessment {
-            // Add warnings from high-risk ingredients
             if let highRisk = ingredientsAssessment.highRisk {
                 for ingredient in highRisk {
                     warnings.append("⚠️ \(ingredient.name): \(ingredient.microReport)")
                 }
             }
             
-            // Add warnings from moderate-risk ingredients if there are many
             if let moderateRisk = ingredientsAssessment.moderateRisk, moderateRisk.count > 3 {
                 warnings.append("⚠️ Contains multiple ingredients requiring attention")
             }
@@ -761,10 +778,8 @@ public extension HealthAssessmentResponse {
     private func extractRecommendations() -> [String] {
         var recommendations: [String] = []
         
-        // Add recommendation from summary
         recommendations.append(summary)
         
-        // Add specific nutrition recommendations
         if let insights = nutritionInsights {
             for insight in insights.prefix(2) {
                 if let recommendation = insight.recommendation {
@@ -776,7 +791,6 @@ public extension HealthAssessmentResponse {
         return recommendations
     }
     
-    /// Convert HealthAssessmentResponse to SavedProduct for history persistence
     func toSavedProduct(barcode: String) -> SavedProduct {
         let productName = product_info?.name ?? "Unknown Product"
         let productBrand = product_info?.brand

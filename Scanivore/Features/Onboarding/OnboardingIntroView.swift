@@ -1,9 +1,3 @@
-//
-//  OnboardingIntroView.swift
-//  Scanivore
-//
-//  TCA-compliant onboarding introduction flow
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -72,13 +66,11 @@ struct OnboardingIntroView: View {
                     .ignoresSafeArea()
                 
                 VStack {
-                    // Only keep top spacer on the first two screens so that the final screen isn't pushed downward
-                    if !store.isLastPage {
+                     if !store.isLastPage {
                         Spacer()
                     }
                     
-                    // Content
-                    TabView(selection: .init(
+                     TabView(selection: .init(
                         get: { store.currentPage },
                         set: { store.send(.pageChanged($0)) }
                     )) {
@@ -99,13 +91,11 @@ struct OnboardingIntroView: View {
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                     .animation(.easeInOut(duration: 0.4), value: store.currentPage)
                     
-                    // Balance layout with bottom spacer on first two pages
-                    if !store.isLastPage {
+                     if !store.isLastPage {
                         Spacer()
                     }
                     
-                    // Navigation Controls
-                    VStack(spacing: DesignSystem.Spacing.lg) {
+                     VStack(spacing: DesignSystem.Spacing.lg) {
                         if store.showPageDots {
                             HStack(spacing: DesignSystem.Spacing.sm) {
                                 ForEach(0..<2, id: \.self) { index in
@@ -118,9 +108,8 @@ struct OnboardingIntroView: View {
                             }
                             .padding(.bottom, DesignSystem.Spacing.xxl)
                         } else {
-                            // Placeholder to keep the overall height consistent when dots are hidden
-                            Spacer()
-                                .frame(height: DesignSystem.Spacing.xxl + 8) // 8 for dot size + same bottom padding
+                             Spacer()
+                                .frame(height: DesignSystem.Spacing.xxl + 8)
                         }
                     }
                 }
@@ -137,10 +126,8 @@ struct ScanScreenView: View {
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.xl) {
-            // Visual with Lottie Animation
-            ZStack {
-                // Animated background glow
-                Circle()
+             ZStack {
+                 Circle()
                     .fill(DesignSystem.Colors.primaryRed.opacity(0.1))
                     .frame(width: 300, height: 300)
                     .blur(radius: 20)
@@ -155,10 +142,8 @@ struct ScanScreenView: View {
                             .frame(width: 280, height: 280)
                     )
                 
-                // Main animation container
-                ZStack {
-                    // Animated scanning radar effect
-                    ForEach(0..<3, id: \.self) { index in
+                 ZStack {
+                     ForEach(0..<3, id: \.self) { index in
                         Circle()
                             .stroke(DesignSystem.Colors.primaryRed.opacity(0.3), lineWidth: 2)
                             .frame(width: CGFloat(150 + index * 40), height: CGFloat(150 + index * 40))
@@ -172,11 +157,9 @@ struct ScanScreenView: View {
                             )
                     }
                     
-                    // Phone scanner perfectly centered
-                    PhoneScannerView()
+                     PhoneScannerView()
                     
-                    // Floating scan particles
-                    if particlesVisible {
+                     if particlesVisible {
                         ForEach(0..<8, id: \.self) { index in
                             ScanParticle(index: index)
                         }
@@ -233,23 +216,20 @@ struct GradeScreenView: View {
     
     private let gradeWords = ["Bad", "Fair", "Good", "Excellent"]
     private let gradeColors: [Color] = [
-        DesignSystem.Colors.error,      // Bad - Red
-        DesignSystem.Colors.warning,    // Fair - Orange
-        DesignSystem.Colors.success.opacity(0.8),       // Good - Light Green
-        DesignSystem.Colors.success                     // Excellent - Dark Green
+        DesignSystem.Colors.error,
+        DesignSystem.Colors.warning,
+        DesignSystem.Colors.success.opacity(0.8),
+        DesignSystem.Colors.success
     ]
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.xl) {
-            // Visual
             ZStack {
-                // Animated background data visualization
-                ForEach(dataPoints) { point in
+                 ForEach(dataPoints) { point in
                     DataPointView(point: point)
                 }
                 
-                // Glowing circle background
-                Circle()
+                 Circle()
                     .fill(DesignSystem.Colors.primaryRed.opacity(0.1))
                     .frame(width: 300, height: 300)
                     .blur(radius: 20)
@@ -265,15 +245,12 @@ struct GradeScreenView: View {
                     )
                 
                 VStack(spacing: DesignSystem.Spacing.xl) {
-                    // Animated grade dial
-                    ZStack {
-                        // Full circle with color changes
-                        Circle()
+                     ZStack {
+                         Circle()
                             .stroke(circleColor, lineWidth: 6)
                             .frame(width: 100, height: 100)
                         
-                        // Scrambling grade text
-                        Text(gradeText)
+                         Text(gradeText)
                             .font(DesignSystem.Typography.heading2)
                             .foregroundColor(circleColor)
                             .rotationEffect(.degrees(gradeRotation))
@@ -282,8 +259,7 @@ struct GradeScreenView: View {
                             .multilineTextAlignment(.center)
                     }
                     
-                    // Quality indicators with staggered animation
-                    HStack(spacing: DesignSystem.Spacing.lg) {
+                     HStack(spacing: DesignSystem.Spacing.lg) {
                         AnimatedQualityDot(
                             color: DesignSystem.Colors.success,
                             label: "Fresh",
@@ -324,7 +300,7 @@ struct GradeScreenView: View {
     }
     
     private func startGradeAnimations() {
-        // Generate random data points
+        
         dataPoints = (0..<15).map { _ in
             DataPoint(
                 x: CGFloat.random(in: -100...100),
@@ -336,18 +312,14 @@ struct GradeScreenView: View {
             contentOpacity = 1.0
         }
         
-        // Start with red circle
         circleColor = DesignSystem.Colors.error
         
-        // Scramble through grades before settling
         animateGradeScramble()
         
-        // Glow effect
         withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
             glowRadius = 20
         }
         
-        // Staggered dots animation
         for i in 0..<min(3, dotsScale.count) {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.6).delay(1.5 + Double(i) * 0.2)) {
                 if dotsScale.indices.contains(i) {
@@ -365,7 +337,6 @@ struct GradeScreenView: View {
                     let randomIndex = Int.random(in: 0..<gradeWords.count)
                     gradeText = gradeWords[randomIndex]
                     
-                    // Update circle color to match the grade
                     withAnimation(.easeInOut(duration: 0.1)) {
                         circleColor = gradeColors[randomIndex]
                         gradeRotation = Double.random(in: -10...10)
@@ -374,7 +345,6 @@ struct GradeScreenView: View {
                 scrambleCount += 1
             } else {
                 timer.invalidate()
-                // Always end at Excellent (index 3)
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                     gradeText = "Excellent"
                     circleColor = gradeColors[3] // Excellent - Dark Green
@@ -383,7 +353,6 @@ struct GradeScreenView: View {
             }
         }
         
-        // Ensure timer runs on main thread
         RunLoop.main.add(timer, forMode: .common)
     }
 }
@@ -400,9 +369,7 @@ struct ChooseScreenView: View {
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.xl) {
-            // Visual
             ZStack {
-                // Animated glow effect
                 Circle()
                     .fill(DesignSystem.Colors.primaryRed.opacity(0.1))
                     .frame(width: 300, height: 300)
@@ -421,15 +388,12 @@ struct ChooseScreenView: View {
                 
                 ZStack {
                     HStack(spacing: DesignSystem.Spacing.lg) {
-                        // Bad product that dissolves
                         DissolvinProductView(
                             opacity: badProductOpacity,
                             scale: badProductScale
                         )
                         
-                        // Magical transformation arrow
                         ZStack {
-                            // Thumbs up effect
                             Image(systemName: "hand.thumbsup.fill")
                                 .font(.system(size: DesignSystem.Typography.xxxxl))
                                 .foregroundColor(DesignSystem.Colors.success)
@@ -442,7 +406,6 @@ struct ChooseScreenView: View {
                                 .opacity(1 - goodProductOpacity)
                         }
                         
-                        // Good product that materializes
                         MaterializingProductView(
                             opacity: goodProductOpacity,
                             scale: goodProductScale
@@ -488,7 +451,6 @@ struct ChooseScreenView: View {
             contentOpacity = 1.0
         }
         
-        // Start the transformation sequence
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             animateTransformation()
         }
@@ -496,32 +458,26 @@ struct ChooseScreenView: View {
     }
     
     private func animateTransformation() {
-        // Dissolve bad product
         withAnimation(.easeOut(duration: 0.8)) {
             badProductOpacity = 0.3
             badProductScale = 0.8
         }
         
-        // Rotate arrow to wand
         withAnimation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.5)) {
             arrowRotation = 360
         }
         
-        // Materialize good product
         withAnimation(.spring(response: 0.8, dampingFraction: 0.6).delay(1.0)) {
             goodProductOpacity = 1.0
             goodProductScale = 1.0
         }
         
-        // Complete dissolve
         withAnimation(.easeOut(duration: 0.9).delay(3.0)) {
             badProductOpacity = 0
         }
         
-        // Repeat the animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
             withAnimation(.easeOut(duration: 0.3)) {
-                // Reset states
                 badProductOpacity = 1.0
                 badProductScale = 1.0
                 goodProductOpacity = 0
@@ -529,7 +485,6 @@ struct ChooseScreenView: View {
                 arrowRotation = 0
             }
             
-            // Restart animation after a brief pause
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 animateTransformation()
             }
@@ -542,7 +497,6 @@ struct PhoneScannerView: View {
     @State private var scanOffset: CGFloat = -50
     @State private var glowOpacity: Double = 0.3
     
-    // iPhone 14 Pro specifications scaled down
     private let phoneWidth: CGFloat = 70
     private let phoneHeight: CGFloat = 140
     private let strokeWidth: CGFloat = 2
@@ -554,18 +508,15 @@ struct PhoneScannerView: View {
     
     var body: some View {
         ZStack {
-            // iPhone 14 Pro outline shape
             RoundedRectangle(cornerRadius: cornerRadius)
                 .stroke(DesignSystem.Colors.primaryRed, lineWidth: strokeWidth)
                 .frame(width: phoneWidth, height: phoneHeight)
             
-            // Screen area (inside the phone outline)
             RoundedRectangle(cornerRadius: cornerRadius - strokeWidth)
                 .fill(DesignSystem.Colors.background)
                 .frame(width: phoneWidth - strokeWidth * 2, height: phoneHeight - strokeWidth * 2)
                 .overlay(
                     VStack(spacing: 0) {
-                        // Dynamic Island cutout
                         Capsule()
                             .fill(DesignSystem.Colors.primaryRed)
                             .frame(width: islandWidth, height: islandHeight)
@@ -573,13 +524,11 @@ struct PhoneScannerView: View {
                         
                         Spacer()
                         
-                        // Steak image with grid overlay
                         ZStack {
                             Image("Scanivore_Logo")
                                 .resizable()
                                 .frame(width: 60, height: 60)
                             
-                            // Scanning grid overlay
                             ScanningGrid()
                                 .stroke(DesignSystem.Colors.primaryRed.opacity(0.3), lineWidth: 0.5)
                                 .frame(width: phoneWidth - strokeWidth * 4, height: phoneHeight - strokeWidth * 8)
@@ -615,7 +564,6 @@ struct PhoneScannerView: View {
     }
     
     private func animateScan() {
-        // Scan line goes up and down
         withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: true)) {
             scanOffset = 50
         }
@@ -631,13 +579,11 @@ struct ScanningGrid: Shape {
         var path = Path()
         let gridSize: CGFloat = 10
         
-        // Vertical lines
         for i in stride(from: 0, through: rect.width, by: gridSize) {
             path.move(to: CGPoint(x: i, y: 0))
             path.addLine(to: CGPoint(x: i, y: rect.height))
         }
         
-        // Horizontal lines
         for i in stride(from: 0, through: rect.height, by: gridSize) {
             path.move(to: CGPoint(x: 0, y: i))
             path.addLine(to: CGPoint(x: rect.width, y: i))
@@ -765,9 +711,7 @@ struct ShoppingCartView: View {
     var body: some View {
         VStack(spacing: 4) {
             ZStack {
-                // Try Lottie animation first, fallback to custom
                 if isGoodCart {
-                    // Good cart with Lottie animation
                     LottieAnimationView(
                         animationName: "shopping-cart-good",
                         loopMode: .loop,
@@ -776,12 +720,10 @@ struct ShoppingCartView: View {
                     .frame(width: 60, height: 50)
                     .opacity(opacity > 0.5 ? 1 : 0)
                     
-                    // Fallback: Custom good cart
                     if opacity <= 0.5 {
                         CustomShoppingCart(isGood: true)
                     }
                 } else {
-                    // Poor cart with Lottie animation
                     LottieAnimationView(
                         animationName: "shopping-cart-poor",
                         loopMode: .loop,
@@ -790,7 +732,6 @@ struct ShoppingCartView: View {
                     .frame(width: 60, height: 50)
                     .opacity(opacity > 0.5 ? 1 : 0)
                     
-                    // Fallback: Custom poor cart
                     if opacity <= 0.5 {
                         CustomShoppingCart(isGood: false)
                     }
@@ -799,7 +740,6 @@ struct ShoppingCartView: View {
             .scaleEffect(scale)
             .opacity(opacity)
             
-            // Grade badge
             GradeBadge(isGood: isGoodCart)
                 .scaleEffect(scale * 0.8)
                 .opacity(opacity)
@@ -812,7 +752,6 @@ struct CustomShoppingCart: View {
     
     var body: some View {
         ZStack {
-            // Cart body
             RoundedRectangle(cornerRadius: 4)
                 .fill(DesignSystem.Colors.background)
                 .frame(width: 40, height: 30)
@@ -821,7 +760,6 @@ struct CustomShoppingCart: View {
                         .stroke(DesignSystem.Colors.border, lineWidth: 2)
                 )
             
-            // Cart contents (meat packages)
             VStack(spacing: 2) {
                 HStack(spacing: 2) {
                     MeatPackage(grade: isGood ? "Excellent" : "Bad")
@@ -999,25 +937,25 @@ struct ScanFrameCorners: Shape {
         let maxX = rect.maxX
         let maxY = rect.maxY
         
-        // Top-left corner
+         
         path.move(to: CGPoint(x: minX + cornerRadius, y: minY))
         path.addLine(to: CGPoint(x: minX + cornerLength, y: minY))
         path.move(to: CGPoint(x: minX, y: minY + cornerRadius))
         path.addLine(to: CGPoint(x: minX, y: minY + cornerLength))
         
-        // Top-right corner
+       
         path.move(to: CGPoint(x: maxX - cornerRadius, y: minY))
         path.addLine(to: CGPoint(x: maxX - cornerLength, y: minY))
         path.move(to: CGPoint(x: maxX, y: minY + cornerRadius))
         path.addLine(to: CGPoint(x: maxX, y: minY + cornerLength))
         
-        // Bottom-right corner
+         
         path.move(to: CGPoint(x: maxX - cornerRadius, y: maxY))
         path.addLine(to: CGPoint(x: maxX - cornerLength, y: maxY))
         path.move(to: CGPoint(x: maxX, y: maxY - cornerRadius))
         path.addLine(to: CGPoint(x: maxX, y: maxY - cornerLength))
         
-        // Bottom-left corner
+         
         path.move(to: CGPoint(x: minX + cornerRadius, y: maxY))
         path.addLine(to: CGPoint(x: minX + cornerLength, y: maxY))
         path.move(to: CGPoint(x: minX, y: maxY - cornerRadius))

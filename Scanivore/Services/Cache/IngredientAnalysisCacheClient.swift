@@ -1,14 +1,7 @@
-//
-//  IngredientAnalysisCacheClient.swift
-//  Scanivore
-//
-//  In-memory per-session cache for individual ingredient analysis
-//
 
 import Foundation
 import Dependencies
 
-// Internal actor-backed store for thread-safe access
 actor IngredientAnalysisMemoryStore {
     private var store: [String: (value: IndividualIngredientAnalysisResponseWithName, timestamp: Date)] = [:]
     private let ttl: TimeInterval

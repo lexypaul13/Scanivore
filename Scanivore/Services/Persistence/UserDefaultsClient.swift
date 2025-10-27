@@ -1,9 +1,3 @@
-//
-//  UserDefaultsClient.swift
-//  Scanivore
-//
-//  TCA-compliant UserDefaults client for centralized persistence
-//
 
 import Foundation
 import Dependencies
@@ -12,7 +6,6 @@ import ComposableArchitecture
 // MARK: - UserDefaults Client
 @DependencyClient
 public struct UserDefaultsClient: Sendable {
-    // App state persistence
     public var getBool: @Sendable (String) async -> Bool = { _ in false }
     public var setBool: @Sendable (String, Bool) async -> Void
     public var getString: @Sendable (String) async -> String? = { _ in nil }
@@ -21,7 +14,6 @@ public struct UserDefaultsClient: Sendable {
     public var setData: @Sendable (String, Data?) async -> Void
     public var remove: @Sendable (String) async -> Void
     
-    // Codable object persistence
     public var getObject: @Sendable (String, any Codable.Type) async -> (any Codable)? = { _, _ in nil }
     public var setObject: @Sendable (String, any Codable) async -> Void
 }
@@ -74,5 +66,3 @@ extension DependencyValues {
 }
 
 // MARK: - Keys Reference
-// Note: UserDefaultsKeys are defined in Features/Shared/SharedKeys.swift
-// This client uses those keys for backwards compatibility

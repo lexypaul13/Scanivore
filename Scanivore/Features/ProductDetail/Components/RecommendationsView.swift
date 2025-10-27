@@ -1,9 +1,3 @@
-//
-//  RecommendationsView.swift
-//  Scanivore
-//
-//  Recommended swaps carousel and related components
-//
 
 import SwiftUI
 
@@ -36,7 +30,6 @@ struct SwapProductCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-            // Product Image
             ZStack {
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
                     .fill(DesignSystem.Colors.backgroundSecondary)
@@ -65,7 +58,6 @@ struct SwapProductCard: View {
                 }
             }
             
-            // Product Info
             VStack(alignment: .leading, spacing: 2) {
                 Text(recommendation.name)
                     .font(DesignSystem.Typography.captionMedium)

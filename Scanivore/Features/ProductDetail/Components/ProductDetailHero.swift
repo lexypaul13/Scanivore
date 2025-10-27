@@ -1,9 +1,3 @@
-//
-//  ProductDetailHero.swift
-//  Scanivore
-//
-//  Hero section and related components for ProductDetail
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -15,7 +9,6 @@ struct HeroSection: View {
     
     var body: some View {
         ZStack {
-            // Product Image
             AsyncImage(url: URL(string: store.productImageUrl ?? "")) { phase in
                 switch phase {
                 case .success(let image):
@@ -43,14 +36,12 @@ struct HeroSection: View {
                 }
             }
             
-            // Gradient Overlay
             LinearGradient(
                 colors: [Color.clear, DesignSystem.Colors.textPrimary.opacity(0.3)],
                 startPoint: .top,
                 endPoint: .bottom
             )
             
-            // Safety Grade Badge
             VStack {
                 HStack {
                     Spacer()
@@ -127,21 +118,18 @@ struct AIHealthSummary: View {
     private var cleanedSummary: String {
         var cleaned = assessment.summary
         
-        // Remove citation markers like [1], [2], etc.
         let citationPattern = "\\[\\d+\\]"
         if let citationRegex = try? NSRegularExpression(pattern: citationPattern, options: []) {
             let range = NSRange(location: 0, length: cleaned.count)
             cleaned = citationRegex.stringByReplacingMatches(in: cleaned, options: [], range: range, withTemplate: "")
         }
         
-        // Remove markdown bold formatting like **text**
         let boldPattern = "\\*\\*([^*]+)\\*\\*"
         if let boldRegex = try? NSRegularExpression(pattern: boldPattern, options: []) {
             let range = NSRange(location: 0, length: cleaned.count)
             cleaned = boldRegex.stringByReplacingMatches(in: cleaned, options: [], range: range, withTemplate: "$1")
         }
         
-        // Clean up any double spaces left by removing citations
         cleaned = cleaned.replacingOccurrences(of: "  ", with: " ")
         
         return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -158,7 +146,6 @@ struct AIHealthSummary: View {
                     .foregroundColor(DesignSystem.Colors.textPrimary)
             }
             
-            // Debug: Log the summary content
             Text(cleanedSummary.isEmpty ? "DEBUG: Summary is empty" : cleanedSummary)
                 .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textPrimary)
@@ -188,7 +175,6 @@ struct FallbackHeroSection: View {
     
     var body: some View {
         ZStack {
-            // Product Image
             AsyncImage(url: URL(string: store.productImageUrl ?? "")) { phase in
                 switch phase {
                 case .success(let image):
@@ -229,12 +215,10 @@ struct FallbackHeroSection: View {
                 }
             }
             
-            // Grade Badge - Always show using originalRiskRating
             VStack {
                 HStack {
                     Spacer()
                     
-                    // Safety Grade Badge
                     VStack(spacing: DesignSystem.Spacing.xs) {
                         Text(store.safetyGrade.rawValue)
                             .font(DesignSystem.Typography.heading1)

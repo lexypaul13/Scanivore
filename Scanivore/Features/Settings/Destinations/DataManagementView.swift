@@ -1,9 +1,3 @@
-//
-//  DataManagementView.swift
-//  Scanivore
-//
-//  Data management view for scan history and storage
-//
 
 import SwiftUI
 import ComposableArchitecture

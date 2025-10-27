@@ -1,9 +1,3 @@
-//
-//  LaunchScreenView.swift
-//  Scanivore
-//
-//  Launch screen that appears every time the app opens
-//
 
 import SwiftUI
 

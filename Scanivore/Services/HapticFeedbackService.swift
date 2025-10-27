@@ -1,9 +1,3 @@
-//
-//  HapticFeedbackService.swift
-//  Scanivore
-//
-//  TCA-compliant haptic feedback service
-//
 
 import Foundation
 import UIKit

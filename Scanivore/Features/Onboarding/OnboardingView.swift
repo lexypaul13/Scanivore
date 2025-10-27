@@ -1,9 +1,3 @@
-//
-//  OnboardingView.swift
-//  Scanivore
-//
-//  Main TCA onboarding flow with navigation stack
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -43,7 +37,6 @@ struct OnboardingFeatureDomain {
         }
         
         init() {
-            // Start with empty path - first question will be shown as root
         }
     }
     
@@ -65,31 +58,25 @@ struct OnboardingFeatureDomain {
             case .backButtonTapped:
                 guard state.canGoBack else { return .none }
                 state.path.removeLast()
-                // Update question index if going back to a question
                 if case .question = state.path.last {
                     state.currentQuestionIndex = max(0, state.currentQuestionIndex - 1)
                 } else if state.path.isEmpty {
-                    // Going back to root question
                     state.currentQuestionIndex = 0
                 }
                 return .none
                 
             case let .rootQuestionAnswered(questionId, answer):
-                // Save the answer to preferences (first question)
                 state.preferences.avoidPreservatives = answer
                 
-                // Move to next question
                 state.currentQuestionIndex = 1
                 if let nextQuestion = OnboardingQuestion.questions.first(where: { $0.id == 2 }) {
                     state.path.append(.question(OnboardingQuestionFeatureDomain.State(question: nextQuestion)))
                 }
                 return .none
                 
-            // ── Question delegates ────────────────────────────────────
             case let .path(.element(_, action: .question(.delegate(event)))):
                 switch event {
                 case .questionAnswered(let questionId, let answer):
-                    // Save the answer to preferences
                     switch questionId {
                     case 1: state.preferences.avoidPreservatives = answer
                     case 2: state.preferences.antibioticFree = answer
@@ -100,29 +87,23 @@ struct OnboardingFeatureDomain {
                     default: break
                     }
                     
-                    // Move to next question or meat selection
                     state.currentQuestionIndex += 1
                     if let nextQuestion = OnboardingQuestion.questions.first(where: { $0.id == questionId + 1 }) {
                         state.path.append(.question(OnboardingQuestionFeatureDomain.State(question: nextQuestion)))
                     } else {
-                        // All questions answered, go to meat selection
                         state.path.append(.meatSelection(MeatSelectionFeatureDomain.State()))
                     }
                     return .none
                 }
                 
-            // ── Meat Selection delegates ────────────────────────────────────
             case let .path(.element(_, action: .meatSelection(.delegate(event)))):
                 switch event {
                 case .meatSelectionCompleted(let selectedTypes):
-                    // Save meat selection to preferences
                     state.preferences.preferredMeatTypes = selectedTypes
                     
-                    // Onboarding is complete - delegate will handle persistence
                     return .send(.delegate(.onboardingCompleted(state.preferences)))
                 }
                 
-            // Bubble-up no-ops
             case .path, .delegate:
                 return .none
             }
@@ -146,7 +127,6 @@ struct OnboardingView: View {
                 DesignSystem.Colors.background
                     .ignoresSafeArea()
                 NavigationStack(path: $bindableStore.scope(state: \.path, action: \.path)) {
-                    // Show first question as root to avoid empty view
                     if let firstQuestion = OnboardingQuestion.questions.first {
                         RootQuestionView(
                             question: firstQuestion,
@@ -172,9 +152,7 @@ struct OnboardingView: View {
                     }
                 }
                 
-                // Progress bar and back button overlay
                 VStack {
-                    // Progress bar
                     ProgressBar(
                         current: bindableStore.currentStep,
                         total: bindableStore.totalSteps,
@@ -183,7 +161,6 @@ struct OnboardingView: View {
                     .padding(.horizontal, DesignSystem.Spacing.screenPadding)
                     .padding(.top, DesignSystem.Spacing.sm)
                     
-                    // Back button positioned below progress bar
                     HStack {
                         if bindableStore.canGoBack {
                             Button(action: { bindableStore.send(.backButtonTapped) }) {
@@ -220,12 +197,10 @@ struct ProgressBar: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                // Background
                 RoundedRectangle(cornerRadius: 4)
                     .fill(DesignSystem.Colors.backgroundSecondary)
                     .frame(height: 4)
                 
-                // Progress
                 RoundedRectangle(cornerRadius: 4)
                     .fill(DesignSystem.Colors.primaryRed)
                     .frame(width: geometry.size.width * progress, height: 4)
@@ -236,7 +211,6 @@ struct ProgressBar: View {
     }
 }
 
-// Manual Equatable implementation for Action
 extension OnboardingFeatureDomain.Action: Equatable {
     static func == (lhs: OnboardingFeatureDomain.Action, rhs: OnboardingFeatureDomain.Action) -> Bool {
         switch (lhs, rhs) {
@@ -247,7 +221,6 @@ extension OnboardingFeatureDomain.Action: Equatable {
         case let (.delegate(lhsDelegate), .delegate(rhsDelegate)):
             return lhsDelegate == rhsDelegate
         case (.path, .path):
-            // StackAction comparison is complex, treat as equal for compilation
             return true
         default:
             return false
@@ -265,14 +238,12 @@ struct RootQuestionView: View {
             Spacer()
             
             VStack(spacing: DesignSystem.Spacing.lg) {
-                // Question
                 Text(question.title)
                     .font(DesignSystem.Typography.heading1)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, DesignSystem.Spacing.xl)
                 
-                // Subtitle
                 Text(question.subtitle)
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -282,7 +253,6 @@ struct RootQuestionView: View {
             
             Spacer()
             
-            // Answer Buttons
             VStack(spacing: DesignSystem.Spacing.base) {
                 OnboardingAnswerButton(
                     title: "Yes",

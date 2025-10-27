@@ -1,9 +1,3 @@
-//
-//  HealthCacheClient.swift
-//  Scanivore
-//
-//  TCA dependency wrapper around HealthAssessmentCache
-//
 
 import Foundation
 import Dependencies

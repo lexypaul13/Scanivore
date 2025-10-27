@@ -1,9 +1,3 @@
-//
-//  SignInView.swift
-//  Scanivore
-//
-//  Sign in view with form validation
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -18,7 +12,6 @@ struct SignInFeatureDomain {
         var isLoading = false
         var errorMessage: String?
         
-        // Validation states
         var emailError: String?
         var passwordError: String?
         
@@ -75,8 +68,7 @@ struct SignInFeatureDomain {
                 return .none
                 
             case .validatePassword:
-                // For sign in, we don't validate password format since it was already created
-                // Just ensure it's not empty when form is submitted
+               
                 return .none
                 
             case .signInTapped:
@@ -90,7 +82,7 @@ struct SignInFeatureDomain {
                         await TaskResult {
                             @Dependency(\.authGateway) var authGateway
                             
-                            // Call real API
+                            
                             _ = try await authGateway.login(email, password)
                             return true
                         }
@@ -101,7 +93,7 @@ struct SignInFeatureDomain {
                 state.isLoading = false
                 if success {
                     return .run { send in
-                        // Clear success message after delay
+                        
                         try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
                         await send(.clearError)
                         await send(.delegate(.signedIn))
@@ -114,11 +106,9 @@ struct SignInFeatureDomain {
             case let .signInResponse(.failure(error)):
                 state.isLoading = false
                 
-                // Handle API-specific errors
                 if let apiError = error as? APIError {
                     switch apiError.statusCode {
                     case 401:
-                        // Provide more helpful error message based on API response
                         if apiError.detail.lowercased().contains("user not found") || 
                            apiError.detail.lowercased().contains("does not exist") {
                             state.errorMessage = "No account found with this email. Please check your email or create a new account."
@@ -168,7 +158,6 @@ struct SignInView: View {
     var body: some View {
         WithPerceptionTracking {
             ZStack {
-                // Background gradient
                 LinearGradient(
                     colors: [
                         DesignSystem.Colors.backgroundSecondary,
@@ -181,7 +170,6 @@ struct SignInView: View {
                 
                 ScrollView {
                     VStack(spacing: DesignSystem.Spacing.xl) {
-                        // Header
                         AuthHeader(
                             title: "Welcome Back",
                             subtitle: "Sign in to your account to continue using Scanivore",
@@ -192,9 +180,7 @@ struct SignInView: View {
                         )
                         .padding(.top, DesignSystem.Spacing.xl)
                         
-                        // Form
                         VStack(spacing: DesignSystem.Spacing.lg) {
-                            // Email field
                             AuthTextField(
                                 title: "Email Address",
                                 placeholder: "Enter your email",
@@ -206,7 +192,6 @@ struct SignInView: View {
                                 errorMessage: store.emailError
                             )
                             
-                            // Password field
                             AuthTextField(
                                 title: "Password",
                                 placeholder: "Enter your password",
@@ -218,7 +203,6 @@ struct SignInView: View {
                                 errorMessage: store.passwordError
                             )
                             
-                            // Forgot password link
                             HStack {
                                 Spacer()
                                 
@@ -229,7 +213,6 @@ struct SignInView: View {
                                 .foregroundColor(DesignSystem.Colors.primaryRed)
                             }
                             
-                            // Error/Success message
                             if let errorMessage = store.errorMessage {
                                 Text(errorMessage)
                                     .font(DesignSystem.Typography.caption)
@@ -239,7 +222,6 @@ struct SignInView: View {
                                     .transition(.opacity)
                             }
                             
-                            // Sign in button
                             AuthButton(
                                 title: "Sign In",
                                 isLoading: store.isLoading,
@@ -251,7 +233,6 @@ struct SignInView: View {
                             )
                             .padding(.top, DesignSystem.Spacing.md)
                             
-                            // Create account link
                             HStack {
                                 Text("Don't have an account?")
                                     .font(DesignSystem.Typography.body)
@@ -276,7 +257,7 @@ struct SignInView: View {
                 startAnimations()
             }
             .onTapGesture {
-                // Dismiss keyboard when tapping outside
+               
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
         }
@@ -295,14 +276,12 @@ struct SignInView: View {
 
 // MARK: - Validation Helpers
 private func isValidEmail(_ email: String) -> Bool {
-    // More permissive email validation that accepts most common formats
-    let emailRegex = #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#
+     let emailRegex = #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#
     return email.range(of: emailRegex, options: .regularExpression) != nil
 }
 
 // MARK: - API Integration Complete
-// The SignInView now uses the real Clear-Meat API through the AuthService dependency
-
+ 
 #Preview {
     SignInView(
         store: Store(initialState: SignInFeatureDomain.State()) {

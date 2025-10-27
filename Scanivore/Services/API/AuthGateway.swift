@@ -1,9 +1,3 @@
-//
-//  AuthGateway.swift
-//  Scanivore
-//
-//  TCA-compliant authentication gateway using Alamofire
-//
 
 import Foundation
 import Alamofire
@@ -45,14 +39,12 @@ extension AuthGateway: DependencyKey {
             .serializingDecodable(AuthResponse.self)
             .value
             
-            // Store token securely
             try await TokenManager.shared.storeToken(response.accessToken)
             
             return response
         },
         
         login: { email, password in
-            // OAuth2 form data format as required by the API
             let parameters = [
                 "username": email,  // API expects "username" field for email
                 "password": password
@@ -69,7 +61,6 @@ extension AuthGateway: DependencyKey {
             .serializingDecodable(AuthResponse.self)
             .value
             
-            // Store token securely
             try await TokenManager.shared.storeToken(response.accessToken)
             
             
@@ -77,10 +68,8 @@ extension AuthGateway: DependencyKey {
         },
         
         logout: {
-            // Call backend logout endpoint first to invalidate server-side session
             do {
                 guard let token = try await TokenManager.shared.getToken() else {
-                    // No token, just clear local storage
                     try await TokenManager.shared.clearToken()
                     return
                 }
@@ -98,10 +87,8 @@ extension AuthGateway: DependencyKey {
                 .value
                 
             } catch {
-                // Continue with local logout even if server logout fails
             }
             
-            // Always clear local token
             try await TokenManager.shared.clearToken()
         },
         
@@ -122,12 +109,10 @@ extension AuthGateway: DependencyKey {
             .serializingString()
             .value
             
-            // Clear local token after successful account deletion
             try await TokenManager.shared.clearToken()
         },
         
         getCurrentUser: {
-            // Check if we have a valid token
             guard let token = try await TokenManager.shared.getToken() else {
                 return nil
             }
@@ -146,8 +131,6 @@ extension AuthGateway: DependencyKey {
         },
         
         isLoggedIn: {
-            // Synchronous check - just verify if we have a stored token
-            // For actual validation, use getCurrentUser instead
             do {
                 let token = try await TokenManager.shared.getToken()
                 return token != nil

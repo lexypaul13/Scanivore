@@ -1,9 +1,3 @@
-//
-//  ProfileHeaderView.swift
-//  Scanivore
-//
-//  Profile header component for Settings
-//
 
 import SwiftUI
 

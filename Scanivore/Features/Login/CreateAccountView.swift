@@ -1,9 +1,3 @@
-//
-//  CreateAccountView.swift
-//  Scanivore
-//
-//  Create account view with form validation
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -19,8 +13,7 @@ struct CreateAccountFeatureDomain {
         var isLoading = false
         var errorMessage: String?
         
-        // Validation states
-        var emailError: String?
+         var emailError: String?
         var passwordError: String?
         
         var isFormValid: Bool {
@@ -58,7 +51,7 @@ struct CreateAccountFeatureDomain {
                 state.email = email
                 state.emailError = nil
                 return .run { send in
-                    try await Task.sleep(nanoseconds: 800_000_000) // 800ms debounce
+                    try await Task.sleep(nanoseconds: 800_000_000)
                     await send(.validateEmail)
                 }
                 
@@ -100,7 +93,6 @@ struct CreateAccountFeatureDomain {
                         await TaskResult {
                             @Dependency(\.authGateway) var authGateway
                             
-                            // Call real API
                             _ = try await authGateway.register(email, password, fullName)
                             return true
                         }
@@ -121,7 +113,6 @@ struct CreateAccountFeatureDomain {
             case let .createAccountResponse(.failure(error)):
                 state.isLoading = false
                 
-                // Handle API-specific errors
                 if let apiError = error as? APIError {
                     switch apiError.statusCode {
                     case 409:
@@ -165,8 +156,7 @@ struct CreateAccountView: View {
     var body: some View {
         WithPerceptionTracking {
             ZStack {
-                // Background gradient
-                LinearGradient(
+                 LinearGradient(
                     colors: [
                         DesignSystem.Colors.backgroundSecondary,
                         DesignSystem.Colors.background
@@ -178,7 +168,6 @@ struct CreateAccountView: View {
                 
                 ScrollView {
                     VStack(spacing: DesignSystem.Spacing.xl) {
-                        // Header
                         AuthHeader(
                             title: "Create Account",
                             subtitle: "Join Scanivore to start scanning and get healthier food choices",
@@ -189,10 +178,8 @@ struct CreateAccountView: View {
                         )
                         .padding(.top, DesignSystem.Spacing.xl)
                         
-                        // Form
                         VStack(spacing: DesignSystem.Spacing.lg) {
-                            // Full Name field
-                            AuthTextField(
+                             AuthTextField(
                                 title: "Full Name",
                                 placeholder: "Enter your full name",
                                 text: .init(
@@ -203,8 +190,7 @@ struct CreateAccountView: View {
                                 errorMessage: nil
                             )
                             
-                            // Email field
-                            AuthTextField(
+                             AuthTextField(
                                 title: "Email Address",
                                 placeholder: "Enter your email",
                                 text: .init(
@@ -215,8 +201,7 @@ struct CreateAccountView: View {
                                 errorMessage: store.emailError
                             )
                             
-                            // Password field
-                            AuthTextField(
+                             AuthTextField(
                                 title: "Password",
                                 placeholder: "Create a password",
                                 text: .init(
@@ -227,8 +212,7 @@ struct CreateAccountView: View {
                                 errorMessage: store.passwordError
                             )
                             
-                            // Error message
-                            if let errorMessage = store.errorMessage {
+                             if let errorMessage = store.errorMessage {
                                 Text(errorMessage)
                                     .font(DesignSystem.Typography.caption)
                                     .foregroundColor(DesignSystem.Colors.error)
@@ -237,8 +221,7 @@ struct CreateAccountView: View {
                                     .transition(.opacity)
                             }
                             
-                            // Create account button
-                            AuthButton(
+                             AuthButton(
                                 title: "Create Account",
                                 isLoading: store.isLoading,
                                 isEnabled: store.isFormValid,
@@ -249,7 +232,7 @@ struct CreateAccountView: View {
                             )
                             .padding(.top, DesignSystem.Spacing.md)
                             
-                            // Sign in link
+                            
                             HStack {
                                 Text("Already have an account?")
                                     .font(DesignSystem.Typography.body)
@@ -274,7 +257,6 @@ struct CreateAccountView: View {
                 startAnimations()
             }
             .onTapGesture {
-                // Dismiss keyboard when tapping outside
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
         }
@@ -293,7 +275,6 @@ struct CreateAccountView: View {
 
 // MARK: - Validation Helpers
 private func isValidEmail(_ email: String) -> Bool {
-    // More permissive email validation that accepts most common formats
     let emailRegex = #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#
     return email.range(of: emailRegex, options: .regularExpression) != nil
 }
@@ -324,7 +305,6 @@ private func validatePassword(_ password: String) -> String? {
 }
 
 // MARK: - API Integration Complete
-// The CreateAccountView now uses the real Clear-Meat API through the AuthService dependency
 
 #Preview {
     CreateAccountView(

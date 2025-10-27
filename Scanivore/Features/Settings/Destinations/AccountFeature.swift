@@ -1,9 +1,3 @@
-//
-//  AccountFeature.swift
-//  Scanivore
-//
-//  Account management feature for authentication and profile
-//
 
 import Foundation
 import ComposableArchitecture
@@ -44,11 +38,9 @@ public struct AccountFeature {
         case setSignOutConfirmation(Bool)
         case setDeleteConfirmation(Bool)
         
-        // Async responses
         case signOutResponse(TaskResult<Bool>)
         case deleteAccountResponse(TaskResult<Bool>)
         
-        // Internal actions
         case delegate(Delegate)
         
         public enum Delegate: Equatable {

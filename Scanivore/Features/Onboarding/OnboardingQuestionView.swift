@@ -1,9 +1,3 @@
-//
-//  OnboardingQuestionView.swift
-//  Scanivore
-//
-//  TCA view for individual onboarding questions
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -92,14 +86,14 @@ struct OnboardingQuestionView: View {
                 Spacer()
                 
                 VStack(spacing: DesignSystem.Spacing.lg) {
-                    // Question
+                     
                     Text(store.question.title)
                         .font(DesignSystem.Typography.heading1)
                         .foregroundColor(DesignSystem.Colors.textPrimary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, DesignSystem.Spacing.xl)
                     
-                    // Subtitle
+                    
                     Text(store.question.subtitle)
                         .font(DesignSystem.Typography.body)
                         .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -109,8 +103,7 @@ struct OnboardingQuestionView: View {
                 
                 Spacer()
                 
-                // Answer Buttons
-                VStack(spacing: DesignSystem.Spacing.base) {
+                 VStack(spacing: DesignSystem.Spacing.base) {
                     AnswerButton(
                         title: "Yes",
                         isPositive: true,
@@ -124,7 +117,7 @@ struct OnboardingQuestionView: View {
                     )
                 }
                 .padding(.horizontal, DesignSystem.Spacing.screenPadding)
-                .padding(.bottom, 60) // Reduced padding since back button is now at top
+                .padding(.bottom, 60)
             }
         }
     }

@@ -1,9 +1,3 @@
-//
-//  ScanButton.swift
-//  Scanivore
-//
-//  Main scan button component for scanner
-//
 
 import SwiftUI
 

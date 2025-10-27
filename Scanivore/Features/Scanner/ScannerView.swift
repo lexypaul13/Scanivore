@@ -1,9 +1,3 @@
-//
-//  ScannerView.swift
-//  Scanivore
-//
-//  TCA-powered scanner view for meat analysis
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -87,11 +81,9 @@ struct ScannerFeatureDomain {
         Reduce { state, action in
             switch action {
             case .onAppear:
-                // Auto-start camera when view appears
                 guard state.scanState == .idle else { return .none }
                 
                 state.scanState = .requestingPermission
-                // Camera permission request initiated
                 
                 return .run { send in
                     let permissionStatus = await barcodeScanner.requestCameraPermission()
@@ -99,7 +91,6 @@ struct ScannerFeatureDomain {
                 }
                 
             case .onDisappear:
-                // Stop scanning when view disappears
                 barcodeScanner.stopScanning()
                 state.isSessionActive = false
                 state.scanState = .idle
@@ -113,11 +104,9 @@ struct ScannerFeatureDomain {
                     state.scanState = .preparing
                     
                     return .run { send in
-                        // Small delay to show preparing state
                         try await Task.sleep(for: .milliseconds(300))
                         await send(.sessionStarted)
                         
-                        // Start the long-running scanner effect
                         for await event in AsyncStream<ScannerEvent> { continuation in
                             barcodeScanner.startScanning(
                                 { barcode in
@@ -157,10 +146,8 @@ struct ScannerFeatureDomain {
                 return .none
                 
             case .barcodeDetected(let barcode):
-                // Don't stop scanning - keep session active for next scan
                 state.scanState = .processing(barcode: barcode)
                 
-                // Show product detail directly with barcode - let health assessment handle everything
                 state.destination = .productDetail(
                     ProductDetailFeatureDomain.State(
                         productCode: barcode,
@@ -173,7 +160,6 @@ struct ScannerFeatureDomain {
             case .scanFailed(let error):
                 state.scanState = .error(error.localizedDescription)
                 
-                // Auto-retry after 2 seconds
                 return .run { send in
                     try await Task.sleep(for: .seconds(2))
                     await send(.retryTapped)
@@ -183,13 +169,11 @@ struct ScannerFeatureDomain {
                 return .none
                 
             case .errorDismissed:
-                // Return to scanning state
                 state.scanState = .scanning
                 state.errorMessage = nil
                 return .none
                 
             case .retryTapped:
-                // Restart scanning
                 state.scanState = .scanning
                 state.errorMessage = nil
                 return .none
@@ -203,7 +187,6 @@ struct ScannerFeatureDomain {
                 return .none
                 
             case .helpButtonTapped:
-                // TODO: Implement help functionality
                 return .none
             }
         }
@@ -224,7 +207,6 @@ struct ScannerView: View {
         VStack {
             Spacer()
             
-            // Barcode alignment frame
             VStack(spacing: DesignSystem.Spacing.md) {
                 Text("Align barcode within frame")
                     .font(DesignSystem.Typography.body)
@@ -241,7 +223,6 @@ struct ScannerView: View {
             
             Spacer()
             
-            // Status indicator at bottom
             StatusIndicator(scanState: store.scanState)
                 .padding(.bottom, DesignSystem.Spacing.xxxl)
         }
@@ -267,13 +248,10 @@ struct ScannerView: View {
         WithPerceptionTracking {
             NavigationStack {
                 ZStack {
-                    // Camera preview - always visible as background
                     cameraPreviewView
                     
-                    // Persistent barcode framing overlay
                     barcodeFrameOverlay
                     
-                    // Temporary overlays for specific states
                     stateOverlays
                 }
                 .customNavigationTitle("Scan Product")

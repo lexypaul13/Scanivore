@@ -1,9 +1,3 @@
-//
-//  ScannedProductsClient.swift
-//  Scanivore
-//
-//  TCA-compliant client for saving scanned products for offline use
-//
 
 import Foundation
 import Dependencies
@@ -52,13 +46,11 @@ public struct SavedProduct: Codable, Equatable, Identifiable {
         self.version = version
     }
     
-    // Coding keys for backward compatibility
     enum CodingKeys: String, CodingKey {
         case id, productName, productBrand, productImageUrl, scanDate, meatScan
         case healthAssessment, version
     }
     
-    // Custom decoder for backward compatibility
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try container.decode(String.self, forKey: .id)
@@ -102,27 +94,21 @@ extension ScannedProductsClient: DependencyKey {
             @Dependency(\.fileStorage) var fileStorage
             
             do {
-                // Load existing products
                 var products = await Self.liveValue.loadAll()
                 
-                // Remove existing product with same ID if exists (avoid duplicates)
                 products.removeAll { $0.id == product.id }
                 
-                // Add new product at the beginning (newest first)
                 products.insert(product, at: 0)
                 
-                // Limit to last 100 scans for performance
                 if products.count > 100 {
                     products = Array(products.prefix(100))
                 }
                 
-                // Save with optimized encoding
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601
                 let data = try encoder.encode(products)
                 try await fileStorage.save("scanned_products.json", data)
             } catch {
-                // Silent failure - could add analytics here
             }
         },
         
@@ -138,7 +124,6 @@ extension ScannedProductsClient: DependencyKey {
                 let data = try encoder.encode(products)
                 try await fileStorage.save("scanned_products.json", data)
             } catch {
-                // Don't save empty data on error - leave existing data intact
             }
         },
         

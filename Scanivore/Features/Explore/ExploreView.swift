@@ -1,9 +1,3 @@
-//
-//  ExploreView.swift
-//  Scanivore
-//
-//  TCA-powered explore view
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -18,7 +12,6 @@ struct ExploreFeatureDomain {
         var selectedGrades: Set<SafetyGrade> = []
         var recommendations: IdentifiedArrayOf<ProductRecommendation> = []
         
-        // Search state
         var searchResults: IdentifiedArrayOf<ProductRecommendation> = []
         var isSearching = false
         var searchError: String?
@@ -26,30 +19,24 @@ struct ExploreFeatureDomain {
             !searchText.isEmpty
         }
 
-        // Search pagination state
         var searchHasMorePages = true
         var searchTotalItems = 0
         var searchCurrentPage = 0
         var isLoadingSearchNextPage = false
 
-        // Recommendations pagination state
         var isLoading = false
         var isLoadingNextPage = false
         var error: String?
         var hasMorePages = true
         var totalItems = 0
-        var currentPage = 0
+        var nextRecommendationOffset = 0
 
-        // Auth state tracking
         var lastAuthState: Bool? = nil // Track if user was authenticated on last load
         
-        // Auto-refresh timer state
         var timerActive = false
         
-        // Navigation state
         @Presents var productDetail: ProductDetailFeatureDomain.State?
         
-        // Computed properties
         var canLoadMore: Bool {
             if isSearchActive {
                 return !isLoadingSearchNextPage && searchHasMorePages
@@ -59,12 +46,10 @@ struct ExploreFeatureDomain {
         }
         
         var displayedProducts: IdentifiedArrayOf<ProductRecommendation> {
-            // If search is active, show search results
             if isSearchActive {
                 return searchResults
             }
             
-            // Otherwise show recommendations with grade filter
             if !selectedGrades.isEmpty {
                 return IdentifiedArrayOf(uniqueElements: recommendations.filter { recommendation in
                     let mappedGrade = ExploreFeatureDomain.mapQualityToSafetyGrade(recommendation.qualityRating)
@@ -83,33 +68,27 @@ struct ExploreFeatureDomain {
         case gradeToggled(SafetyGrade)
         case clearAllFilters
         
-        // Timer actions
         case startAutoRefreshTimer
         case stopAutoRefreshTimer
         case timerTicked
         
-        // Pagination actions
         case loadMoreRecommendations
         case loadMoreSearchResults
         case recommendationsReceived(TaskResult<ExploreResponse>)
         case recommendationsProcessed(ExploreResponse)
         case searchPaginationReceived(TaskResult<SearchResponse>)
 
-        // Auth state actions
         case authStateChanged(Bool)
         case clearExploreData
         
-        // Product actions  
         case refreshRecommendations
         case loadRecommendations
         
-        // Search actions
         case searchDebounced
         case searchSubmitted(String)
         case searchResponseReceived(TaskResult<SearchResponse>)
         case clearSearch
         
-        // Navigation actions
         case productTapped(ProductRecommendation)
         case productDetail(PresentationAction<ProductDetailFeatureDomain.Action>)
     }
@@ -120,14 +99,12 @@ struct ExploreFeatureDomain {
             case let .searchTextChanged(text):
                 state.searchText = text
                 
-                // Clear search results if text is empty
                 if text.isEmpty {
                     state.searchResults = []
                     state.searchError = nil
                     return .cancel(id: "search-debounce")
                 }
                 
-                // Debounce search
                 return .run { send in
                     await send(.searchDebounced)
                 }
@@ -158,11 +135,10 @@ struct ExploreFeatureDomain {
                 return .none
                 
             case .startAutoRefreshTimer:
+                guard state.timerActive == false else { return .none }
                 state.timerActive = true
-                // Load initial recommendations immediately
                 return .send(.loadRecommendations)
                     .merge(with: .run { send in
-                        // Then refresh every 5 minutes
                         for await _ in Timer.publish(every: 300, on: .main, in: .common).autoconnect().values {
                             await send(.timerTicked)
                         }
@@ -174,15 +150,13 @@ struct ExploreFeatureDomain {
                 return .cancel(id: "explore-timer")
                 
             case .timerTicked:
-                // Refresh recommendations automatically
                 return .send(.refreshRecommendations)
                 
             case .refreshRecommendations:
-                // Clear existing and reload
                 state.recommendations = []
                 state.hasMorePages = true
                 state.totalItems = 0
-                state.currentPage = 0
+                state.nextRecommendationOffset = 0
                 state.isLoading = false  // Reset loading state before calling loadRecommendations
                 return .send(.loadRecommendations)
                 
@@ -190,6 +164,7 @@ struct ExploreFeatureDomain {
                 guard !state.isLoading else { return .none }
                 state.isLoading = true
                 state.error = nil
+                state.nextRecommendationOffset = 0
                 let offset = 0
                 
                 return .run { send in
@@ -199,8 +174,6 @@ struct ExploreFeatureDomain {
                     let result = await TaskResult {
                         let currentAuthState = await authState.load()
                         
-                        // For both authenticated and guest users, load recommendations
-                        // Avoid calling search with an empty query which causes 400 errors
                         return try await gateway.getExploreRecommendations(offset, 10)
                     }
                     
@@ -211,7 +184,6 @@ struct ExploreFeatureDomain {
             case let .recommendationsReceived(.success(response)):
                 state.isLoading = false
                 
-                // First process through the optimization
                 return .send(.recommendationsProcessed(response))
                 
             case let .recommendationsReceived(.failure(error)):
@@ -220,16 +192,13 @@ struct ExploreFeatureDomain {
                 return .none
                 
             case let .recommendationsProcessed(response):
-                // Convert to ProductRecommendation models
                 let newRecommendations = response.recommendations.map {
                     ProductRecommendation.fromRecommendationItem($0)
                 }
 
-                // Compute unique additions vs current state (by ID)
                 let existingIDs = Set(state.recommendations.map { $0.id })
                 let uniqueNew = newRecommendations.filter { !existingIDs.contains($0.id) }
 
-                // Append only unique to avoid replacing identical first page
                 if state.recommendations.isEmpty {
                     state.recommendations = IdentifiedArrayOf(uniqueElements: uniqueNew)
                 } else {
@@ -238,20 +207,13 @@ struct ExploreFeatureDomain {
                     }
                 }
 
-                // Update pagination state (robust to missing/incorrect hasMore)
                 state.totalItems = response.totalMatches
-
-                // Track proper page number based on server response
-                if let serverOffset = response.offset {
-                    state.currentPage = serverOffset / 10
-                }
 
                 let pageSize = response.limit ?? 10
                 let uniqueCount = uniqueNew.count
                 if let hasMore = response.hasMore {
                     state.hasMorePages = hasMore
                 } else {
-                    // If no new unique items arrived, stop pagination to avoid loops
                     if uniqueCount == 0 {
                         state.hasMorePages = false
                     } else if state.recommendations.count < response.totalMatches {
@@ -261,17 +223,16 @@ struct ExploreFeatureDomain {
                     }
                 }
                 state.isLoadingNextPage = false
+                state.nextRecommendationOffset = state.recommendations.count
 
                 return .none
                 
             case let .searchSubmitted(query):
-                // Enforce minimum length to satisfy backend validation
                 let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard trimmed.count >= 2 else { return .none }
 
                 state.isSearching = true
                 state.searchError = nil
-                // Reset search pagination for new search
                 state.searchResults = []
                 state.searchHasMorePages = true
                 state.searchTotalItems = 0
@@ -292,13 +253,11 @@ struct ExploreFeatureDomain {
             case let .searchResponseReceived(.success(searchResponse)):
                 state.isSearching = false
 
-                // Convert Product array to ProductRecommendation array
                 let searchRecommendations = searchResponse.products.map { product in
                     ProductRecommendation.fromProduct(product)
                 }
 
                 state.searchResults = IdentifiedArrayOf(uniqueElements: searchRecommendations)
-                // Update search pagination state
                 state.searchTotalItems = searchResponse.totalResults
                 state.searchHasMorePages = state.searchResults.count < searchResponse.totalResults
 
@@ -334,8 +293,6 @@ struct ExploreFeatureDomain {
                 return .none
                 
             case .productDetail(.presented(.delegate(.requestAccountCreation))):
-                // Handle request to create account from rate limit screen
-                // Dismiss the product detail and user can navigate to Settings tab to create account
                 state.productDetail = nil
                 return .none
                 
@@ -345,8 +302,7 @@ struct ExploreFeatureDomain {
             case .loadMoreRecommendations:
                 guard !state.isSearchActive && state.canLoadMore else { return .none }
                 state.isLoadingNextPage = true
-                state.currentPage += 1
-                let offset = state.currentPage * 10  // Use proper pagination offset calculation
+                let offset = state.nextRecommendationOffset
 
                 return .run { send in
                     @Dependency(\.productGateway) var gateway
@@ -360,7 +316,6 @@ struct ExploreFeatureDomain {
                 .cancellable(id: "explore-more-recommendations")
 
             case .loadMoreSearchResults:
-                // Use dedicated search pagination flags
                 guard state.isSearchActive && state.searchHasMorePages && !state.isLoadingSearchNextPage else { return .none }
                 state.isLoadingSearchNextPage = true
                 state.searchCurrentPage += 1
@@ -381,7 +336,6 @@ struct ExploreFeatureDomain {
             case let .searchPaginationReceived(.success(searchResponse)):
                 state.isLoadingSearchNextPage = false
 
-                // Convert and append new search results
                 let newSearchRecommendations = searchResponse.products.map { product in
                     ProductRecommendation.fromProduct(product)
                 }
@@ -390,7 +344,6 @@ struct ExploreFeatureDomain {
                     state.searchResults.updateOrAppend(recommendation)
                 }
 
-                // Update search pagination state
                 state.searchTotalItems = searchResponse.totalResults
                 state.searchHasMorePages = state.searchResults.count < searchResponse.totalResults
 
@@ -404,7 +357,6 @@ struct ExploreFeatureDomain {
             case let .authStateChanged(isAuthenticated):
                 print("🔄 [Explore] Auth state change detected: \(state.lastAuthState?.description ?? "nil") → \(isAuthenticated)")
 
-                // Clear all explore data when auth state actually changes
                 if let lastAuth = state.lastAuthState {
                     if lastAuth != isAuthenticated {
                         print("🔄 [Explore] Auth state changed, clearing explore data")
@@ -412,7 +364,6 @@ struct ExploreFeatureDomain {
                         return .send(.clearExploreData)
                     }
                 } else {
-                    // First time setting auth state, record it but don't clear
                     print("🔄 [Explore] Initial auth state: \(isAuthenticated)")
                     state.lastAuthState = isAuthenticated
                 }
@@ -422,12 +373,11 @@ struct ExploreFeatureDomain {
             case .clearExploreData:
                 print("🔄 [Explore] Clearing all explore data for auth state change")
 
-                // Reset all explore state completely
                 state.recommendations = []
                 state.searchResults = []
                 state.hasMorePages = true
                 state.totalItems = 0
-                state.currentPage = 0
+                state.nextRecommendationOffset = 0
                 state.searchHasMorePages = true
                 state.searchTotalItems = 0
                 state.searchCurrentPage = 0
@@ -438,10 +388,8 @@ struct ExploreFeatureDomain {
                 state.error = nil
                 state.searchError = nil
 
-                // Reset auth tracking to prevent duplicate clears
                 state.lastAuthState = nil
 
-                // Cancel any in-flight requests to prevent stale data
                 return .merge(
                     .cancel(id: "explore-recommendations"),
                     .cancel(id: "explore-more-recommendations"),
@@ -490,7 +438,6 @@ struct ExploreView: View {
                         GradeFilterView(store: store)
                     }
                     .onAppear {
-                        // Check auth state and clear data if needed
                         @Dependency(\.authState) var authState
                         Task {
                             let currentAuthState = await authState.load()
@@ -657,7 +604,6 @@ struct ExploreView: View {
     private var emptyStateView: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
             if store.isSearchActive && !store.isSearching {
-                // No search results
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: DesignSystem.Typography.xxxxxl))
                     .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -670,7 +616,6 @@ struct ExploreView: View {
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
             } else {
-                // No recommendations
                 Image(systemName: "star.slash")
                     .font(.system(size: DesignSystem.Typography.xxxxxl))
                     .foregroundColor(DesignSystem.Colors.textSecondary)

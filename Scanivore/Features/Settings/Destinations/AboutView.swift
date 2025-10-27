@@ -1,9 +1,3 @@
-//
-//  AboutView.swift
-//  Scanivore
-//
-//  About view for app information and credits
-//
 
 import SwiftUI
 import ComposableArchitecture

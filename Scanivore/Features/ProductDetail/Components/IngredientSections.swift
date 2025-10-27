@@ -1,9 +1,3 @@
-//
-//  IngredientSections.swift
-//  Scanivore
-//
-//  Ingredient analysis components for ProductDetail
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -32,7 +26,6 @@ struct CollapsibleIngredientSections: View {
                     .padding(.horizontal, DesignSystem.Spacing.screenPadding)
             
             VStack(spacing: DesignSystem.Spacing.base) {
-                // High Risk Ingredients - using computed properties
                 if let highRisk = assessment.highRisk, !highRisk.isEmpty {
                     CollapsibleIngredientSection(
                         sectionId: "high-risk",
@@ -49,7 +42,6 @@ struct CollapsibleIngredientSections: View {
                     )
                 }
                 
-                // Moderate Risk Ingredients - using computed properties
                 if let moderateRisk = assessment.moderateRisk, !moderateRisk.isEmpty {
                     CollapsibleIngredientSection(
                         sectionId: "moderate-risk",
@@ -66,7 +58,6 @@ struct CollapsibleIngredientSections: View {
                     )
                 }
                 
-                // Low Risk Ingredients - using computed properties
                 if let lowRisk = assessment.lowRisk, !lowRisk.isEmpty {
                     CollapsibleIngredientSection(
                         sectionId: "low-risk",
@@ -83,7 +74,6 @@ struct CollapsibleIngredientSections: View {
                     )
                 }
                 
-                // Show message if no risk ingredients found
                 if (assessment.highRisk?.isEmpty ?? true) &&
                    (assessment.moderateRisk?.isEmpty ?? true) &&
                    (assessment.lowRisk?.isEmpty ?? true) {
@@ -111,7 +101,6 @@ struct CollapsibleIngredientSection: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.base) {
-            // Section Header
             Button(action: onToggle) {
                 HStack {
                     Circle()
@@ -135,7 +124,6 @@ struct CollapsibleIngredientSection: View {
             }
             .buttonStyle(PlainButtonStyle())
             
-            // Ingredients List (Expandable)
             if isExpanded {
                 LazyVGrid(columns: [
                     GridItem(.adaptive(minimum: 120), spacing: DesignSystem.Spacing.sm)
@@ -172,21 +160,16 @@ struct CollapsibleIngredientPill: View {
     let color: Color
     let onTap: () -> Void
     
-    // Generate consistent darker color variations based on ingredient name
     var ingredientColor: Color {
         let baseColor = color // Category color (red/yellow/green)
         let hash = abs(ingredient.name.hashValue)
         
-        // Generate hue shift (-15 to +15 degrees for subtle variation)
         let hueShift = Double((hash % 30) - 15) / 360.0
         
-        // Higher saturation for more vibrant colors (0.7 to 0.9)
         let saturationMultiplier = 0.7 + (Double(hash % 20) / 100.0)
         
-        // Darker brightness for better contrast (0.6 to 0.8)
         let brightnessMultiplier = 0.6 + (Double(hash % 20) / 100.0)
         
-        // Apply color modifications
         var hue: CGFloat = 0
         var saturation: CGFloat = 0
         var brightness: CGFloat = 0
@@ -194,12 +177,10 @@ struct CollapsibleIngredientPill: View {
         
         UIColor(baseColor).getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &opacity)
         
-        // Apply variations
         hue += CGFloat(hueShift)
         saturation *= CGFloat(saturationMultiplier)
         brightness *= CGFloat(brightnessMultiplier)
         
-        // Ensure values are in valid ranges
         hue = max(0, min(1, hue))
         saturation = max(0, min(1, saturation))
         brightness = max(0, min(1, brightness))
@@ -251,7 +232,6 @@ struct EnhancedIngredientDetailSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
-                    // Header Section
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
                         Text(ingredient.name)
                             .font(DesignSystem.Typography.heading1)
@@ -274,7 +254,6 @@ struct EnhancedIngredientDetailSheet: View {
                         }
                     }
                     
-                    // Description Section
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                         Text("Analysis")
                             .font(DesignSystem.Typography.heading3)
@@ -286,10 +265,8 @@ struct EnhancedIngredientDetailSheet: View {
                             .lineSpacing(4)
                     }
                     
-                    // Citations Section with header and graceful degradation
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
                         if !citations.isEmpty {
-                            // Citations Section Header
                             Text("Citations")
                                 .font(DesignSystem.Typography.heading3)
                                 .foregroundColor(DesignSystem.Colors.textPrimary)
@@ -297,12 +274,9 @@ struct EnhancedIngredientDetailSheet: View {
                             VStack(spacing: DesignSystem.Spacing.sm) {
                                 ForEach(citations.prefix(3), id: \.id) { citation in
                                     CitationCard(citation: citation) {
-                                        // Handle citation tap with TCA-compliant approach
                                         if let urlString = citation.url,
                                            let url = URL(string: urlString),
                                            MedicalAuthorityMapper.isValidMedicalURL(urlString) {
-                                            // For now, fallback to the sheet-based approach
-                                            // This will be enhanced when we have access to store
                                         }
                                     }
                                 }
@@ -315,11 +289,9 @@ struct EnhancedIngredientDetailSheet: View {
                                     .padding(.top, DesignSystem.Spacing.xs)
                             }
                             
-                            // AI Disclaimer for Citations (below the citations)
                             AIDisclaimerCard()
                                 .padding(.top)
                         } else {
-                            // Disclaimer when citations are not available
                             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                                 HStack {
                                     Image(systemName: "exclamationmark.triangle.fill")
@@ -367,14 +339,12 @@ struct EnhancedIngredientDetailSheet: View {
 // MARK: - Medical Authority Mapper
 struct MedicalAuthorityMapper {
     private static let medicalAuthorities: [String: String] = [
-        // Tier 1: Federal Health Agencies
         "fda.gov": "U.S. Food & Drug Administration",
         "nih.gov": "National Institutes of Health",
         "cdc.gov": "Centers for Disease Control and Prevention",
         "usda.gov": "U.S. Department of Agriculture",
         "who.int": "World Health Organization",
         
-        // Tier 2: Major Medical Organizations
         "mayoclinic.org": "Mayo Clinic",
         "heart.org": "American Heart Association",
         "cancer.org": "American Cancer Society",
@@ -382,7 +352,6 @@ struct MedicalAuthorityMapper {
         "kidney.org": "National Kidney Foundation",
         "lung.org": "American Lung Association",
         
-        // Tier 3: Medical Research Institutions
         "harvard.edu": "Harvard Medical School",
         "johnshopkins.edu": "Johns Hopkins Medicine",
         "stanford.edu": "Stanford Medicine",
@@ -390,7 +359,6 @@ struct MedicalAuthorityMapper {
         "mountsinai.org": "Mount Sinai Health System",
         "clevelandclinic.org": "Cleveland Clinic",
         
-        // Tier 4: Specialized Medical Organizations
         "pcrm.org": "Physicians Committee for Responsible Medicine",
         "nutrition.org": "American Society for Nutrition",
         "acsh.org": "American Council on Science and Health",
@@ -402,7 +370,6 @@ struct MedicalAuthorityMapper {
         "thelancet.com": "The Lancet",
         "nejm.org": "New England Journal of Medicine",
         
-        // Tier 5: Additional Trustworthy Medical Sources (newly added)
         "aicr.org": "American Institute for Cancer Research",
         "cancercouncil.com.au": "Cancer Council Australia",
         "cancerresearchuk.org": "Cancer Research UK",
@@ -426,24 +393,20 @@ struct MedicalAuthorityMapper {
             return extractFallbackSource(from: urlString)
         }
         
-        // Try exact match first
         if let authority = medicalAuthorities[host] {
             return authority
         }
         
-        // Try partial matches for subdomains
         for (domain, authority) in medicalAuthorities {
             if host.contains(domain) || domain.contains(host) {
                 return authority
             }
         }
         
-        // Return formatted domain name as fallback
         return formatDomainName(host)
     }
     
     private static func extractFallbackSource(from urlString: String) -> String {
-        // Handle malformed URLs or extract domain-like patterns
         let patterns = [
             "https?://(?:www\\.)?([^/]+)",
             "([a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})"
@@ -466,10 +429,8 @@ struct MedicalAuthorityMapper {
         let parts = cleanDomain.components(separatedBy: ".")
         
         if let mainPart = parts.first {
-            // Capitalize first letter and handle common abbreviations
             let formatted = mainPart.prefix(1).capitalized + mainPart.dropFirst()
             
-            // Handle common patterns
             switch formatted.lowercased() {
             case "pubmed": return "PubMed"
             case "ncbi": return "NCBI"
@@ -490,12 +451,10 @@ struct MedicalAuthorityMapper {
             return false
         }
         
-        // Must be HTTP/HTTPS
         guard scheme == "http" || scheme == "https" else {
             return false
         }
         
-        // Must have a valid host
         guard let host = url.host, !host.isEmpty else {
             return false
         }
@@ -521,7 +480,6 @@ struct CitationCard: View {
         return URL(string: urlString)
     }
     
-    // Check if this is a Google grounding redirect URL
     var isGroundingRedirectURL: Bool {
         guard let urlString = citation.url else { return false }
         return urlString.contains("vertexaisearch.cloud.google.com") || 
@@ -549,7 +507,6 @@ struct CitationCard: View {
                 .fixedSize(horizontal: false, vertical: true)
             
             HStack {
-                // Display medical authority name instead of generic source
                 VStack(alignment: .leading, spacing: 2) {
                     Text(medicalAuthorityName)
                         .font(DesignSystem.Typography.caption)
@@ -563,7 +520,6 @@ struct CitationCard: View {
                 
                 Spacer()
                 
-                // Show appropriate icon and tap instruction based on URL validity
                 if isValidURL {
                     HStack(spacing: 4) {
                         Image(systemName: "link")
@@ -597,10 +553,8 @@ struct CitationCard: View {
         .animation(.easeInOut(duration: 0.1), value: isPressed)
         .contentShape(Rectangle())
         .onTapGesture {
-            // Only allow tap if URL is valid
             guard isValidURL else { return }
             
-            // Brief press animation
             withAnimation(.easeInOut(duration: 0.1)) {
                 isPressed = true
             }
@@ -610,7 +564,6 @@ struct CitationCard: View {
                     isPressed = false
                 }
                 
-                // Use callback if provided, otherwise fallback to sheet
                 if let onTap = onTap {
                     onTap()
                 } else {
@@ -666,21 +619,18 @@ struct AIDisclaimerCard: View {
 private func cleanAnalysisText(_ text: String) -> String {
     var cleanedText = text
     
-    // Remove messy source patterns like "(Sources: , , , )" or "(Sources:,,,)"
     cleanedText = cleanedText.replacingOccurrences(
         of: #"\(Sources?:\s*,+\s*\)"#,
         with: "",
         options: .regularExpression
     )
     
-    // Remove other empty source patterns
     cleanedText = cleanedText.replacingOccurrences(
         of: #"\(Sources?:[^)]*\)"#,
         with: "",
         options: .regularExpression
     )
     
-    // Clean up extra whitespace and line breaks
     cleanedText = cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
     
     return cleanedText

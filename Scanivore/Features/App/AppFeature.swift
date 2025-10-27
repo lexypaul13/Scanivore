@@ -1,9 +1,3 @@
-//
-//  AppFeature.swift
-//  Scanivore
-//
-//  Main application TCA feature
-//
 
 import Foundation
 import ComposableArchitecture
@@ -34,7 +28,6 @@ struct AppFeature {
         var history = HistoryFeatureDomain.State()
         var settings = SettingsFeature.State()
         
-        // Auth flow state
         var authFlow: AuthFlow = .login
         
         enum AuthFlow {
@@ -52,12 +45,10 @@ struct AppFeature {
         }
         
         var showCreateAccount: Bool {
-            // Show create account screen when explicitly requested by user
             hasCompletedIntro && !isLoggedIn && authFlow == .createAccount
         }
         
         var showSignIn: Bool {
-            // Show sign in screen when explicitly requested by user
             hasCompletedIntro && !isLoggedIn && authFlow == .signIn
         }
         
@@ -163,7 +154,6 @@ struct AppFeature {
                 state.authState.hasCompletedIntro = true
                 return .run { [currentState = state.authState] _ in
                     @Dependency(\.authState) var authState
-                    // Save the updated state to persistence (prevents race conditions)
                     await authState.save(currentState)
                 }
                 
@@ -188,7 +178,6 @@ struct AppFeature {
                 state.authFlow = .login
                 return .run { [currentState = state.authState] _ in
                     @Dependency(\.authState) var authState
-                    // Save the current state to persistence (prevents race conditions)
                     await authState.save(currentState)
                 }
                 .merge(with: .send(.explore(.authStateChanged(true))))
@@ -218,7 +207,6 @@ struct AppFeature {
                 return .none
                 
             case .signIn(.delegate(.navigateToForgotPassword)):
-                // Handle forgot password flow (placeholder)
                 return .none
                 
             case .signIn:
@@ -229,13 +217,11 @@ struct AppFeature {
                 return .run { [currentState = state.authState] _ in
                     @Dependency(\.authState) var authState
                     @Dependency(\.onboarding) var onboarding
-                    // Save the updated state and preferences (prevents race conditions)
                     await authState.save(currentState)
                     await onboarding.save(preferences)
                 }
                 
             case .onboarding(.delegate(.onboardingCancelled)):
-                // Handle onboarding cancellation if needed
                 return .none
                 
             case .onboarding:
@@ -248,7 +234,6 @@ struct AppFeature {
                 return .none
                 
             case .history(.delegate(.requestAccountCreation)):
-                // Enable create account flow when explicitly requested
                 state.authFlow = .createAccount
                 return .none
                 
@@ -256,7 +241,6 @@ struct AppFeature {
                 return .none
                 
             case .settings(.delegate(.signOutRequested)):
-                // Handle sign out request from settings
                 state.authState.isLoggedIn = false
                 state.authFlow = .login
                 return .run { _ in
@@ -266,9 +250,7 @@ struct AppFeature {
                 .merge(with: .send(.explore(.authStateChanged(false))))
                 
             case .settings(.delegate(.preferencesUpdated)):
-                // Handle preferences update - add delay to ensure backend processes the update
                 return .run { send in
-                    // Wait 1.5 seconds to ensure backend cache is updated
                     try await Task.sleep(nanoseconds: 1_500_000_000)
                     await send(.explore(.refreshRecommendations))
                 }

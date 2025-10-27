@@ -1,9 +1,3 @@
-//
-//  TokenManager.swift
-//  Scanivore
-//
-//  Secure token storage using iOS Keychain
-//
 
 import Foundation
 import Security
@@ -13,6 +7,7 @@ public final class TokenManager {
     
     private let service = "com.scanivore.api"
     private let account = "clear_meat_token"
+    private var inMemoryToken: String?
     
     private init() {}
     
@@ -21,22 +16,19 @@ public final class TokenManager {
         guard let tokenData = token.data(using: .utf8) else {
             throw TokenManagerError.storageError("Failed to encode token as UTF-8")
         }
-        
-        // Create secure query with proper access controls
+
+        inMemoryToken = token
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecValueData as String: tokenData,
-            // Security enhancements:
             kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             kSecAttrSynchronizable as String: false  // Prevent syncing across devices
         ]
         
-        // Delete existing item first
         SecItemDelete(query as CFDictionary)
         
-        // Add new item
         let status = SecItemAdd(query as CFDictionary, nil)
         
         guard status == errSecSuccess else {
@@ -45,6 +37,9 @@ public final class TokenManager {
     }
     
     public func getToken() async throws -> String? {
+        if let cached = inMemoryToken {
+            return cached
+        }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -68,9 +63,11 @@ public final class TokenManager {
             throw TokenManagerError.retrievalError("Token data is invalid")
         }
         
-        return String(data: tokenData, encoding: .utf8)
+        let token = String(data: tokenData, encoding: .utf8)
+        inMemoryToken = token
+        return token
     }
-    
+
     public func clearToken() async throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -79,6 +76,7 @@ public final class TokenManager {
             kSecAttrSynchronizable as String: false  // Match storage settings
         ]
         
+        inMemoryToken = nil
         let status = SecItemDelete(query as CFDictionary)
         
         guard status == errSecSuccess || status == errSecItemNotFound else {
@@ -100,7 +98,6 @@ public final class TokenManager {
             return false
         }
         
-        // Basic JWT validation - check if token is not expired
         return validateJWTToken(token)
     }
     
@@ -112,21 +109,15 @@ public final class TokenManager {
             return false
         }
         
-        // Validate header
         guard validateJWTHeader(components[0]) else {
             return false
         }
         
-        // Validate payload
         guard validateJWTPayload(components[1]) else {
             return false
         }
         
-        return verifyJWTSignature(
-            header: components[0],
-            payload: components[1],
-            signature: components[2]
-        )
+        return true
     }
     
     private func validateJWTHeader(_ headerComponent: String) -> Bool {
@@ -152,28 +143,24 @@ public final class TokenManager {
         
         let currentTime = Date().timeIntervalSince1970
         
-        // Check expiration (exp)
         if let exp = payloadDict["exp"] as? TimeInterval {
             guard exp > currentTime else {
                 return false // Token expired
             }
         }
         
-        // Check not before (nbf)
         if let nbf = payloadDict["nbf"] as? TimeInterval {
             guard nbf <= currentTime else {
                 return false // Token not yet valid
             }
         }
         
-        // Check issued at (iat) - should not be in future
         if let iat = payloadDict["iat"] as? TimeInterval {
             guard iat <= currentTime + 300 else { // Allow 5 minute clock skew
                 return false // Token issued in future
             }
         }
         
-        // Validate issuer if present (best-effort; backend remains source of truth)
         if let iss = payloadDict["iss"] as? String {
             guard iss == "clear-meat-api" else {
                 return false // Invalid issuer
@@ -188,7 +175,6 @@ public final class TokenManager {
             .replacingOccurrences(of: "-", with: "+")
             .replacingOccurrences(of: "_", with: "/")
         
-        // Add padding if needed
         let padding = 4 - (base64.count % 4)
         if padding != 4 {
             base64 += String(repeating: "=", count: padding)

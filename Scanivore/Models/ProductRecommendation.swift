@@ -15,13 +15,12 @@ struct ProductRecommendation: Identifiable, Equatable {
     let imageData: String?
     let meatType: MeatType
     let qualityRating: QualityLevel
-    let originalRiskRating: String // Store original OpenFoodFacts risk rating
+    let originalRiskRating: String
     let isRecommended: Bool
     let matchReasons: [String]
     let concerns: [String]
     
-    // Convert from API model
-    static func fromRecommendationItem(_ item: RecommendationItem) -> ProductRecommendation {
+     static func fromRecommendationItem(_ item: RecommendationItem) -> ProductRecommendation {
         let riskRating = item.product.risk_rating ?? "Green"
         
         return ProductRecommendation(
@@ -32,7 +31,7 @@ struct ProductRecommendation: Identifiable, Equatable {
             imageData: item.product.image_data,
             meatType: determineMeatType(from: item.product),
             qualityRating: mapRiskRatingToQuality(riskRating),
-            originalRiskRating: riskRating, // Store the original risk rating
+            originalRiskRating: riskRating,
             isRecommended: item.matchDetails.concerns.isEmpty,
             matchReasons: item.matchDetails.matches,
             concerns: item.matchDetails.concerns

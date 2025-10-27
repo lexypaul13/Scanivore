@@ -1,9 +1,3 @@
-//
-//  ProductGateway.swift
-//  Scanivore
-//
-//  TCA-compliant product gateway using Alamofire
-//
 
 import Foundation
 import Alamofire
@@ -72,78 +66,31 @@ extension ProductGateway: DependencyKey {
             .serializingData()
             .value
 
-            print("🔍 [Product] Request successful! Response size: \(response.count) bytes")
-            if let responseString = String(data: response, encoding: .utf8) {
-                print("🔍 [Product] FULL JSON RESPONSE:")
-                print(responseString)
-                print("🔍 [Product] END JSON RESPONSE")
-            }
-
-            // Decode JSON on background queue to avoid main thread blocking
             let productResponse = try await Task.detached(priority: .userInitiated) {
                 let decoder = JSONDecoder()
                 return try decoder.decode(ProductResponse.self, from: response)
             }.value
 
-            // Extract the nested product from the response
-            let product = productResponse.product
-            
-            // Strip image_data to prevent massive memory usage (keep only image_url)
-            return Product(
-                id: product.id,
-                code: product.code,
-                name: product.name,
-                brand: product.brand,
-                categories: product.categories,
-                ingredients: product.ingredients,
-                nutritionFacts: product.nutritionFacts,
-                image_url: product.image_url,
-                image_data: nil,  // Remove massive base64 data
-                risk_rating: product.risk_rating,
-                description: product.description,
-                ingredients_text: product.ingredients_text,
-                calories: product.calories,
-                protein: product.protein,
-                fat: product.fat,
-                carbohydrates: product.carbohydrates,
-                salt: product.salt,
-                meat_type: product.meat_type,
-                contains_nitrites: product.contains_nitrites,
-                contains_phosphates: product.contains_phosphates,
-                contains_preservatives: product.contains_preservatives,
-                antibiotic_free: product.antibiotic_free,
-                hormone_free: product.hormone_free,
-                pasture_raised: product.pasture_raised,
-                last_updated: product.last_updated,
-                created_at: product.created_at,
-                _relevance_score: product._relevance_score
-            )
+            return productResponse.product.withoutImageData()
         },
         
         getHealthAssessment: { (barcode: String) async throws -> HealthAssessmentResponse in
-            print("🔍 [HealthAssessment] Starting health assessment for barcode: \(barcode)")
 
             if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: barcode) {
-                print("🔍 [HealthAssessment] Using cached result for barcode: \(barcode)")
                 return cacheResult.assessment
             }
 
             let headers = try await createAuthHeaders()
             let url = "\(APIConfiguration.baseURL)/api/v1/products/\(barcode)/health-assessment-mcp?format=\(APIConfiguration.ResponseFormat.mobile)"
 
-            print("🔍 [HealthAssessment] Making API request to: \(url)")
-            print("🔍 [HealthAssessment] Headers count: \(headers.count)")
             for header in headers {
                 if header.name.lowercased() == "authorization" {
                     let authValue = header.value
                     if authValue.hasPrefix("Bearer ") {
                         let token = String(authValue.dropFirst(7))
-                        print("🔍 [HealthAssessment] Auth: Bearer token present")
                     } else {
-                        print("🔍 [HealthAssessment] Auth: \(authValue)")
                     }
                 } else {
-                    print("🔍 [HealthAssessment] Header: \(header.name) = \(header.value)")
                 }
             }
             
@@ -154,11 +101,9 @@ extension ProductGateway: DependencyKey {
             for attempt in 0...maxRetries {
                 do {
                     if attempt > 0 {
-                        print("🔍 [HealthAssessment] Retry attempt \(attempt) for barcode: \(barcode)")
                         try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
                     }
 
-                    print("🔍 [HealthAssessment] Making HTTP request (attempt \(attempt + 1))")
 
                     let session = createOptimizedSession()
                     let response = try await session.request(
@@ -170,26 +115,19 @@ extension ProductGateway: DependencyKey {
                     .serializingData()
                     .value
 
-                    print("🔍 [HealthAssessment] Request successful! Response size: \(response.count) bytes")
                     if let responseString = String(data: response, encoding: .utf8) {
-                        print("🔍 [HealthAssessment] FULL JSON RESPONSE:")
-                        print(responseString)
-                        print("🔍 [HealthAssessment] END JSON RESPONSE")
                     }
                 
                     
-                    // Decode JSON on background queue to avoid main thread blocking
                     let decodedResponse = try await Task.detached(priority: .userInitiated) {
                         let decoder = JSONDecoder()
                         let result = try decoder.decode(HealthAssessmentResponse.self, from: response)
                         
-                        // Debug: Print decoded response structure
                         
                         return result
                     }.value
                     
                     
-                    // Cache the response for future instant access (async to avoid main thread blocking)
                     await HealthAssessmentCache.shared.cacheAssessment(decodedResponse, for: barcode)
                     
                     return decodedResponse
@@ -197,38 +135,29 @@ extension ProductGateway: DependencyKey {
                 } catch {
                     lastError = error
 
-                    print("🔍 [HealthAssessment] Request failed with error: \(error)")
-                    print("🔍 [HealthAssessment] Error type: \(type(of: error))")
 
                     if let afError = error as? AFError {
-                        print("🔍 [HealthAssessment] AFError: \(afError)")
                         switch afError {
                         case .responseValidationFailed(let reason):
-                            print("🔍 [HealthAssessment] Validation failed: \(reason)")
                             if case .unacceptableStatusCode(let code) = reason {
-                                print("🔍 [HealthAssessment] HTTP Status Code: \(code)")
                                 if code == 400 {
-                                    print("🔍 [HealthAssessment] 400 BAD REQUEST - Guest mode issue detected!")
                                 }
                             }
-                        case .responseSerializationFailed(let reason):
-                            print("🔍 [HealthAssessment] Serialization failed: \(reason)")
+                        case .responseSerializationFailed:
+                            break
                         default:
-                            print("🔍 [HealthAssessment] Other AFError: \(afError)")
+                            break
                         }
 
-                        // Try to get response data for 400 errors
                         switch afError {
                         case .responseValidationFailed(let reason):
                             if case .dataFileNil = reason {
-                                print("🔍 [HealthAssessment] No response data available")
                             }
                         default:
-                            print("🔍 [HealthAssessment] Unable to extract response data from AFError")
+                            break
                         }
                     }
                     
-                    // Check for timeout errors - handle both direct URLError and AFError wrapped cases
                     var isTimeoutError = false
                     
                     if let urlError = error as? URLError, urlError.code == .timedOut {
@@ -242,7 +171,6 @@ extension ProductGateway: DependencyKey {
                     
                     if isTimeoutError {
                         if attempt < maxRetries {
-                            // Wait longer between retries for timeout issues
                             try await Task.sleep(nanoseconds: UInt64((attempt + 1) * 2) * 1_000_000_000) // 2s, 4s
                             continue
                         }
@@ -265,12 +193,10 @@ extension ProductGateway: DependencyKey {
                 }
                 
                 if isTimeoutError {
-                    // Check network connectivity and provide specific error messages
                     let networkMonitor = await NetworkMonitor.shared
                     let elapsed = Date().timeIntervalSince(startTime)
                     
                     if elapsed < 60 {
-                        // Quick timeout - likely network issue
                         if await !networkMonitor.isConnected {
                             throw APIError(
                                 detail: "No internet connection. Please check your network settings and try again.",
@@ -288,7 +214,6 @@ extension ProductGateway: DependencyKey {
                             )
                         }
                     } else {
-                        // Long timeout - likely server processing issue
                         throw APIError(
                             detail: "Health assessment is taking longer than usual. Our AI is analyzing complex ingredient interactions and gathering medical citations. Please wait or try again.",
                             statusCode: -1001
@@ -296,12 +221,10 @@ extension ProductGateway: DependencyKey {
                     }
                 }
                 
-                // If it's a validation error, try to get more specific error information
                 if let afError = error as? AFError {
                     switch afError {
                     case .responseValidationFailed(reason: .unacceptableStatusCode(code: let statusCode)):
                         
-                        // For API failures, throw a descriptive error
                         if statusCode >= 500 {
                             throw APIError(
                                 detail: "Health assessment service temporarily unavailable. Basic product grade available from barcode scan.",
@@ -342,29 +265,21 @@ extension ProductGateway: DependencyKey {
             .serializingDecodable(HealthAssessmentResponse.self)
             .value
             
-            // Convert to MeatScan using existing extension
             return healthAssessment.toMeatScan(barcode: barcode)
         },
         
         getIndividualIngredientAnalysis: { (ingredientName: String, context: String?) async throws -> IndividualIngredientAnalysisResponseWithName in
             let headers = try await createAuthHeaders()
             
-            // Sanitize ingredient name by replacing problematic characters
             let sanitizedIngredient = ingredientName
                 .replacingOccurrences(of: "/", with: " ")
                 .replacingOccurrences(of: "\\", with: " ")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             
-            // Then URL encode the sanitized name
             let encodedIngredientName = sanitizedIngredient.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? sanitizedIngredient
             let url = "\(APIConfiguration.baseURL)/api/v1/ingredients/\(encodedIngredientName)/analysis"
             
             #if DEBUG
-            // Force enable logging for debugging this specific issue
-            print("🔍 [Individual Ingredient Analysis] Original: '\(ingredientName)'")
-            print("🔍 [Individual Ingredient Analysis] Sanitized: '\(sanitizedIngredient)'")
-            print("🔍 [Individual Ingredient Analysis] Making request to: \(url)")
-            print("🔍 [Individual Ingredient Analysis] Context: '\(context ?? "nil")'")
             #endif
             
             var parameters: [String: String] = [:]
@@ -374,17 +289,12 @@ extension ProductGateway: DependencyKey {
             
             #if DEBUG
             if APIConfiguration.shouldLogAPIResponses {
-                print("🔍 [Individual Ingredient Analysis] Parameters: \(parameters)")
             }
             #endif
             
             let session = createOptimizedSession()
             
             #if DEBUG
-            print("🔍 [Individual Ingredient Analysis] Starting request...")
-            print("🔍 [Individual Ingredient Analysis] URL: \(url)")
-            print("🔍 [Individual Ingredient Analysis] Headers: \(headers)")
-            print("🔍 [Individual Ingredient Analysis] Parameters: \(parameters)")
             #endif
             
             do {
@@ -399,17 +309,11 @@ extension ProductGateway: DependencyKey {
                 .value
                 
                 #if DEBUG
-                print("🔍 [Individual Ingredient Analysis] Request completed successfully")
                 #endif
                 
-                print("🔍 [Individual Ingredient Analysis] Response received, size: \(response.count) bytes")
 
                 if let responseString = String(data: response, encoding: .utf8) {
-                    print("🔍 [Individual Ingredient Analysis] FULL JSON RESPONSE:")
-                    print(responseString)
-                    print("🔍 [Individual Ingredient Analysis] END JSON RESPONSE")
                 } else {
-                    print("🔍 [Individual Ingredient Analysis] Response body: Unable to decode as UTF-8")
                 }
                 
                 let decoder = JSONDecoder()
@@ -419,32 +323,28 @@ extension ProductGateway: DependencyKey {
                     result = try decoder.decode(IndividualIngredientAnalysisResponse.self, from: response)
                     #if DEBUG
                     if APIConfiguration.shouldLogAPIResponses {
-                        print("🔍 [Individual Ingredient Analysis] Successfully decoded response")
                     }
                     #endif
                 } catch {
                     #if DEBUG
-                    // Force enable logging for debugging this specific issue
-                    print("🔍 [Individual Ingredient Analysis] JSON DECODING ERROR: \(error)")
                     if let decodingError = error as? DecodingError {
                         switch decodingError {
-                        case .dataCorrupted(let context):
-                            print("🔍 [Individual Ingredient Analysis] Data corrupted: \(context)")
-                        case .keyNotFound(let key, let context):
-                            print("🔍 [Individual Ingredient Analysis] Key not found: \(key), context: \(context)")
-                        case .typeMismatch(let type, let context):
-                            print("🔍 [Individual Ingredient Analysis] Type mismatch: \(type), context: \(context)")
+                        case .dataCorrupted:
+                            break
+                        case .keyNotFound:
+                            break
+                        case .typeMismatch:
+                            break
                         case .valueNotFound(let type, let context):
                             print("🔍 [Individual Ingredient Analysis] Value not found: \(type), context: \(context)")
                         @unknown default:
-                            print("🔍 [Individual Ingredient Analysis] Unknown decoding error")
+                            break
                         }
                     }
                     #endif
                     throw error
                 }
                 
-                // Create a new struct with the ingredient name included since API doesn't return it
                 let responseWithName = IndividualIngredientAnalysisResponseWithName(
                     ingredientName: ingredientName,
                     analysisText: result.analysisText,
@@ -461,17 +361,14 @@ extension ProductGateway: DependencyKey {
                 
             } catch {
                 #if DEBUG
-                // Force enable logging for debugging this specific issue
-                print("🔍 [Individual Ingredient Analysis] REQUEST FAILED with error: \(error)")
                 if let afError = error as? AFError {
-                    print("🔍 [Individual Ingredient Analysis] AFError details: \(afError)")
                     switch afError {
-                    case .responseValidationFailed(let reason):
-                        print("🔍 [Individual Ingredient Analysis] Validation failed: \(reason)")
-                    case .sessionTaskFailed(let underlyingError):
-                        print("🔍 [Individual Ingredient Analysis] Session task failed: \(underlyingError)")
+                    case .responseValidationFailed:
+                        break
+                    case .sessionTaskFailed:
+                        break
                     default:
-                        print("🔍 [Individual Ingredient Analysis] Other AFError: \(afError)")
+                        break
                     }
                 }
                 #endif
@@ -492,37 +389,7 @@ extension ProductGateway: DependencyKey {
             .validate()
             .serializingDecodable(SearchResponse.self)
             .value
-            let optimizedProducts = searchResponse.products.map { product in
-                Product(
-                    id: product.id,
-                    code: product.code,
-                    name: product.name,
-                    brand: product.brand,
-                    categories: product.categories,
-                    ingredients: product.ingredients,
-                    nutritionFacts: product.nutritionFacts,
-                    image_url: product.image_url,
-                    image_data: nil,  // Remove massive base64 data
-                    risk_rating: product.risk_rating,
-                    description: product.description,
-                    ingredients_text: product.ingredients_text,
-                    calories: product.calories,
-                    protein: product.protein,
-                    fat: product.fat,
-                    carbohydrates: product.carbohydrates,
-                    salt: product.salt,
-                    meat_type: product.meat_type,
-                    contains_nitrites: product.contains_nitrites,
-                    contains_phosphates: product.contains_phosphates,
-                    contains_preservatives: product.contains_preservatives,
-                    antibiotic_free: product.antibiotic_free,
-                    hormone_free: product.hormone_free,
-                    pasture_raised: product.pasture_raised,
-                    last_updated: product.last_updated,
-                    created_at: product.created_at,
-                    _relevance_score: product._relevance_score
-                )
-            }
+            let optimizedProducts = searchResponse.products.map { $0.withoutImageData() }
             
             return SearchResponse(
                 query: searchResponse.query,
@@ -548,41 +415,7 @@ extension ProductGateway: DependencyKey {
             .value
             
             let optimizedRecommendations = exploreResponse.recommendations.map { item in
-                let optimizedProduct = Product(
-                    id: item.product.id,
-                    code: item.product.code,
-                    name: item.product.name,
-                    brand: item.product.brand,
-                    categories: item.product.categories,
-                    ingredients: item.product.ingredients,
-                    nutritionFacts: item.product.nutritionFacts,
-                    image_url: item.product.image_url,
-                    image_data: nil,  // Remove massive base64 data that causes debug spam
-                    risk_rating: item.product.risk_rating,
-                    description: item.product.description,
-                    ingredients_text: item.product.ingredients_text,
-                    calories: item.product.calories,
-                    protein: item.product.protein,
-                    fat: item.product.fat,
-                    carbohydrates: item.product.carbohydrates,
-                    salt: item.product.salt,
-                    meat_type: item.product.meat_type,
-                    contains_nitrites: item.product.contains_nitrites,
-                    contains_phosphates: item.product.contains_phosphates,
-                    contains_preservatives: item.product.contains_preservatives,
-                    antibiotic_free: item.product.antibiotic_free,
-                    hormone_free: item.product.hormone_free,
-                    pasture_raised: item.product.pasture_raised,
-                    last_updated: item.product.last_updated,
-                    created_at: item.product.created_at,
-                    _relevance_score: item.product._relevance_score
-                )
-                
-                return RecommendationItem(
-                    product: optimizedProduct,
-                    matchDetails: item.matchDetails,
-                    matchScore: item.matchScore
-                )
+                item.withoutImageData()
             }
             return ExploreResponse(
                 recommendations: optimizedRecommendations,
@@ -594,27 +427,18 @@ extension ProductGateway: DependencyKey {
         },
         
         getExploreRecommendations: { (offset: Int, limit: Int) async throws -> ExploreResponse in
-            print("🔍 [ExploreRecommendations] Starting request - offset: \(offset), limit: \(limit)")
 
             let headers = try await createAuthHeaders()
 
-            // Smart endpoint routing based on authentication status
             let exploreURL: String
             let isAuthenticated = (try? await TokenManager.shared.getToken()) != nil
 
             if isAuthenticated {
-                // Authenticated user - personalized recommendations
                 exploreURL = "\(APIConfiguration.baseURL)\(APIConfiguration.Endpoints.explore)"
-                print("🔍 [ExploreRecommendations] AUTH MODE: Using personalized explore endpoint")
             } else {
-                // Guest user - public generic recommendations
                 exploreURL = "\(APIConfiguration.baseURL)\(APIConfiguration.Endpoints.publicExplore)"
-                print("🔍 [ExploreRecommendations] GUEST MODE: Using public explore endpoint")
             }
 
-            print("🔍 [ExploreRecommendations] Making request to: \(exploreURL)")
-            print("🔍 [ExploreRecommendations] Parameters: offset=\(offset), limit=\(limit)")
-            print("🔍 [ExploreRecommendations] Authentication: \(isAuthenticated ? "AUTHENTICATED" : "GUEST")")
             
             do {
                 let session = createOptimizedSession()
@@ -631,46 +455,10 @@ extension ProductGateway: DependencyKey {
                 
                 let decodedResponse = try JSONDecoder().decode(UserExploreResponse.self, from: userExploreResponse)
 
-                
-                
                 let optimizedRecommendations = decodedResponse.recommendations.map { item in
-                    let optimizedProduct = Product(
-                        id: item.product.id,
-                        code: item.product.code,
-                        name: item.product.name,
-                        brand: item.product.brand,
-                        categories: item.product.categories,
-                        ingredients: item.product.ingredients,
-                        nutritionFacts: item.product.nutritionFacts,
-                        image_url: item.product.image_url,
-                        image_data: nil,  // Remove massive base64 data
-                        risk_rating: item.product.risk_rating,
-                        description: item.product.description,
-                        ingredients_text: item.product.ingredients_text,
-                        calories: item.product.calories,
-                        protein: item.product.protein,
-                        fat: item.product.fat,
-                        carbohydrates: item.product.carbohydrates,
-                        salt: item.product.salt,
-                        meat_type: item.product.meat_type,
-                        contains_nitrites: item.product.contains_nitrites,
-                        contains_phosphates: item.product.contains_phosphates,
-                        contains_preservatives: item.product.contains_preservatives,
-                        antibiotic_free: item.product.antibiotic_free,
-                        hormone_free: item.product.hormone_free,
-                        pasture_raised: item.product.pasture_raised,
-                        last_updated: item.product.last_updated,
-                        created_at: item.product.created_at,
-                        _relevance_score: item.product._relevance_score
-                    )
-                    
-                    return RecommendationItem(
-                        product: optimizedProduct,
-                        matchDetails: item.matchDetails,
-                        matchScore: item.matchScore
-                    )
+                    item.withoutImageData()
                 }
-            
+
                 return ExploreResponse(
                     recommendations: optimizedRecommendations,
                     totalMatches: decodedResponse.totalMatches,
@@ -679,34 +467,25 @@ extension ProductGateway: DependencyKey {
                     limit: decodedResponse.limit
                 )
             } catch {
-                print("🔍 [ExploreRecommendations] Request failed with error: \(error)")
-                print("🔍 [ExploreRecommendations] Error type: \(type(of: error))")
 
                 if let afError = error as? AFError {
-                    print("🔍 [ExploreRecommendations] AFError: \(afError)")
                     switch afError {
                     case .responseValidationFailed(let reason):
-                        print("🔍 [ExploreRecommendations] Validation failed: \(reason)")
                         if case .unacceptableStatusCode(let code) = reason {
-                            print("🔍 [ExploreRecommendations] HTTP Status Code: \(code)")
                             if code == 400 {
-                                print("🔍 [ExploreRecommendations] 400 BAD REQUEST - Check endpoint: \(exploreURL)")
                             } else if code == 401 && isAuthenticated {
-                                print("🔍 [ExploreRecommendations] 401 UNAUTHORIZED - Token may be expired")
                             }
                         }
                     default:
-                        print("🔍 [ExploreRecommendations] Other AFError: \(afError)")
+                        break
                     }
 
-                    // Try to get response data for 400 errors
                     switch afError {
                     case .responseValidationFailed(let reason):
                         if case .dataFileNil = reason {
-                            print("🔍 [ExploreRecommendations] No response data available")
                         }
                     default:
-                        print("🔍 [ExploreRecommendations] Unable to extract response data from AFError")
+                        break
                     }
                 }
 
@@ -742,17 +521,12 @@ private func createAuthHeaders() async throws -> HTTPHeaders {
     var headers = HTTPHeaders()
     headers.add(.contentType("application/json"))
 
-    print("🔍 [Auth] Creating auth headers...")
 
     if let token = try await TokenManager.shared.getToken() {
-        print("🔍 [Auth] Token found - User is AUTHENTICATED")
         headers.add(.authorization(bearerToken: token))
     } else {
-        print("🔍 [Auth] No token found - User is in GUEST MODE")
-        print("🔍 [Auth] Request will be sent WITHOUT authorization header")
     }
 
-    print("🔍 [Auth] Final headers count: \(headers.count)")
 
     return headers
 }
@@ -782,7 +556,6 @@ extension Product {
         image_url: "https://example.com/beef.jpg",
         image_data: nil,
         risk_rating: "Green",
-        // Additional NLP search fields
         description: "Premium grass-fed beef",
         ingredients_text: "Beef, salt, natural flavors",
         calories: 250,
@@ -867,7 +640,6 @@ extension HealthAssessmentResponse {
         color: "Yellow",
         nutrition: nil,
         product_info: nil,
-        // Direct API fields matching actual response structure
         high_risk: [
             IngredientRisk(name: "Preservatives", risk: "Contains high-risk preservatives requiring caution. May cause allergic reactions in sensitive individuals.", overview: nil, riskLevel: "high", citationIds: [])
         ],
@@ -932,4 +704,3 @@ extension SearchResponse {
         products: [.mock]
     )
 }
-

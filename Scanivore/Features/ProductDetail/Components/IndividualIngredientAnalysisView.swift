@@ -1,9 +1,3 @@
-//
-//  IndividualIngredientAnalysisView.swift
-//  Scanivore
-//
-//  TCA-compliant individual ingredient analysis view
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -41,13 +35,10 @@ struct EnhancedIndividualIngredientAnalysisView: View {
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
-                        // Header Section
                         headerSection
                         
-                        // Individual Analysis Section
                         individualAnalysisSection
                         
-                        // Health Effects Section
                         if let analysis = individualAnalysis,
                            let healthEffects = analysis.healthEffects,
                            !healthEffects.isEmpty {
@@ -55,7 +46,6 @@ struct EnhancedIndividualIngredientAnalysisView: View {
                         }
                         
                         
-                        // Citations Section
                         citationsSection
                     }
                     .padding(DesignSystem.Spacing.base)
@@ -72,7 +62,6 @@ struct EnhancedIndividualIngredientAnalysisView: View {
                     }
                 }
                 .onAppear {
-                    // Load individual analysis if not already loaded or loading
                     if individualAnalysis == nil && !isLoadingAnalysis {
                         store.send(.loadIndividualIngredientAnalysis(ingredient.name))
                     }
@@ -105,7 +94,6 @@ struct EnhancedIndividualIngredientAnalysisView: View {
                 .cornerRadius(DesignSystem.CornerRadius.full)
             }
             
-            // Risk Score Badge (if available from individual analysis)
             if let analysis = individualAnalysis, let risk = analysis.riskScore {
                 HStack {
                     Image(systemName: "chart.bar.fill")
@@ -151,7 +139,6 @@ struct EnhancedIndividualIngredientAnalysisView: View {
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                     .lineSpacing(4)
             } else {
-                // Fallback to existing overview/risk text
                 Text(cleanAnalysisText(ingredient.overview ?? ingredient.microReport))
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
@@ -184,7 +171,6 @@ struct EnhancedIndividualIngredientAnalysisView: View {
             let citations = individualAnalysis?.citations ?? fallbackCitations
             
             if !citations.isEmpty {
-                // Citations Section Header
                 Text("Research Citations")
                     .font(DesignSystem.Typography.heading3)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
@@ -208,11 +194,9 @@ struct EnhancedIndividualIngredientAnalysisView: View {
                         .padding(.top, DesignSystem.Spacing.xs)
                 }
                 
-                // AI Disclaimer for Citations
                 AIDisclaimerCard()
                     .padding(.top)
             } else {
-                // No citations disclaimer
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -378,7 +362,6 @@ struct EnhancedCitationCard: View {
 private func cleanAnalysisText(_ text: String) -> String {
     var cleanedText = text
     
-    // Remove messy source patterns
     cleanedText = cleanedText.replacingOccurrences(
         of: #"\(Sources?:\s*,+\s*\)"#,
         with: "",

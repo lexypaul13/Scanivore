@@ -1,9 +1,3 @@
-//
-//  DisclaimerView.swift
-//  Scanivore
-//
-//  Disclaimer view with AI limitations and privacy information
-//
 
 import SwiftUI
 import ComposableArchitecture

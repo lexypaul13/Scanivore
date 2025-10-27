@@ -1,9 +1,3 @@
-//
-//  UserGateway.swift
-//  Scanivore
-//
-//  TCA-compliant user gateway for managing user preferences
-//
 import Foundation
 import Alamofire
 import Dependencies

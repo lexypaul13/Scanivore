@@ -1,9 +1,3 @@
-//
-//  SettingsView.swift
-//  Scanivore
-//
-//  TCA-compliant Settings view with tree-based navigation
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -71,18 +65,15 @@ public struct SettingsFeature {
         case onAppear
         case destination(PresentationAction<Destination.Action>)
         
-        // Navigation actions
         case dataManagementTapped
         case disclaimerTapped
         case privacyTapped
         case preferencesTapped
         case contactSupportTapped
         
-        // Profile actions
         case loadUserInfo
         case userInfoLoaded(TaskResult<SettingsUserInfo>)
         
-        // Auth actions
         case signOutTapped
         case deleteAccountTapped
         case confirmSignOut
@@ -92,12 +83,10 @@ public struct SettingsFeature {
         case setSignOutConfirmation(Bool)
         case setDeleteConfirmation(Bool)
         
-        // Async responses
         case signOutResponse(TaskResult<Bool>)
         case deleteAccountResponse(TaskResult<Bool>)
         case dismissError
         
-        // Internal actions
         case delegate(Delegate)
         
         public enum Delegate: Equatable {
@@ -127,31 +116,25 @@ public struct SettingsFeature {
             case .loadUserInfo:
                 state.isProfileLoading = true
                 return .run { send in
-                    // First check if we have a token
                     let hasToken = await TokenManager.shared.hasToken()
                     
                     if !hasToken {
-                        // No token, user is not signed in
                         await send(.userInfoLoaded(.success(SettingsUserInfo(name: "Guest User", email: nil))))
                         return
                     }
                     
-                    // We have a token, try to get user info
                     await send(.userInfoLoaded(
                         await TaskResult {
                             let user = try await authGateway.getCurrentUser()
                             
-                            // If no user object, authentication failed
                             guard let user = user else {
                                 throw AuthError.userNotFound
                             }
                             
-                            // User is authenticated, determine display name
                             let displayName: String
                             if let fullName = user.fullName, !fullName.isEmpty {
                                 displayName = fullName
                             } else if !user.email.isEmpty {
-                                // Use email prefix as fallback for authenticated users
                                 displayName = String(user.email.split(separator: "@").first ?? "User")
                             } else {
                                 displayName = "User"
@@ -165,7 +148,6 @@ public struct SettingsFeature {
             case let .userInfoLoaded(.success(userInfo)):
                 state.userName = userInfo.name
                 state.userEmail = userInfo.email
-                // User is signed in if we have an email (indicates successful user fetch)
                 state.isSignedIn = !(userInfo.email?.isEmpty ?? true)
                 state.isProfileLoading = false
                 return .none
@@ -173,8 +155,6 @@ public struct SettingsFeature {
             case .userInfoLoaded(.failure):
                 state.userName = "Guest User"
                 state.userEmail = nil
-                // If we got here, we have a token but it's invalid (401 error)
-                // Show as signed in so user can sign out and get a new token
                 state.isSignedIn = true
                 state.isProfileLoading = false
                 return .none
@@ -196,7 +176,6 @@ public struct SettingsFeature {
                 return .none
                 
             case .contactSupportTapped:
-                // External link - no navigation state needed
                 return .none
                 
             case .signOutTapped:
@@ -254,7 +233,6 @@ public struct SettingsFeature {
             case let .signOutResponse(.success(success)):
                 state.isLoading = false
                 if success {
-                    // Update local state immediately to reflect sign-out
                     state.isSignedIn = false
                     state.userName = "Guest User"
                     state.userEmail = nil
@@ -276,7 +254,6 @@ public struct SettingsFeature {
             case let .deleteAccountResponse(.success(success)):
                 state.isLoading = false
                 if success {
-                    // Update local state immediately to reflect account deletion
                     state.isSignedIn = false
                     state.userName = "Guest User"
                     state.userEmail = nil
@@ -300,7 +277,6 @@ public struct SettingsFeature {
                 return .none
                 
             case .destination(.presented(.preferences(.delegate(.preferencesUpdated)))):
-                // Bubble up the preferences update to parent
                 return .send(.delegate(.preferencesUpdated))
                 
             case .destination:
@@ -486,7 +462,6 @@ private struct DataPrivacySection: View {
                 action: { store.send(.dataManagementTapped) }
             )
             
-            // Only show dietary preferences for authenticated users
             if store.isSignedIn {
                 SettingsRowView(
                     title: "Dietary Preferences",

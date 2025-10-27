@@ -35,10 +35,8 @@ public struct OnboardingPreferences: Codable, Equatable {
         self.preferredMeatTypes = preferredMeatTypes
     }
     
-    // Check if onboarding is complete
-    public var isComplete: Bool {
-        // All questions must be answered
-        return avoidPreservatives != nil &&
+     public var isComplete: Bool {
+         return avoidPreservatives != nil &&
                antibioticFree != nil &&
                preferOrganic != nil &&
                avoidSugars != nil &&
@@ -48,4 +46,4 @@ public struct OnboardingPreferences: Codable, Equatable {
     }
 }
 
-// Extension to make MeatType conform to Codable for storage
+ 

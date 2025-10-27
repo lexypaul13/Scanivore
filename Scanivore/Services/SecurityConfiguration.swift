@@ -1,22 +1,12 @@
-//
-//  SecurityConfiguration.swift
-//  Scanivore
-//
-//  Security configuration and compile-time flags for production builds
-//
 
 import Foundation
 
 // MARK: - Security Configuration
 
-/// Security configuration for controlling debug logging and sensitive data exposure
 public struct SecurityConfiguration {
     
     // MARK: - Logging Controls
     
-    /// Controls whether verbose barcode logging is enabled
-    /// SECURITY: This should only be enabled for specific debugging sessions
-    /// Set via build configuration: -DENABLE_VERBOSE_BARCODE_LOGGING
     public static let verboseBarcodeLoggingEnabled: Bool = {
         #if DEBUG && ENABLE_VERBOSE_BARCODE_LOGGING
         return true
@@ -25,8 +15,6 @@ public struct SecurityConfiguration {
         #endif
     }()
     
-    /// Controls whether API request/response logging is enabled
-    /// SECURITY: Controlled by APIConfiguration.shouldLogAPIResponses
     public static let apiLoggingEnabled: Bool = {
         #if DEBUG
         return APIConfiguration.shouldLogAPIResponses
@@ -35,8 +23,6 @@ public struct SecurityConfiguration {
         #endif
     }()
     
-    /// Controls whether authentication flow logging is enabled
-    /// SECURITY: Should be disabled in production to prevent credential leakage
     public static let authLoggingEnabled: Bool = {
         #if DEBUG
         return true
@@ -47,13 +33,10 @@ public struct SecurityConfiguration {
     
     // MARK: - Security Validators
     
-    /// Validates that sensitive logging is disabled in release builds
-    /// Call this during app initialization to verify security configuration
     public static func validateSecurityConfiguration() -> SecurityValidationResult {
         var issues: [SecurityIssue] = []
         
         #if !DEBUG
-        // In release builds, ensure no verbose logging is enabled
         if verboseBarcodeLoggingEnabled {
             issues.append(.verboseLoggingInProduction)
         }
@@ -126,5 +109,3 @@ public enum SecuritySeverity: String, CaseIterable {
 
 // MARK: - Secure Logging Helpers
 
-/// Secure logging utility that respects security configuration
-// NOTE: SecureLogger is defined in Scanivore/Utils/SecureLogger.swift

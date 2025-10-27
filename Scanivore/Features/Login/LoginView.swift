@@ -1,9 +1,3 @@
-//
-//  LoginView.swift
-//  Scanivore
-//
-//  Login view with Create Account and Sign In options
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -64,7 +58,7 @@ struct LoginView: View {
     var body: some View {
         WithPerceptionTracking {
             ZStack {
-                // Background gradient similar to onboarding
+                 
                 LinearGradient(
                     colors: [
                         DesignSystem.Colors.backgroundSecondary,
@@ -78,9 +72,9 @@ struct LoginView: View {
                 VStack(spacing: 0) {
                     Spacer()
                     
-                    // Logo and app name section
+                     
                     VStack(spacing: 10) {
-                        // App logo with animation - using 3x image
+                         
                         Image(uiImage: UIImage(named: "Scanivore_Logo") ?? UIImage())
                             .resizable()
                             .aspectRatio(contentMode: .fit)
@@ -89,7 +83,6 @@ struct LoginView: View {
                             .scaleEffect(logoScale)
           
                         
-                        // App name and tagline
                         VStack(spacing: DesignSystem.Spacing.md) {
                             Text("Scanivore")
                                 .font(DesignSystem.Typography.hero)
@@ -106,9 +99,9 @@ struct LoginView: View {
                     
                     Spacer()
                     
-                    // Authentication buttons section
+                    
                     VStack(spacing: DesignSystem.Spacing.lg) {
-                        // Create Account button (Primary)
+                        
                         Button {
                             store.send(.createAccountTapped)
                         } label: {
@@ -133,7 +126,7 @@ struct LoginView: View {
                         }
                         .buttonStyle(PlainButtonStyle())
                         
-                        // Sign In button (Secondary)
+                        
                         Button {
                             store.send(.signInTapped)
                         } label: {
@@ -171,17 +164,16 @@ struct LoginView: View {
     }
     
     private func startAnimations() {
-        // Logo scale animation
-        withAnimation(.spring(response: 0.8, dampingFraction: 0.6)) {
+         withAnimation(.spring(response: 0.8, dampingFraction: 0.6)) {
             logoScale = 1.0
         }
         
-        // Content fade in
+         
         withAnimation(.easeOut(duration: 0.6).delay(0.2)) {
             contentOpacity = 1.0
         }
         
-        // Buttons slide up
+         
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4)) {
             buttonsOffset = 0
         }

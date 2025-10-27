@@ -1,9 +1,3 @@
-//
-//  SettingsRowView.swift
-//  Scanivore
-//
-//  Reusable settings row component
-//
 
 import SwiftUI
 

@@ -1,9 +1,3 @@
-//
-//  AccountView.swift
-//  Scanivore
-//
-//  Account management view with authentication controls
-//
 
 import SwiftUI
 import ComposableArchitecture

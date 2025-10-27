@@ -1,9 +1,3 @@
-//
-//  HistoryView.swift
-//  Scanivore
-//
-//  Created by Alex Paul on 6/28/25.
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -27,7 +21,6 @@ struct HistoryFeatureDomain {
                     product.productName.localizedCaseInsensitiveContains(searchText) ||
                     (product.productBrand?.localizedCaseInsensitiveContains(searchText) ?? false)
                 }
-            // Sort by most recent scan date
             return filtered.sorted { $0.scanDate > $1.scanDate }
         }
     }
@@ -200,7 +193,6 @@ struct HistoryView: View {
             .onAppear {
                 store.send(.onAppear)
                 
-                // Check authentication state
                 Task {
                     @Dependency(\.authState) var authState
                     let currentState = await authState.load()
@@ -218,7 +210,6 @@ struct SavedProductRowView: View {
     let onTap: () -> Void
     
     private var safetyGrade: SafetyGrade {
-        // Map quality score to safety grade
         let score = product.meatScan.quality.score
         switch score {
         case 80...100: return .excellent
@@ -237,12 +228,9 @@ struct SavedProductRowView: View {
     
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.base) {
-            // Product Image
             HistoryPlaceholderImage(meatType: product.meatScan.meatType)
             
-            // Product Info
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-                // Name and Brand
                 VStack(alignment: .leading, spacing: 2) {
                     Text(product.productName)
                         .font(DesignSystem.Typography.buttonText)
@@ -258,9 +246,7 @@ struct SavedProductRowView: View {
                         .truncationMode(.tail)
                 }
                 
-                // Meat type and quality badges
                 HStack(spacing: DesignSystem.Spacing.xs) {
-                    // Meat Type Badge
                     HStack(spacing: 4) {
                         Text(product.meatScan.meatType.icon)
                             .font(DesignSystem.Typography.body)
@@ -277,11 +263,9 @@ struct SavedProductRowView: View {
                     .background(DesignSystem.Colors.backgroundSecondary)
                     .cornerRadius(DesignSystem.CornerRadius.sm)
                     
-                    // Quality Badge
                     HistoryQualityBadge(grade: safetyGrade)
                 }
                 
-                // Scan Date
                 Text(DateFormatter.historyFormatter.string(from: product.scanDate))
                     .font(DesignSystem.Typography.small)
                     .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -290,7 +274,6 @@ struct SavedProductRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
-            // Arrow
             Image(systemName: "chevron.right")
                 .font(DesignSystem.Typography.body)
                 .foregroundColor(DesignSystem.Colors.textSecondary)

@@ -1,15 +1,8 @@
-//
-//  OnboardingClient.swift
-//  Scanivore
-//
-//  TCA-compliant onboarding preferences client
-//
 
 import Foundation
 import Dependencies
 import ComposableArchitecture
 
-// Note: OnboardingPreferences is defined in Models/OnboardingPreferences.swift
 
 // MARK: - Onboarding Client
 @DependencyClient

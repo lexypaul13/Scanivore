@@ -1,9 +1,3 @@
-//
-//  SafariService.swift
-//  Scanivore
-//
-//  TCA-compliant Safari navigation service
-//
 
 import Foundation
 import SafariServices
@@ -32,7 +26,6 @@ extension SafariService: DependencyKey {
                 safariViewController.preferredBarTintColor = UIColor.systemBackground
                 safariViewController.preferredControlTintColor = UIColor.systemRed
                 
-                // Find the topmost view controller
                 func findTopViewController(_ controller: UIViewController) -> UIViewController {
                     if let presented = controller.presentedViewController {
                         return findTopViewController(presented)

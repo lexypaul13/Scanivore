@@ -1,16 +1,9 @@
-//
-//  HealthAssessmentConverter.swift
-//  Scanivore
-//
-//  Optimized utility for converting health assessment data to MeatScan format for automatic scan history
-//
 
 import Foundation
 import SwiftUI
 
 struct HealthAssessmentConverter {
     
-    /// Converts a health assessment response to a MeatScan for scan history
     static func convertToMeatScan(
         assessment: HealthAssessmentResponse,
         productName: String?,
@@ -28,7 +21,6 @@ struct HealthAssessmentConverter {
         )
     }
     
-    /// Converts a basic product with minimal data to MeatScan (fallback)
     static func convertBasicProductToMeatScan(
         productCode: String,
         productName: String?,
@@ -70,7 +62,6 @@ struct HealthAssessmentConverter {
     }
     
     private static func extractQualityRating(from assessment: HealthAssessmentResponse) -> QualityRating {
-        // Try to get score from risk summary
         if let riskSummary = assessment.computedRiskSummary,
            let score = riskSummary.score {
             return QualityRating(
@@ -79,7 +70,6 @@ struct HealthAssessmentConverter {
             )
         }
         
-        // Fallback to grade analysis
         let grade = assessment.grade ?? "C"
         let score = gradeToScore(grade)
         
@@ -124,7 +114,6 @@ struct HealthAssessmentConverter {
     }
     
     private static func extractNutritionInfo(from assessment: HealthAssessmentResponse) -> NutritionInfo {
-        // Extract nutrition from nutrition if available
         var calories = 0
         var protein = 0.0
         var fat = 0.0
@@ -169,17 +158,14 @@ struct HealthAssessmentConverter {
     private static func extractWarnings(from assessment: HealthAssessmentResponse) -> [String] {
         var warnings: [String] = []
         
-        // Add high-risk ingredient warnings
         if let highRisk = assessment.high_risk, !highRisk.isEmpty {
             warnings.append("Contains \(highRisk.count) high-risk ingredient\(highRisk.count > 1 ? "s" : "")")
         }
         
-        // Add specific warnings from moderate risk ingredients
         if let moderateRisk = assessment.moderate_risk, !moderateRisk.isEmpty {
             warnings.append("Contains \(moderateRisk.count) moderate-risk ingredient\(moderateRisk.count > 1 ? "s" : "")")
         }
         
-        // Add warnings based on summary keywords
         let summary = assessment.summary.lowercased()
         if summary.contains("high sodium") || summary.contains("salt") {
             warnings.append("High sodium content")
@@ -197,7 +183,6 @@ struct HealthAssessmentConverter {
     private static func extractRecommendations(from assessment: HealthAssessmentResponse) -> [String] {
         var recommendations: [String] = []
         
-        // Add grade-based recommendations
         let grade = assessment.grade ?? "C"
         switch grade.uppercased() {
         case "A", "A+":
@@ -212,12 +197,10 @@ struct HealthAssessmentConverter {
             break
         }
         
-        // Add specific recommendations based on ingredients
         if let lowRisk = assessment.low_risk, !lowRisk.isEmpty {
             recommendations.append("Good source of quality ingredients")
         }
         
-        // Add cooking recommendations based on meat type
         let summary = assessment.summary.lowercased()
         if summary.contains("chicken") || summary.contains("poultry") {
             recommendations.append("Cook thoroughly to 165°F (74°C)")
@@ -252,7 +235,6 @@ struct HealthAssessmentConverter {
     }
     
     private static func extractNumericValue(from text: String) -> Double {
-        // Optimized regex for extracting numbers from nutrition strings
         guard let regex = try? NSRegularExpression(pattern: #"(\d+(?:\.\d+)?)"#),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               let range = Range(match.range(at: 1), in: text) else {

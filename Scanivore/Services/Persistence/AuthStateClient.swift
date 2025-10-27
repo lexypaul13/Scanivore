@@ -1,9 +1,3 @@
-//
-//  AuthStateClient.swift
-//  Scanivore
-//
-//  TCA-compliant authentication state client
-//
 
 import Foundation
 import Dependencies

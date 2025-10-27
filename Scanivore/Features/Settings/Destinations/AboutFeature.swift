@@ -1,9 +1,3 @@
-//
-//  AboutFeature.swift
-//  Scanivore
-//
-//  About feature for app information and credits
-//
 
 import Foundation
 import ComposableArchitecture
@@ -17,7 +11,6 @@ public struct AboutFeature {
         public var copyright: String = "© 2025 Scanivore Inc."
         
         public init() {
-            // Get actual version info from bundle if available
             if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
                 self.appVersion = version
             }
@@ -33,7 +26,6 @@ public struct AboutFeature {
         case privacyPolicyTapped
         case acknowledgmentsTapped
         
-        // Internal actions
         case delegate(Delegate)
         
         public enum Delegate: Equatable {
@@ -50,15 +42,12 @@ public struct AboutFeature {
                 return .none
                 
             case .termsOfServiceTapped:
-                // External link - handled by Link view
                 return .none
                 
             case .privacyPolicyTapped:
-                // External link - handled by Link view
                 return .none
                 
             case .acknowledgmentsTapped:
-                // External link - handled by Link view
                 return .none
                 
             case .delegate:

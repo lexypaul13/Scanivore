@@ -1,9 +1,3 @@
-//
-//  ScannerOverlays.swift
-//  Scanivore
-//
-//  Scanner state overlay components
-//
 
 import SwiftUI
 

@@ -1,9 +1,3 @@
-//
-//  PrivacyPolicyView.swift
-//  Scanivore
-//
-//  Privacy policy view with data usage information
-//
 
 import SwiftUI
 import ComposableArchitecture

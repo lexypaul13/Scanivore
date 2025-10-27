@@ -1,9 +1,3 @@
-//
-//  SettingsClient.swift
-//  Scanivore
-//
-//  TCA-compliant settings client for app preferences
-//
 
 import Foundation
 import Dependencies

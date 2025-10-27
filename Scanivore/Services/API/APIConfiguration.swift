@@ -1,9 +1,3 @@
-//
-//  APIConfiguration.swift
-//  Scanivore
-//
-//  Configuration for Clear-Meat API integration
-//
 
 import Foundation
 
@@ -12,14 +6,9 @@ public struct APIConfiguration {
     public static let baseURL = "https://clear-meat-api-production.up.railway.app"
     public static let apiVersion = "v1"
     
-    // ⚡ PERFORMANCE OPTIMIZATIONS (2025-08-07)
-    // Backend optimized: 94% faster health assessments (5s vs 83s baseline)
-    // Mobile format: 49.9% JSON payload reduction (2.3KB → 1.2KB) + citation webview support
-    // Client-side caching: 24h TTL provides instant responses for repeated scans
     public static let timeout: TimeInterval = 15.0  // Reduced from 30s for 94% faster backend
     public static let healthAssessmentTimeout: TimeInterval = 90.0  // Increased to 90s for mobile networks + AI generation with auto-retry
     
-    // API Endpoints
     public enum Endpoints {
         public static let register = "/api/v1/auth/register"
         public static let login = "/api/v1/auth/login"
@@ -36,13 +25,11 @@ public struct APIConfiguration {
         public static let publicExplore = "/api/v1/products/explore"
     }
     
-    // Response Format Options
     public enum ResponseFormat {
         public static let mobile = "mobile"
         public static let full = "full"
     }
     
-    // Request Headers
     public enum Headers {
         public static let contentType = "Content-Type"
         public static let authorization = "Authorization"
@@ -84,8 +71,6 @@ public enum APIEnvironment {
 // MARK: - Current Environment
 public extension APIConfiguration {
     static var currentEnvironment: APIEnvironment {
-        // Always use production for physical devices
-        // localhost won't work on real devices
         return .production
     }
     

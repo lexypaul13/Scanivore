@@ -1,9 +1,3 @@
-//
-//  IngredientAnalysisFeature.swift
-//  Scanivore
-//
-//  TCA-compliant ingredient analysis feature
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -21,7 +15,6 @@ struct IngredientAnalysisFeature {
         var error: String?
         var citationError: String?
         
-        // Computed properties
         var hasIndividualAnalysis: Bool {
             individualAnalysis != nil
         }
@@ -57,7 +50,6 @@ struct IngredientAnalysisFeature {
         case retryCitations
         case dismiss
         
-        // Delegate actions
         case delegate(Delegate)
         
         enum Delegate: Equatable {
@@ -72,7 +64,6 @@ struct IngredientAnalysisFeature {
         Reduce { state, action in
             switch action {
             case .onAppear:
-                // Load analysis if not already loaded
                 if !state.hasIndividualAnalysis && !state.isLoading {
                     return .send(.loadIndividualAnalysis)
                 }
@@ -220,7 +211,6 @@ struct IngredientAnalysisView: View {
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                     .lineSpacing(4)
             } else {
-                // Fallback to existing overview/risk text
                 Text(cleanAnalysisText(store.ingredient.overview ?? store.ingredient.microReport))
                     .font(DesignSystem.Typography.body)
                     .foregroundColor(DesignSystem.Colors.textPrimary)
@@ -292,7 +282,6 @@ struct IngredientAnalysisView: View {
             }
             
             if let citationError = store.citationError {
-                // Show citation-specific error with retry
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
                     Text("Citations temporarily unavailable")
                         .font(DesignSystem.Typography.body)

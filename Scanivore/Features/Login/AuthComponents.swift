@@ -1,9 +1,3 @@
-//
-//  AuthComponents.swift
-//  Scanivore
-//
-//  Shared authentication UI components
-//
 
 import SwiftUI
 

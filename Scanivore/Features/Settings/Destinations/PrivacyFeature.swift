@@ -1,9 +1,3 @@
-//
-//  PrivacyFeature.swift
-//  Scanivore
-//
-//  Privacy policy feature for data usage information
-//
 
 import Foundation
 import ComposableArchitecture
@@ -20,7 +14,6 @@ public struct PrivacyFeature {
     public enum Action: Equatable {
         case onAppear
         
-        // Internal actions
         case delegate(Delegate)
         
         public enum Delegate: Equatable {

@@ -1,9 +1,3 @@
-//
-//  ProductDetailView.swift
-//  Scanivore
-//
-//  Product detail view using health assessment endpoint with specific interface design
-//
 
 import SwiftUI
 import ComposableArchitecture
@@ -30,41 +24,33 @@ struct ProductDetailFeatureDomain {
         var originalRiskRating: String? // Add original OpenFoodFacts risk rating
         
         var healthAssessment: HealthAssessmentResponse?
-        // Recommended swaps feature removed to fix 404 errors
         var isLoading = false
         var error: String?
         var isRateLimited = false
         var showingIngredientSheet = false
         var selectedIngredient: IngredientRisk?
         
-        // New state for collapsible ingredients
         var expandedSections: Set<String> = []
         var selectedIngredientCitations: [Citation] = []
         
-        // Individual ingredient analysis state
         var individualIngredientAnalysis: [String: IndividualIngredientAnalysisResponseWithName] = [:]
         var loadingIndividualAnalysis: Set<String> = []
         var individualAnalysisErrors: [String: String] = [:]
         
-        // Computed properties  
         var safetyGrade: SafetyGrade {
-            // PRIORITY 1: Use original OpenFoodFacts risk_rating for consistency
             if let riskRating = originalRiskRating {
                 return mapRiskRatingToSafetyGrade(riskRating)
             }
             
-            // PRIORITY 2: Get grade from health assessment API
             if let grade = healthAssessment?.grade, !grade.isEmpty {
                 return mapLetterGradeToSafetyGrade(grade)
             }
             
-            // PRIORITY 3: Fallback to deriving from assessment content
             if let assessment = healthAssessment {
                 if let score = assessment.computedRiskSummary?.score {
                     return scoreToSafetyGrade(score)
                 }
                 
-                // Analyze summary text for grade indicators
                 let summary = assessment.summary.lowercased()
                 if summary.contains("excellent") || summary.contains("high-quality") || summary.contains("great") {
                     return .excellent
@@ -99,7 +85,6 @@ struct ProductDetailFeatureDomain {
         }
         
         var safetyColor: Color {
-            // First priority: Use color directly from API if available
             if let assessment = healthAssessment,
                let color = assessment.color {
                 switch color.lowercased() {
@@ -111,7 +96,6 @@ struct ProductDetailFeatureDomain {
                 }
             }
             
-            // Second priority: Map SafetyGrade to color
             let grade = safetyGrade
             switch grade {
             case .excellent: return DesignSystem.Colors.success
@@ -133,7 +117,6 @@ struct ProductDetailFeatureDomain {
                 return [] 
             }
             
-            // Use direct API fields that match actual response structure
             let highRisk = assessment.high_risk ?? []
             let moderateRisk = assessment.moderate_risk ?? []
             let lowRisk = assessment.low_risk ?? []
@@ -164,16 +147,13 @@ struct ProductDetailFeatureDomain {
         case loadHealthAssessment
         case healthAssessmentReceived(TaskResult<HealthAssessmentResponse>)
         case basicProductReceived(TaskResult<Product>)
-        // Recommended swaps actions removed
         case ingredientTapped(IngredientRisk)
         case dismissIngredientSheet
         case retryTapped
         case createAccountFromRateLimit
-        // New actions for collapsible sections
         case toggleIngredientSection(String)
         case ingredientTappedWithCitations(IngredientRisk, [Citation])
         
-        // Individual ingredient analysis actions (proper past/present tense)
         case loadIndividualIngredientAnalysis(String) // Present tense - user action
         case individualIngredientAnalysisReceived(String, TaskResult<IndividualIngredientAnalysisResponseWithName>) // Past tense - effect response
         case openCitationInSafari(URL) // Present tense - user action
@@ -195,24 +175,19 @@ struct ProductDetailFeatureDomain {
         Reduce { state, action in
             switch action {
             case .onAppear:
-                // Check if we already have the assessment (from history) or if it needs refresh
                 guard state.healthAssessment == nil else {
-                    // Already have assessment from saved history - no network call needed
                     return Effect<Action>.none 
                 }
                 
-                // For non-history items, check cache first
                 if state.context != .history {
                     return .run { [productCode = state.productCode] send in
                         if let cacheResult = await HealthAssessmentCache.shared.getCachedAssessment(for: productCode) {
                             await send(.healthAssessmentReceived(.success(cacheResult.assessment)))
                         } else {
-                            // Cache miss - proceed with network fetch
                             await send(.loadHealthAssessment)
                         }
                     }
                 } else {
-                    // History item without assessment (old version) - try network as fallback
                     return .run { send in
                         await send(.loadHealthAssessment)
                     }
@@ -232,7 +207,6 @@ struct ProductDetailFeatureDomain {
                 state.isLoading = false
                 state.healthAssessment = assessment
                 
-                // Update product info from health assessment response if available
                 if let productInfo = assessment.product_info {
                     if state.productName == nil && productInfo.name != nil {
                         state.productName = productInfo.name
@@ -245,7 +219,6 @@ struct ProductDetailFeatureDomain {
                     }
                 }
                 
-                // Only save to scan history if this product was actually scanned (not just viewed)
                 if state.context == .scanned {
                     return .run { [productCode = state.productCode] _ in
                         let savedProduct = assessment.toSavedProduct(barcode: productCode)
@@ -262,7 +235,6 @@ struct ProductDetailFeatureDomain {
                      if apiError.statusCode == -1001 {
                         state.error = "Health assessment timed out. Basic product grade available from barcode scan."
                      } else if apiError.statusCode == 429 {
-                        // Rate limit error - show upgrade message
                         state.isRateLimited = true
                         state.error = apiError.detail
                      } else {
@@ -286,7 +258,6 @@ struct ProductDetailFeatureDomain {
                 }
                 
             case let .basicProductReceived(.success(product)):
-                // Populate basic product metadata when available
                 if state.productName == nil { state.productName = product.name }
                 if state.productBrand == nil { state.productBrand = product.brand }
                 if state.productImageUrl == nil { state.productImageUrl = product.image_url }
@@ -294,7 +265,6 @@ struct ProductDetailFeatureDomain {
                 return .none
                 
             case let .basicProductReceived(.failure(error)):
-                // Keep graceful fallback; surface a concise message if nothing else is available
                 if state.error == nil {
                     state.error = "Basic product info unavailable."
                 }
@@ -336,7 +306,6 @@ struct ProductDetailFeatureDomain {
                 return .send(.delegate(.requestAccountCreation))
                 
             case let .loadIndividualIngredientAnalysis(ingredientName):
-                // Prevent duplicate requests
                 guard !state.loadingIndividualAnalysis.contains(ingredientName) else {
                     return .none
                 }
@@ -373,18 +342,14 @@ struct ProductDetailFeatureDomain {
                 
             case let .openCitationInSafari(url):
                 return .run { send in
-                    // Add haptic feedback for citation taps
                     await hapticFeedback.impact(.light)
                     
-                    // Open URL in Safari
                     let success = await safariService.openURL(url)
                     await send(.citationSafariOpened(success))
                 }
                 
             case let .citationSafariOpened(success):
-                // Handle Safari open result if needed (e.g., show error if failed)
                 if !success {
-                    // Could show error state or fallback behavior
                 }
                 return .none
                 
@@ -414,7 +379,6 @@ struct ProductDetailView: View {
                             assessment: assessment
                         )
                     } else {
-                        // Graceful fallback view - show basic info even when API fails
                         GracefulFallbackView(store: store, error: store.error)
                     }
                 }
@@ -451,21 +415,15 @@ struct ProductDetailContentView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                // Hero Section
                 HeroSection(store: store, assessment: assessment)
                 
-                // White content background
                 VStack(spacing: DesignSystem.Spacing.xl) {
-                    // Headline Section
                     HeadlineSection(store: store)
                     
-                    // AI Health Summary (moved to top)
                     AIHealthSummary(assessment: assessment)
                     
-                    // Collapsible Ingredient Risk Sections
                     CollapsibleIngredientSections(store: store)
                     
-                    // Horizontal Nutrition Scroll
                     NutritionScrollView(assessment: assessment)
                     
                 }
@@ -486,12 +444,9 @@ struct GracefulFallbackView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: DesignSystem.Spacing.xl) {
-                // Fallback Hero Section with Grade Badge
                 FallbackHeroSection(store: store)
                 
-                // White content background
                 VStack(spacing: DesignSystem.Spacing.xl) {
-                    // Error message with retry option
                     if store.isRateLimited {
                         RateLimitErrorSection(error: error) {
                             store.send(.createAccountFromRateLimit)
@@ -502,7 +457,6 @@ struct GracefulFallbackView: View {
                         }
                     }
                     
-                    // Show basic product info if available
                     BasicProductInfoSection(store: store)
                     
                    
@@ -523,12 +477,10 @@ struct RateLimitErrorSection: View {
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
-            // Rate limit icon
             Image(systemName: "clock.badge.exclamationmark")
                 .font(.system(size: DesignSystem.Typography.xxxxl))
                 .foregroundColor(DesignSystem.Colors.warning)
             
-            // Rate limit message
             VStack(spacing: DesignSystem.Spacing.sm) {
                 Text("Scan Limit Reached")
                     .font(DesignSystem.Typography.heading2)
@@ -542,7 +494,6 @@ struct RateLimitErrorSection: View {
                     .lineLimit(nil)
             }
             
-            // Create Account Button
             Button("Create Account for Unlimited Scans") {
                 onCreateAccount()
             }
@@ -566,12 +517,10 @@ struct ErrorMessageSection: View {
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.lg) {
-            // Error icon
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: DesignSystem.Typography.xxxxl))
                 .foregroundColor(DesignSystem.Colors.warning)
             
-            // Error message
             VStack(spacing: DesignSystem.Spacing.sm) {
                 Text("Limited Information Available")
                     .font(DesignSystem.Typography.heading2)
@@ -585,7 +534,6 @@ struct ErrorMessageSection: View {
                     .lineLimit(nil)
             }
             
-            // Retry button
             Button("Try Again") {
                 onRetry()
             }
@@ -614,7 +562,6 @@ struct BasicProductInfoSection: View {
                 .padding(.horizontal, DesignSystem.Spacing.screenPadding)
             
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
-                // Always show product name with fallback
                 HStack {
                     Text("Name:")
                         .font(DesignSystem.Typography.bodyMedium)
@@ -625,7 +572,6 @@ struct BasicProductInfoSection: View {
                     Spacer()
                 }
                 
-                // Always show brand with fallback
                 HStack {
                     Text("Brand:")
                         .font(DesignSystem.Typography.bodyMedium)
@@ -636,7 +582,6 @@ struct BasicProductInfoSection: View {
                     Spacer()
                 }
                 
-                // Always show product code
                 HStack {
                     Text("Product Code:")
                         .font(DesignSystem.Typography.bodyMedium)
@@ -647,7 +592,6 @@ struct BasicProductInfoSection: View {
                     Spacer()
                 }
                 
-                // Always show risk rating with fallback
                 HStack {
                     Text("Risk Rating:")
                         .font(DesignSystem.Typography.bodyMedium)
@@ -724,7 +668,6 @@ struct ErrorView: View {
 }
 
 #Preview {
-    // Create a function to set up the preview state
     func createPreviewState() -> ProductDetailFeatureDomain.State {
         var previewState = ProductDetailFeatureDomain.State(
             productCode: "0002000003197",
@@ -740,7 +683,6 @@ struct ErrorView: View {
         return previewState
     }
     
-    // Use the function to create the state
     return ProductDetailView(store: Store(initialState: createPreviewState()) {
         ProductDetailFeatureDomain()
     })
